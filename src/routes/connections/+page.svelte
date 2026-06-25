@@ -14,6 +14,7 @@
 	let testing = $state(false);
 	let showPw = $state<Record<string, boolean>>({});
 	let tsActive = $state(false);
+	let tsShowSteps = $state(false);
 	let result = $state<{ ok: boolean; message: string; skipped?: boolean } | null>(null);
 
 	let categories = $derived([...new Set(CONNECTORS.map((c) => c.category))]);
@@ -106,16 +107,6 @@
 			</div>
 			{#if tsActive}<span class="tsstate on">{i18n.t('connections.tailscaleActive')}</span>{/if}
 		</div>
-		{#if !tsActive}
-			<div class="tssteps">
-				<span class="tshow">{i18n.t('connections.tailscaleHow')}</span>
-				<ol>
-					<li>{i18n.t('connections.tailscaleStep1')}</li>
-					<li>{i18n.t('connections.tailscaleStep2')}</li>
-					<li>{i18n.t('connections.tailscaleStep3')}</li>
-				</ol>
-			</div>
-		{/if}
 	</div>
 
 	{#each categories as cat (cat)}
@@ -159,8 +150,18 @@
 				<h3>{i18n.t('connections.tailscaleTitle')}</h3>
 				<p>{i18n.t('connections.tailscaleShort')}</p>
 				<div class="actions">
-					<button class="btn ghost" onclick={() => document.getElementById('ts-top')?.scrollIntoView({ behavior: 'smooth' })}>{i18n.t('connections.tailscaleGuide')}</button>
+					<button class="btn ghost" onclick={() => (tsShowSteps = !tsShowSteps)}>{tsShowSteps ? i18n.t('connections.tailscaleHide') : i18n.t('connections.tailscaleGuide')}</button>
 				</div>
+				{#if tsShowSteps}
+					<div class="tssteps">
+						<span class="tshow">{i18n.t('connections.tailscaleHow')}</span>
+						<ol>
+							<li>{i18n.t('connections.tailscaleStep1')}</li>
+							<li>{i18n.t('connections.tailscaleStep2')}</li>
+							<li>{i18n.t('connections.tailscaleStep3')}</li>
+						</ol>
+					</div>
+				{/if}
 			</article>
 		</div>
 	</section>
