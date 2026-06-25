@@ -293,6 +293,13 @@
 							</details>
 						{/if}
 
+						{#if m.role === 'assistant' && m.tools?.length}
+							<div class="tool-used">
+								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2.2-2.2 2.8-2.8z"/></svg>
+								<span>{m.tools.map((t) => t.replace(/_/g, ' ')).join(', ')}</span>
+							</div>
+						{/if}
+
 						{#if m.role === 'assistant'}
 							{#if m.text}
 								<div class="md">{@html renderMarkdown(m.text)}</div>
@@ -305,8 +312,11 @@
 
 						{#if m.role === 'assistant' && !m.streaming && m.text}
 							<div class="meta">
-								<span class="mono">
-									{m.time}{#if m.ms} · {fmtDur(m.ms)}{/if}{#if m.model} · {m.model}{/if}{#if m.tools?.length} · 🔧 {m.tools.map((t) => t.replace(/_/g, ' ')).join(', ')}{/if}{#if m.demo} · Demo{/if}
+								<span class="info">
+									<span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3 2"/></svg>{m.time}</span>
+									{#if m.ms}<span class="mi"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>{fmtDur(m.ms)}</span>{/if}
+									{#if m.model}<span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 3v2M15 3v2M9 19v2M15 19v2M3 9h2M3 15h2M19 9h2M19 15h2"/></svg>{m.model}</span>{/if}
+									{#if m.demo}<span class="mi demo">Demo</span>{/if}
 								</span>
 								<span class="acts">
 									<button title="Kopieren" onclick={() => copy(i, m.text)}>
@@ -409,7 +419,12 @@
 	@keyframes blink { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
 
 	.meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
-	.meta .mono { font-size: 10.5px; color: var(--text-faint); }
+	.info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+	.mi { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-faint); }
+	.mi svg { width: 12px; height: 12px; opacity: 0.8; }
+	.mi.demo { color: var(--ember-bright); }
+	.tool-used { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 10px; padding: 4px 10px; font-size: 11.5px; font-weight: 500; color: var(--sage); background: var(--sage-soft); border: 1px solid color-mix(in srgb, var(--sage) 25%, transparent); border-radius: 999px; text-transform: capitalize; }
+	.tool-used svg { flex: none; }
 	.acts { display: flex; gap: 2px; }
 	.acts button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--text-faint); background: transparent; border: none; transition: all 0.14s; }
 	.acts button:hover { color: var(--text); background: var(--surface-3); }
