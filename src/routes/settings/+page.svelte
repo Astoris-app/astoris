@@ -6,6 +6,7 @@
 	import { engine } from '$lib/stores/engine.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { hints } from '$lib/stores/hints.svelte';
+	import { voice } from '$lib/stores/voice.svelte';
 
 	const densities = $derived([
 		{ id: 'kompakt', label: i18n.t('settings.compact') },
@@ -84,6 +85,23 @@
 			<button class:sel={hints.enabled} onclick={() => hints.set(true)}>{i18n.t('settings.on')}</button>
 			<button class:sel={!hints.enabled} onclick={() => hints.set(false)}>{i18n.t('settings.off')}</button>
 		</div>
+	</section>
+
+	<!-- Spracheingabe -->
+	<section class="card">
+		<h2>{i18n.t('settings.voice')}</h2>
+		<p class="lbl">{i18n.t('settings.voiceInput')}</p>
+		<div class="seg">
+			<button class:sel={voice.enabled} onclick={() => voice.set(true)}>{i18n.t('settings.on')}</button>
+			<button class:sel={!voice.enabled} onclick={() => voice.set(false)}>{i18n.t('settings.off')}</button>
+		</div>
+		{#if voice.enabled}
+			<p class="lbl">{i18n.t('settings.voiceMode')}</p>
+			<div class="seg">
+				<button class:sel={voice.mode === 'toggle'} onclick={() => voice.setMode('toggle')}>{i18n.t('settings.voiceToggle')}</button>
+				<button class:sel={voice.mode === 'ptt'} onclick={() => voice.setMode('ptt')}>{i18n.t('settings.voicePtt')}</button>
+			</div>
+		{/if}
 	</section>
 
 	<!-- KI -->

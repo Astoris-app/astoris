@@ -6,6 +6,7 @@
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { goto } from '$app/navigation';
 	import { handoff } from '$lib/stores/handoff.svelte';
+	import { voice } from '$lib/stores/voice.svelte';
 
 	type Msg = {
 		role: 'user' | 'assistant';
@@ -262,6 +263,17 @@
 		try { recog.start(); listening = true; startVisualizer(); } catch { /* schon aktiv */ }
 	}
 
+	function onSpaceDown(e: KeyboardEvent) {
+		if (!voice.enabled || voice.mode !== 'ptt' || !micSupported || !recog) return;
+		if (e.code !== 'Space' || e.repeat || listening) return;
+		if (draft.trim()) return; // Text im Feld → Leerzeichen normal erlauben
+		e.preventDefault();
+		try { recog.start(); listening = true; startVisualizer(); } catch { /* schon aktiv */ }
+	}
+	function onSpaceUp(e: KeyboardEvent) {
+		if (voice.mode !== 'ptt' || e.code !== 'Space' || !listening || !recog) return;
+		recog.stop(); listening = false; stopVisualizer();
+	}
 	onMount(() => {
 		loadChats();
 		fetch('/api/personas').then((r) => r.json()).then((d) => { personas = d.personas ?? []; }).catch(() => {});
@@ -279,6 +291,12 @@
 			recog.onend = () => { listening = false; stopVisualizer(); };
 			recog.onerror = () => { listening = false; stopVisualizer(); };
 		}
+		window.addEventListener('keydown', onSpaceDown);
+		window.addEventListener('keyup', onSpaceUp);
+		return () => {
+			window.removeEventListener('keydown', onSpaceDown);
+			window.removeEventListener('keyup', onSpaceUp);
+		};
 	});
 </script>
 
@@ -384,16 +402,18 @@
 	</div>
 
 	<div class="composer">
-		<button
-			class="mic"
-			class:listening
-			onclick={toggleMic}
-			disabled={!micSupported}
-			title={micSupported ? 'Spracheingabe' : 'Mikrofon braucht HTTPS (siehe Hinweis)'}
-			aria-label="Spracheingabe"
-		>
-			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
-		</button>
+		{#if voice.enabled}
+			<button
+				class="mic"
+				class:listening
+				onclick={toggleMic}
+				disabled={!micSupported}
+				title={!micSupported ? 'Mikrofon braucht HTTPS (siehe Hinweis)' : (voice.mode === 'ptt' ? i18n.t('settings.voicePtt') : i18n.t('settings.voice'))}
+				aria-label={i18n.t('settings.voice')}
+			>
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+			</button>
+		{/if}
 		{#if listening}
 			<div class="wave" aria-live="polite">
 				{#each audioLevels as lvl, i (i)}
