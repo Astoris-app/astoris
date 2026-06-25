@@ -31,6 +31,10 @@
 	let mode = $state<'chat' | 'crypt'>(assistant.mode);
 	let abort: AbortController | null = null;
 
+	let pendingMail = $state<{ to: string; subject: string; text: string } | null>(null);
+	let mailStatus = $state('');
+	let mailSending = $state(false);
+
 	let copiedIdx = $state(-1);
 	let speakingIdx = $state(-1);
 	let micSupported = $state(false);
@@ -167,6 +171,7 @@
 					if (d.type === 'reasoning') m.reasoning = (m.reasoning ?? '') + d.text;
 					else if (d.type === 'content') m.text += d.text;
 					else if (d.type === 'tools') m.tools = d.names;
+					else if (d.type === 'pending-mail') { if (d.mode === 'direct') { sendPendingMail(d.draft); } else { pendingMail = d.draft; mailStatus = ''; } }
 					else if (d.type === 'error') { m.text += (m.text ? '\n\n' : '') + (d.text ?? 'Fehler'); m.error = true; }
 					else if (d.type === 'done') { m.model = d.model; m.ms = d.ms; m.demo = d.demo; m.time = nowTime(); }
 					scrollDown();
@@ -190,6 +195,43 @@
 	function stop() {
 		abort?.abort();
 		busy = false;
+	}
+
+	async function sendPendingMail(draft: { to: string; subject: string; text: string }) {
+		mailSending = true;
+		mailStatus = '';
+		try {
+			const res = await fetch('/api/mail/send', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ to: draft.to, subject: draft.subject, text: draft.text })
+			});
+			const d = await res.json().catch(() => ({}));
+			if (res.ok && d.ok) {
+				mailStatus = i18n.t('mailcard.sent');
+				pendingMail = null;
+				// Bestätigung an die letzte Assistant-Nachricht anhängen
+				for (let i = messages.length - 1; i >= 0; i--) {
+					if (messages[i].role === 'assistant') {
+						const note = `${i18n.t('mailcard.sent')} — ${draft.to}`;
+						messages[i].text += (messages[i].text ? '\n\n' : '') + note;
+						break;
+					}
+				}
+				persistChat();
+			} else {
+				mailStatus = i18n.t('mailcard.failed');
+			}
+		} catch {
+			mailStatus = i18n.t('mailcard.failed');
+		} finally {
+			mailSending = false;
+		}
+	}
+
+	function cancelPendingMail() {
+		pendingMail = null;
+		mailStatus = '';
 	}
 
 	function clearChat() {
@@ -461,6 +503,34 @@
 		{/if}
 	</div>
 
+	{#if pendingMail}
+		<div class="mailcard">
+			<div class="mc-head">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+				<strong>{i18n.t('mailcard.title')}</strong>
+			</div>
+			<label class="mc-field">
+				<span>{i18n.t('mailcard.to')}</span>
+				<input type="text" bind:value={pendingMail.to} />
+			</label>
+			<label class="mc-field">
+				<span>{i18n.t('mailcard.subject')}</span>
+				<input type="text" bind:value={pendingMail.subject} />
+			</label>
+			<label class="mc-field">
+				<span>{i18n.t('mailcard.text')}</span>
+				<textarea class="mc-text" rows="5" bind:value={pendingMail.text}></textarea>
+			</label>
+			{#if mailStatus}<div class="mc-status">{mailStatus}</div>{/if}
+			<div class="mc-actions">
+				<button class="mc-cancel" onclick={cancelPendingMail} disabled={mailSending}>{i18n.t('mailcard.cancel')}</button>
+				<button class="mc-send" onclick={() => pendingMail && sendPendingMail(pendingMail)} disabled={mailSending}>{i18n.t('mailcard.send')}</button>
+			</div>
+		</div>
+	{:else if mailStatus}
+		<div class="mailcard mc-flash">{mailStatus}</div>
+	{/if}
+
 	<div class="composer">
 		{#if voice.enabled}
 			<button
@@ -583,6 +653,25 @@
 	.send:disabled { opacity: 0.4; cursor: not-allowed; }
 	.send:not(:disabled):hover { transform: translateY(-1px); }
 	.send.stop { background: var(--surface-3); color: var(--text); }
+
+	.mailcard { flex: none; max-width: 838px; width: 100%; margin: 0 auto; padding: 16px 18px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; gap: 10px; }
+	.mc-head { display: flex; align-items: center; gap: 8px; color: var(--text); }
+	.mc-head strong { font-size: 14px; font-weight: 600; }
+	.mc-head svg { color: var(--ember-bright); flex: none; }
+	.mc-field { display: flex; flex-direction: column; gap: 4px; }
+	.mc-field > span { font-size: 11.5px; color: var(--text-muted); }
+	.mailcard input, .mailcard textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); padding: 9px 12px; font-size: 13.5px; font-family: var(--font-body); transition: border-color 0.16s; }
+	.mailcard textarea.mc-text { resize: vertical; line-height: 1.5; }
+	.mailcard input:focus, .mailcard textarea:focus { outline: none; border-color: var(--ember-line); }
+	.mc-status { font-size: 12.5px; color: var(--text-muted); }
+	.mc-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 2px; }
+	.mc-cancel, .mc-send { border-radius: 9px; padding: 9px 18px; font-size: 13px; font-weight: 500; border: 1px solid transparent; transition: all 0.16s; }
+	.mc-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+	.mc-cancel:not(:disabled):hover { color: var(--text); border-color: var(--text-faint); }
+	.mc-send { background: var(--ember); color: #1a1206; }
+	.mc-send:not(:disabled):hover { transform: translateY(-1px); }
+	.mc-cancel:disabled, .mc-send:disabled { opacity: 0.5; cursor: not-allowed; }
+	.mc-flash { font-size: 12.5px; color: var(--text-muted); padding: 12px 18px; }
 
 	.ppick-wrap { position: relative; }
 	.ppick { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }

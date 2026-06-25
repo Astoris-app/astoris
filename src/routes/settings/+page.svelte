@@ -22,6 +22,7 @@
 	let busy = $state(false);
 	let aigateMode = $state('redact');
 	let kiSource = $state('auto');
+	let sendMode = $state('confirm');
 
 	onMount(async () => {
 		try {
@@ -36,6 +37,10 @@
 			const k = await (await fetch('/api/ki-source')).json();
 			if (k.source) kiSource = k.source;
 		} catch { /* ignore */ }
+		try {
+			const s = await (await fetch('/api/send-mode')).json();
+			if (s.mode) sendMode = s.mode;
+		} catch { /* ignore */ }
 	});
 	async function setAigate(mode: string) {
 		aigateMode = mode;
@@ -44,6 +49,11 @@
 	async function setKi(source: string) {
 		kiSource = source;
 		await fetch('/api/ki-source', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source }) });
+	}
+
+	async function setSendMode(mode: string) {
+		sendMode = mode;
+		await fetch('/api/send-mode', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
 	}
 
 	async function changePw() {
@@ -130,6 +140,16 @@
 			<button class:sel={kiSource === 'auto'} onclick={() => setKi('auto')}>{i18n.t('settings.kiSourceAuto')}</button>
 			<button class:sel={kiSource === 'local'} onclick={() => setKi('local')}>{i18n.t('settings.kiSourceLocal')}</button>
 			<button class:sel={kiSource === 'cloud'} onclick={() => setKi('cloud')}>{i18n.t('settings.kiSourceCloud')}</button>
+		</div>
+	</section>
+
+	<!-- Nachrichten-Versand -->
+	<section class="card">
+		<h2>{i18n.t('settings.sendMode')}</h2>
+		<p class="lbl">{i18n.t('settings.sendModeHint')}</p>
+		<div class="seg">
+			<button class:sel={sendMode === 'confirm'} onclick={() => setSendMode('confirm')}>{i18n.t('settings.sendModeConfirm')}</button>
+			<button class:sel={sendMode === 'direct'} onclick={() => setSendMode('direct')}>{i18n.t('settings.sendModeDirect')}</button>
 		</div>
 	</section>
 

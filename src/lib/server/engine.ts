@@ -15,7 +15,8 @@ export const ENGINE_URL = env.ENGINE_URL ?? 'http://localhost:8081';
 const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
 
 export type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string };
-export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[] };
+export type PendingMail = { to: string; subject: string; text: string };
+export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[]; pendingMail?: PendingMail };
 export type EngineStatus = {
 	online: boolean;
 	mode: 'local' | 'cloud' | 'offline';
@@ -118,6 +119,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 		? [{ role: 'system', content: first.content + '\n\n' + dateInfo }, ...messages.slice(1)]
 		: [{ role: 'system', content: dateInfo }, ...messages];
 	const used: string[] = [];
+	let pendingMail: PendingMail | undefined;
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
 		const t = setTimeout(() => ctrl.abort(), 120000);
@@ -139,6 +141,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leeres Argument */ }
 					used.push(tc.function?.name);
 					const result = isBuiltinTool(tc.function?.name) ? runBuiltinTool(tc.function?.name, args) : await runAddonTool(byName, tc.function?.name, args);
+					if (result && typeof result === 'object' && 'pendingMail' in result) pendingMail = (result as { pendingMail: PendingMail }).pendingMail;
 					const out = JSON.stringify(result);
 					// Werkzeug-Ausgaben können externe Inhalte enthalten → bei Injektion als Daten markieren.
 					const scan = scanInjection(out);
@@ -148,7 +151,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 			}
 			const reply = (msg.content ?? '').trim();
 			if (!reply) return chatOpenAICompat(rawBase, apiKey, messages);
-			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}) };
+			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}) };
 		} finally {
 			clearTimeout(t);
 		}
@@ -174,6 +177,7 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 	const system = (sysBase ? sysBase + '\n\n' : '') + nowContext();
 	const msgs: unknown[] = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
 	const used: string[] = [];
+	let pendingMail: PendingMail | undefined;
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
 		const t = setTimeout(() => ctrl.abort(), 120000);
@@ -194,6 +198,7 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 				for (const tu of toolUses) {
 					used.push(tu.name ?? '');
 					const r = isBuiltinTool(tu.name ?? '') ? runBuiltinTool(tu.name ?? '', tu.input) : await runAddonTool(byName, tu.name ?? '', tu.input);
+					if (r && typeof r === 'object' && 'pendingMail' in r) pendingMail = (r as { pendingMail: PendingMail }).pendingMail;
 					results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(r) });
 				}
 				msgs.push({ role: 'user', content: results });
@@ -201,7 +206,7 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 			}
 			const reply = content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('').trim();
 			if (!reply) throw new Error('leere Antwort');
-			return { reply, source: 'model', model: data.model ?? model, ...(used.length ? { tools: [...new Set(used)] } : {}) };
+			return { reply, source: 'model', model: data.model ?? model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}) };
 		} finally {
 			clearTimeout(t);
 		}

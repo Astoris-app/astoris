@@ -60,12 +60,13 @@ export function buildBuiltinTools(): AddonTool[] {
 		{ type: 'function', function: { name: 'calendar_list', description: 'Termine im Kalender einsehen. Optional nach Datumsbereich filtern (Format YYYY-MM-DD).', parameters: { type: 'object', properties: { from: { type: 'string', description: 'Startdatum YYYY-MM-DD' }, to: { type: 'string', description: 'Enddatum YYYY-MM-DD' } } } } },
 		{ type: 'function', function: { name: 'calendar_create', description: 'Einen neuen Termin im Kalender erstellen.', parameters: { type: 'object', properties: { title: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD' }, time: { type: 'string', description: 'HH:MM (optional)' }, notes: { type: 'string' } }, required: ['title', 'date'] } } },
 		{ type: 'function', function: { name: 'calendar_update', description: 'Einen bestehenden Termin ändern. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, date: { type: 'string' }, time: { type: 'string' }, notes: { type: 'string' } }, required: ['id'] } } },
-		{ type: 'function', function: { name: 'calendar_delete', description: 'Einen Termin löschen. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } }
+		{ type: 'function', function: { name: 'calendar_delete', description: 'Einen Termin löschen. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } },
+		{ type: 'function', function: { name: 'mail_send', description: 'Eine E-Mail VORBEREITEN. Sie wird dem Nutzer zur Bestätigung angezeigt und NICHT automatisch versendet. Nutze dies, wenn der Nutzer eine Mail schreiben/senden möchte.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'Empfänger-E-Mail-Adresse' }, subject: { type: 'string', description: 'Betreff' }, text: { type: 'string', description: 'Mail-Text' } }, required: ['to', 'text'] } } }
 	];
 }
 
 export function isBuiltinTool(name: string): boolean {
-	return name.startsWith('calendar_');
+	return name.startsWith('calendar_') || name === 'mail_send';
 }
 
 export function runBuiltinTool(name: string, args: any): unknown {
@@ -74,6 +75,7 @@ export function runBuiltinTool(name: string, args: any): unknown {
 		if (name === 'calendar_create') return { event: createEvent(args?.title, args?.date, args?.time, args?.notes) };
 		if (name === 'calendar_update') return { event: updateEvent(args?.id, args ?? {}) };
 		if (name === 'calendar_delete') return { ok: deleteEvent(args?.id) };
+		if (name === 'mail_send') return { pendingMail: { to: String(args?.to ?? ''), subject: String(args?.subject ?? ''), text: String(args?.text ?? '') }, hinweis: 'Entwurf vorbereitet — der Nutzer bestätigt den Versand.' };
 	} catch (e) {
 		return { error: e instanceof Error ? e.message : 'Fehler' };
 	}
