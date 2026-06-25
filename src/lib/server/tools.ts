@@ -79,3 +79,8 @@ export function runBuiltinTool(name: string, args: any): unknown {
 	}
 	return { error: 'Unbekanntes Werkzeug' };
 }
+
+// Konvertiert OpenAI-Tools ins Anthropic-Format (name/description/input_schema).
+export function toAnthropicTools(tools: AddonTool[]): { name: string; description: string; input_schema: unknown }[] {
+	return tools.map((t) => ({ name: t.function.name, description: t.function.description, input_schema: t.function.parameters }));
+}

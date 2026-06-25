@@ -5,7 +5,7 @@
 
 import { env } from '$env/dynamic/private';
 import { getDecrypted } from './store';
-import { buildAddonTools, runAddonTool, buildBuiltinTools, isBuiltinTool, runBuiltinTool } from './tools';
+import { buildAddonTools, runAddonTool, buildBuiltinTools, isBuiltinTool, runBuiltinTool, toAnthropicTools } from './tools';
 import { scanInjection, wrapAsData } from './promptGuard';
 import { applyAigate, getAigateMode } from './aigate';
 import { getKiSource } from './kiSource';
@@ -155,27 +155,57 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	return chatOpenAICompat(rawBase, apiKey, messages);
 }
 
-/** Anthropic Claude — eigenes Message-Format (x-api-key, system separat, content-Array). */
+/** Aktueller Datums-/Zeit-Kontext (ISO 8601, lokal) — für die KI. */
+function nowContext(): string {
+	const now = new Date();
+	const pad = (n: number) => String(n).padStart(2, '0');
+	const off = -now.getTimezoneOffset();
+	const tz = (off >= 0 ? '+' : '-') + pad(Math.floor(Math.abs(off) / 60)) + ':' + pad(Math.abs(off) % 60);
+	const iso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${tz}`;
+	return `Aktueller Zeitstempel (ISO 8601, lokale Zeit): ${iso}. Lesbar: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr. Für Kalender-Termine: Datum YYYY-MM-DD, Uhrzeit HH:MM.`;
+}
+
+/** Anthropic Claude — mit Tool-Calling (tool_use/tool_result), gleiches Werkzeug-Set wie lokal. */
 async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claude-sonnet-4-6'): Promise<ChatResult> {
-	const sys = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-	const msgs = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
-	const ctrl = new AbortController();
-	const t = setTimeout(() => ctrl.abort(), 120000);
-	try {
-		const res = await fetch('https://api.anthropic.com/v1/messages', {
-			method: 'POST',
-			headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-			body: JSON.stringify({ model, max_tokens: 4096, ...(sys ? { system: sys } : {}), messages: msgs }),
-			signal: ctrl.signal
-		});
-		if (!res.ok) throw new Error(`anthropic status ${res.status}`);
-		const data = await res.json();
-		const reply = (data?.content ?? []).filter((b: { type?: string }) => b.type === 'text').map((b: { text?: string }) => b.text ?? '').join('').trim();
-		if (!reply) throw new Error('leere Antwort');
-		return { reply, source: 'model', model: data.model ?? model };
-	} finally {
-		clearTimeout(t);
+	const { tools: addonTools, byName } = buildAddonTools();
+	const anthropicTools = toAnthropicTools([...buildBuiltinTools(), ...addonTools]);
+	const sysBase = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+	const system = (sysBase ? sysBase + '\n\n' : '') + nowContext();
+	const msgs: unknown[] = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
+	const used: string[] = [];
+	for (let round = 0; round < 4; round++) {
+		const ctrl = new AbortController();
+		const t = setTimeout(() => ctrl.abort(), 120000);
+		try {
+			const res = await fetch('https://api.anthropic.com/v1/messages', {
+				method: 'POST',
+				headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+				body: JSON.stringify({ model, max_tokens: 4096, system, messages: msgs, tools: anthropicTools }),
+				signal: ctrl.signal
+			});
+			if (!res.ok) throw new Error(`anthropic status ${res.status}`);
+			const data = await res.json();
+			const content = (data?.content ?? []) as { type?: string; text?: string; id?: string; name?: string; input?: unknown }[];
+			const toolUses = content.filter((b) => b.type === 'tool_use');
+			if (toolUses.length) {
+				msgs.push({ role: 'assistant', content });
+				const results = [];
+				for (const tu of toolUses) {
+					used.push(tu.name ?? '');
+					const r = isBuiltinTool(tu.name ?? '') ? runBuiltinTool(tu.name ?? '', tu.input) : await runAddonTool(byName, tu.name ?? '', tu.input);
+					results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(r) });
+				}
+				msgs.push({ role: 'user', content: results });
+				continue;
+			}
+			const reply = content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('').trim();
+			if (!reply) throw new Error('leere Antwort');
+			return { reply, source: 'model', model: data.model ?? model, ...(used.length ? { tools: [...new Set(used)] } : {}) };
+		} finally {
+			clearTimeout(t);
+		}
 	}
+	throw new Error('zu viele Werkzeug-Runden');
 }
 
 /** Status für die Maschinenraum-Anzeige. */
