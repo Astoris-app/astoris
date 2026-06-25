@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { encryptMessage } from '$lib/crypto/messageCrypto';
+	import { onMount, onDestroy } from 'svelte';
+	import { encryptMessage, decryptMessage, isEncryptedBlock } from '$lib/crypto/messageCrypto';
 	import { i18n } from '$lib/stores/i18n.svelte';
 
 	const CHANNELS = [
@@ -14,7 +15,9 @@
 	let channel = $state('telegram');
 	let recipient = $state('');
 	let draft = $state('');
-	let messages = $state<{ text: string; time: string; via: string }[]>([]);
+	let messages = $state<{ text: string; time: string; via: string; dir: 'out' | 'in' }[]>([]);
+	let polling = $state(false);
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let busy = $state(false);
 	let err = $state('');
 
@@ -57,13 +60,30 @@
 				else { await navigator.clipboard?.writeText(block); err = i18n.t('crypt.signalCopied'); }
 				via = 'Signal';
 			}
-			messages = [...messages, { text: draft, time: nowTime(), via }];
+			messages = [...messages, { text: draft, time: nowTime(), via, dir: 'out' }];
 			draft = '';
 		} catch (e) {
 			if ((e as { name?: string })?.name !== 'AbortError') err = i18n.t('crypt.encFail');
 		}
 		busy = false;
 	}
+	async function receive() {
+		if (!pass) return;
+		try {
+			const d = await (await fetch('/api/crypt/receive')).json();
+			for (const m of d.messages ?? []) {
+				if (!isEncryptedBlock(m.text)) continue;
+				try {
+					const clear = await decryptMessage(m.text, pass);
+					messages = [...messages, { text: clear, time: nowTime(), via: m.from || 'Telegram', dir: 'in' }];
+				} catch { /* nicht mit diesem Schlüssel lesbar → ignorieren */ }
+			}
+		} catch { /* offline */ }
+	}
+	onMount(() => {
+		pollTimer = setInterval(() => { if (pass) { polling = true; receive(); } }, 6000);
+	});
+	onDestroy(() => { if (pollTimer) clearInterval(pollTimer); });
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 	}
@@ -94,7 +114,12 @@
 			{#if needsRecipient}
 				<input class="recip" bind:value={recipient} placeholder={recipientLabel} autocomplete="off" />
 			{/if}
+			<button class="fetchbtn" onclick={receive} title={i18n.t('crypt.fetch')} aria-label={i18n.t('crypt.fetch')}>
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5"/></svg>
+				{i18n.t('crypt.fetch')}
+			</button>
 		</div>
+		{#if polling}<div class="pollnote">● {i18n.t('crypt.polling')}</div>{/if}
 	</div>
 
 	<div class="thread">
@@ -102,7 +127,7 @@
 			<div class="empty">{i18n.t('crypt.empty')}</div>
 		{:else}
 			{#each messages as m, i (i)}
-				<div class="bubble">
+				<div class="bubble" class:in={m.dir === 'in'}>
 					<div class="txt">{m.text}</div>
 					<div class="meta">🔒 {m.time} · {i18n.t('crypt.via')} {m.via}</div>
 				</div>
@@ -142,6 +167,10 @@
 	.bubble { align-self: flex-end; max-width: 80%; background: var(--ember-soft); border: 1px solid var(--ember-line); border-radius: 14px 14px 4px 14px; padding: 10px 13px; }
 	.bubble .txt { font-size: 14px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 	.bubble .meta { font-size: 10.5px; color: var(--text-faint); margin-top: 5px; }
+	.bubble.in { align-self: flex-start; background: var(--surface-2); border-color: var(--border-soft); border-radius: 14px 14px 14px 4px; }
+	.fetchbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; transition: all 0.15s; }
+	.fetchbtn:hover { color: var(--text); border-color: var(--text-faint); }
+	.pollnote { font-size: 10.5px; color: var(--sage); margin-top: 8px; }
 	.err { margin: 0 24px; background: var(--danger-soft); color: var(--danger); border-radius: 9px; padding: 9px 13px; font-size: 12.5px; }
 	.composer { flex: none; display: flex; align-items: flex-end; gap: 9px; padding: 14px 24px 20px; }
 	.composer textarea { flex: 1; resize: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 13px; padding: 12px 14px; color: var(--text); font: inherit; font-size: 14px; max-height: 140px; }
