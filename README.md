@@ -39,6 +39,7 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 - **Souverän** — läuft auf deiner Hardware. Zugangsdaten verlassen nie deinen Server.
 - **Transparent** — der „Maschinenraum"-Status zeigt jederzeit, wo gerechnet wird (lokal/Cloud).
 - **Erlaubnis zuerst** — die KI darf nur, was du je Verbindung freigibst. Sensible Aktionen sind standardmäßig aus.
+- **Erweiterbar** — Add-ons (Connector & Code) docken ohne Kern-Änderung an. Zweisprachig (Deutsch/Englisch), heller & dunkler Modus.
 
 ## Funktionen
 
@@ -52,9 +53,10 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 | **Recherche** | ✅ | Web-Suche (DuckDuckGo) mit Trefferliste |
 | **Studio** | ✅ | Bild hochladen & vom lokalen Vision-Modell analysieren lassen |
 | **Kalender** | ✅ | Monatsansicht, Termine anlegen (Google-Sync folgt) |
-| **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), Sicherheit, Modell |
+| **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), **Hell/Dunkel-Modus**, **Sprache DE/EN**, Sicherheit, Modell |
 | **Onboarding & Login** | ✅ | Geführte Einrichtung, Login per Benutzername/Passwort oder Tailscale |
 | **Team** | ✅ | Persönlichkeiten/Charaktere + Firma mit Rollen & Unteragenten |
+| **Erweiterungen** | ✅ | Add-ons installieren — Connector-Add-ons (Upload) & Code-Add-ons mit In-App-Editor & Sandbox |
 
 ### Tresor — verschlüsselt teilen
 
@@ -67,6 +69,16 @@ zur AES256CHAT-App.
 Beim Verbinden eines Kontos wird live geprüft, ob die Zugangsdaten funktionieren: E-Mail
 (IMAP-Login), Telegram, Trello, Stripe, Cloud-KI (Anthropic/OpenAI), lokale Modelle (vLLM/Ollama),
 WebDAV/Nextcloud, Google Kalender (OAuth).
+
+### Erweiterungen (Add-ons)
+
+Der Kern ist gratis — neue Fähigkeiten kommen als Add-ons:
+
+- **Connector-Add-ons** (daten-getriebenes JSON) per **Upload** installieren — sicher, kein Code, kein Neustart.
+- **Code-Add-ons** mit eigenem JavaScript, direkt im **In-App-Code-Editor** schreiben, bearbeiten und testen. Der Code läuft in einer **Sandbox** (`node:vm` — kein `process`/`require`/Dateisystem, mit Timeout).
+- Übersicht & Download verfügbarer Add-ons: [astoris.org/erweiterungen](https://astoris.org/erweiterungen).
+
+Konzept & Erweiterungspunkte: **[docs/PLUGINS-KONZEPT.md](docs/PLUGINS-KONZEPT.md)**.
 
 ## Anmeldung & Sicherheit
 
@@ -140,9 +152,10 @@ SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Setting
 MVP läuft: Chat, Tresor, Verbindungen, 5 Apps, Login (Passwort + Tailscale), HTTPS, Settings.
 Als Nächstes:
 
-1. Apps verfeinern: Mail-Body-Anzeige, RAG/Volltextsuche (Dokumente), Google-Kalender-Sync, Bildgenerierung (FLUX)
-2. Agenten der Firma echte Aufgaben bearbeiten lassen (Orchestrierung)
-3. Multi-Tenancy (mehrere Nutzer/Workspaces) für öffentlichen Mehrnutzer-Betrieb
+1. **Erweiterungen Phase 2**: Connector-Add-ons in „Verbindungen" verdrahten, Code-Add-ons als KI-Werkzeuge aufrufbar, Premium-Lizenz-Freischaltung
+2. Apps verfeinern: Mail-Body-Anzeige, RAG/Volltextsuche, Google-Kalender-Sync, Bildgenerierung (FLUX)
+3. Agenten der Firma echte Aufgaben bearbeiten lassen (Orchestrierung)
+4. Multi-Tenancy (mehrere Nutzer/Workspaces) für öffentlichen Mehrnutzer-Betrieb
 
 ## Lizenz
 
