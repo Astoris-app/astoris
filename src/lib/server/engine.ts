@@ -209,10 +209,18 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 	throw new Error('zu viele Werkzeug-Runden');
 }
 
-/** Status für die Maschinenraum-Anzeige. */
+/** Status für die Maschinenraum-Anzeige. Spiegelt Modell-Wahl + KI-Quelle. */
 export async function engineStatus(): Promise<EngineStatus> {
-	// 1. Konfigurierte lokale Modell-Verbindung
+	const sel = getSelectedModel();
 	const lm = getDecrypted('local-models');
+	const cloud = getDecrypted('cloud-ai');
+	const preferCloud = sel ? sel.source === 'cloud' : getKiSource() === 'cloud';
+
+	// Cloud bevorzugt (Modell-Wahl oder Quelle) und konfiguriert → Cloud anzeigen.
+	if (preferCloud && cloud?.plain?.api_key) {
+		return { online: true, mode: 'cloud', model: sel?.model || cloud.plain.provider || 'Cloud-KI', detail: cloud.plain.provider ? `Cloud · ${cloud.plain.provider}` : 'Cloud-Anbieter' };
+	}
+	// 1. Konfigurierte lokale Modell-Verbindung
 	if (lm?.plain?.base_url) {
 		try {
 			const base = lm.plain.base_url.replace(/\/$/, '');
@@ -220,10 +228,9 @@ export async function engineStatus(): Promise<EngineStatus> {
 			if (models.length) return { online: true, mode: 'local', model: models[0], detail: 'lokal · vLLM' };
 		} catch { /* weiter zum nächsten */ }
 	}
-	// 2. Cloud-KI-Verbindung
-	const cloud = getDecrypted('cloud-ai');
+	// 2. Cloud-KI als Fallback
 	if (cloud?.plain?.api_key) {
-		return { online: true, mode: 'cloud', model: cloud.plain.provider || 'Cloud-KI', detail: 'Cloud-Anbieter' };
+		return { online: true, mode: 'cloud', model: sel?.model || cloud.plain.provider || 'Cloud-KI', detail: 'Cloud-Anbieter' };
 	}
 	// 3. Clawy-Engine
 	try {
