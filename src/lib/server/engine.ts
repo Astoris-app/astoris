@@ -137,13 +137,13 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 				continue;
 			}
 			const reply = (msg.content ?? '').trim();
-			if (!reply) throw new Error('leere Antwort');
+			if (!reply) return chatOpenAICompat(rawBase, apiKey, messages);
 			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}) };
 		} finally {
 			clearTimeout(t);
 		}
 	}
-	throw new Error('zu viele Werkzeug-Runden');
+	return chatOpenAICompat(rawBase, apiKey, messages);
 }
 
 /** Status für die Maschinenraum-Anzeige. */
