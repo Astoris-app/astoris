@@ -106,6 +106,16 @@ export const APPS: AppDef[] = [
 		icon: 'M9 15l-2.5 2.5a3 3 0 0 1-4.2-4.2L4.8 10.5M15 9l2.5-2.5a3 3 0 0 1 4.2 4.2L19.2 13.5M9 15l6-6'
 	},
 	{
+		id: 'erweiterungen',
+		label: 'Erweiterungen',
+		href: '/erweiterungen',
+		group: 'system',
+		ready: true,
+		capability: 'plugins',
+		blurb: 'Add-ons installieren und verwalten — erweitere Astoris.',
+		icon: 'M4 8V5a1 1 0 0 1 1-1h3a2 2 0 1 1 4 0h3a1 1 0 0 1 1 1v3a2 2 0 1 0 0 4v3a1 1 0 0 1-1 1h-3a2 2 0 1 0-4 0H5a1 1 0 0 1-1-1v-3a2 2 0 1 1 0-4z'
+	},
+	{
 		id: 'settings',
 		label: 'Einstellungen',
 		href: '/settings',

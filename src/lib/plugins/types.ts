@@ -15,3 +15,23 @@ export type PluginManifest = {
 	/** vom Loader gesetzt: ist ein Premium-Add-on freigeschaltet? */
 	licensed?: boolean;
 };
+
+// --- Connector-Add-ons (daten-getrieben, per Upload installierbar) ---
+export type PluginField = { key: string; label: string; type: 'text' | 'password' | 'url'; placeholder?: string; optional?: boolean; hint?: string };
+export type PluginScope = { id: string; label: string; default: boolean; sensitive?: boolean };
+export type ConnectorTest = { kind: 'http' | 'none'; path?: string; okStatus?: number; auth?: 'bearer' | 'basic' | 'none' };
+export type ConnectorManifest = PluginManifest & {
+	type: 'connector';
+	fields: PluginField[];
+	scopes: PluginScope[];
+	test?: ConnectorTest;
+};
+
+// --- Code-Add-ons (ausführbarer Code, in-App editierbar) ---
+export type CodeManifest = PluginManifest & {
+	type: 'agent-tool';
+	/** JS-Quelltext, definiert: async function run(input) { ... return ...; } */
+	code: string;
+	/** Hinweis für die KI/den Nutzer, was als Eingabe erwartet wird. */
+	inputHint?: string;
+};

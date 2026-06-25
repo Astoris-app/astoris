@@ -101,3 +101,22 @@ kompromittieren. Beispiel:
 Connector-Add-ons werden **daten-getrieben** (JSON-Manifest) gebaut — dann ist „per Upload
 integrieren" automatisch sicher, und der bestehende Verbindungstest-Handler wird generisch
 erweitert, um Manifest-Connectors mitzutesten.
+
+---
+## Code-Add-ons + In-App-Editor (Ergänzung)
+
+Add-ons können auch **als Code** eingefügt und **direkt in der App bearbeitet** werden
+(eingebauter Editor) — die mächtige Profi-Variante neben den daten-getriebenen JSON-Connectors.
+
+### Wie es läuft
+- Ein Code-Add-on (`type: 'agent-tool'`) trägt ein `code`-Feld: JS, das `async function run(input)` definiert.
+- Der Code läuft **server-seitig in einem eingeschränkten Sandbox-Kontext** (`node:vm`):
+  nur `fetch`, `JSON`, `Math`, `Date`, `console`; **kein** `require`/`process`/`fs`/`child_process`.
+  Mit **Timeout** (Standard 5 s).
+- **In-App-Editor**: Code-Add-ons sind in „Erweiterungen" editierbar (Code anzeigen, ändern, speichern).
+
+### 🔒 Sicherheit (ehrlich)
+- `node:vm` ist **kein** vollständiger Sicherheits-Sandbox (theoretischer Ausbruch möglich).
+  Für **Self-Hosting** (Betreiber führt eigenen Code aus) ist das vertretbar.
+- Code-Add-ons aus **fremder Quelle** → **Warn-Dialog** vor Aktivierung. Nutzer bestätigt bewusst.
+- JSON-Connector-Add-ons bleiben die empfohlene, sichere Standard-Variante für Uploads.
