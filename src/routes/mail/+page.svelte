@@ -273,9 +273,9 @@
 		overflow-y: auto;
 		white-space: pre-wrap;
 		word-break: break-word;
-		font-family: var(--font-mono);
-		font-size: 12.5px;
-		line-height: 1.6;
+		font-family: var(--font-body);
+		font-size: 14px;
+		line-height: 1.65;
 		color: var(--text);
 	}
 
