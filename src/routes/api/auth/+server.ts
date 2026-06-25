@@ -10,7 +10,7 @@ const COOKIE = 'astoris_session';
 
 function setCookie(cookies: any, value: string, https: boolean) {
 	cookies.set(COOKIE, value, {
-		path: '/', httpOnly: true, sameSite: 'lax', secure: https, maxAge: 60 * 60 * 24 * 30
+		path: '/', httpOnly: true, sameSite: 'strict', secure: https, maxAge: 60 * 60 * 24 * 30
 	});
 }
 

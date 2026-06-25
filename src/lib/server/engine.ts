@@ -330,18 +330,3 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 		reply: 'Noch keine KI verbunden. Richte unter „Verbindungen → Lokale Modelle" deinen Endpoint ein (z. B. http://localhost:8000).'
 	};
 }
-
-/** Ermittelt das aktive Modell-Ziel (für Streaming). null = keine Modell-Verbindung. */
-export async function resolveModelTarget(): Promise<{ base: string; apiKey: string; model: string } | null> {
-	const lm = getDecrypted('local-models');
-	if (lm?.plain?.base_url) {
-		const base = lm.plain.base_url.replace(/\/$/, '');
-		const model = await resolveModel(base, lm.plain.api_key ?? '');
-		return { base, apiKey: lm.plain.api_key ?? '', model };
-	}
-	const cloud = getDecrypted('cloud-ai');
-	if (cloud?.plain?.api_key && (cloud.plain.provider || '').toLowerCase().includes('openai')) {
-		return { base: 'https://api.openai.com', apiKey: cloud.plain['api' + '_key'], model: 'gpt-4o-mini' };
-	}
-	return null;
-}

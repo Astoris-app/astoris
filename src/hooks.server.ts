@@ -25,7 +25,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			event.cookies.set(COOKIE, fresh, {
 				path: '/',
 				httpOnly: true,
-				sameSite: 'lax',
+				sameSite: 'strict',
 				secure: event.url.protocol === 'https:',
 				maxAge: 60 * 60 * 24 * 30
 			});
