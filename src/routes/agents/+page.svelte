@@ -14,7 +14,14 @@
 		createdAt?: string;
 	};
 	type Role = { id: string; title: string; description: string };
-	type SubAgent = { id: string; name: string; role: string; personaId: string; status: string };
+	type SubAgent = {
+		id: string;
+		name: string;
+		role: string;
+		personaId: string;
+		status: string;
+		model?: { source: string; model: string } | null;
+	};
 	type Company = {
 		name: string;
 		industry: string;
@@ -30,6 +37,7 @@
 	let personas = $state<Persona[]>([]);
 	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [] });
 	let templates = $state<Record<string, Template>>({});
+	let modelOpts = $state<{ id: string; label: string; source: string; model: string }[]>([]);
 	let loading = $state(true);
 
 	// persona editor dialog
@@ -101,8 +109,17 @@
 		}
 	}
 
+	async function loadModels() {
+		try {
+			const r = await (await fetch('/api/models')).json();
+			modelOpts = r.models ?? [];
+		} catch {
+			/* offline ok */
+		}
+	}
+
 	onMount(async () => {
-		await Promise.all([loadPersonas(), loadCompany()]);
+		await Promise.all([loadPersonas(), loadCompany(), loadModels()]);
 		loading = false;
 	});
 
@@ -238,6 +255,12 @@
 	}
 	async function removeAgent(id: string) {
 		await postCompany({ action: 'remove-agent', id });
+	}
+	async function setAgentModel(agentId: string, val: string) {
+		const model = val
+			? { source: val.split(':')[0], model: val.split(':').slice(1).join(':') }
+			: null;
+		await postCompany({ action: 'set-agent-model', agentId, model });
 	}
 
 	let taskAgent = $state<SubAgent | null>(null);
@@ -420,6 +443,16 @@
 									<span class="muted">{i18n.t('agents.noPersona')}</span>
 								{/if}
 							</div>
+							{#if modelOpts.length}
+								<select
+									class="agent-model"
+									value={a.model ? a.model.source + ':' + a.model.model : ''}
+									onchange={(e) => setAgentModel(a.id, e.currentTarget.value)}
+								>
+									<option value="">{i18n.t('agents.modelDefault')}</option>
+									{#each modelOpts as m (m.id)}<option value={m.source + ':' + m.model}>{m.label}</option>{/each}
+								</select>
+							{/if}
 							<button class="task-btn" title={i18n.t('agents.taskTitle')} onclick={() => openTask(a)}>{i18n.t('agents.task')}</button>
 							<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)}>×</button>
 						</div>
@@ -598,6 +631,9 @@
 	.row.agent .status-dot.online { background: var(--sage); }
 	.persona-chip { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 4px 10px; }
 	.chip-emoji { font-size: 14px; }
+	.agent-model { flex: none; width: auto; max-width: 170px; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; color: var(--text-muted); font-size: 12px; padding: 5px 10px; }
+	.agent-model:hover { border-color: var(--border); }
+	.agent-model:focus { outline: none; border-color: var(--ember-line); }
 	.x { flex: none; width: 26px; height: 26px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--text-faint); font-size: 18px; line-height: 1; transition: all 0.14s; }
 	.x:hover { color: var(--danger); background: var(--danger-soft); }
 

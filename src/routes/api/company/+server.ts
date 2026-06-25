@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getCompany, saveCompany, addRole, removeRole, addAgent, removeAgent, INDUSTRY_TEMPLATES } from '$lib/server/company';
+import { getCompany, saveCompany, addRole, removeRole, addAgent, removeAgent, setAgentModel, INDUSTRY_TEMPLATES } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
 import { engineChat } from '$lib/server/engine';
 
@@ -14,6 +14,7 @@ export async function POST({ request }) {
 	if (action === 'remove-role') return json({ company: removeRole((b.id ?? '').toString()) });
 	if (action === 'add-agent') return json({ company: addAgent((b.name ?? '').toString(), (b.role ?? '').toString(), (b.personaId ?? '').toString()) });
 	if (action === 'remove-agent') return json({ company: removeAgent((b.id ?? '').toString()) });
+	if (action === 'set-agent-model') return json({ company: setAgentModel((b.agentId ?? '').toString(), b.model ?? null) });
 	// Agent eine Aufgabe bearbeiten lassen (Persona + Rolle + Firmen-Kontext als System-Prompt).
 	if (action === 'run-agent') {
 		const c = getCompany();
@@ -27,7 +28,7 @@ export async function POST({ request }) {
 			persona?.systemPrompt ?? '',
 			c.mission ? 'Mission der Firma: ' + c.mission : ''
 		].filter(Boolean).join(' ');
-		const result = await engineChat([{ role: 'system', content: ctx }, { role: 'user', content: task }]);
+		const result = await engineChat([{ role: 'system', content: ctx }, { role: 'user', content: task }], agent.model);
 		return json({ result: result.reply, source: result.source });
 	}
 	if (action === 'apply-template') {

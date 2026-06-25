@@ -7,7 +7,8 @@ import { randomUUID } from 'node:crypto';
 const FILE = 'data/company.json';
 
 export type Role = { id: string; title: string; description: string };
-export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active' };
+export type AgentModel = { source: 'local' | 'cloud'; model: string };
+export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active'; model?: AgentModel | null };
 export type Company = {
 	name: string;
 	industry: string;
@@ -75,7 +76,14 @@ export function removeRole(id: string): Company {
 }
 export function addAgent(name: string, role: string, personaId: string): Company {
 	const c = load();
-	c.agents.push({ id: randomUUID(), name, role, personaId, status: 'idle' });
+	c.agents.push({ id: randomUUID(), name, role, personaId, status: 'idle', model: null });
+	save(c);
+	return c;
+}
+export function setAgentModel(id: string, model: AgentModel | null): Company {
+	const c = load();
+	const a = c.agents.find((x) => x.id === id);
+	if (a) a.model = model;
 	save(c);
 	return c;
 }
