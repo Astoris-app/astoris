@@ -53,11 +53,12 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 | **Recherche** | ✅ | Web-Suche (Brave/DuckDuckGo) & Wikipedia — als KI-Werkzeuge im Chat |
 | **Studio** | ✅ | Bild hochladen & vom lokalen Vision-Modell analysieren lassen |
 | **Kalender** | ✅ | Monats-, Wochen- & Agenda-Ansicht; Termine anlegen — auch von der KI bedienbar |
-| **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), **Hell/Dunkel-Modus**, **Sprache DE/EN**, Sicherheit, Modell |
+| **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), **Hell/Dunkel-Modus**, **Sprache DE/EN**, Sicherheit, Modell, **Sende-Bestätigung** (Entwurf/direkt), **aigate-Cloud-Schutz** |
 | **Onboarding & Login** | ✅ | Geführte Einrichtung, Login per Benutzername/Passwort oder Tailscale |
 | **Team** | ✅ | Persönlichkeiten/Charaktere + Firma mit Rollen & Unteragenten |
 | **Erweiterungen** | ✅ | Add-ons installieren — Connector-Add-ons (Upload) & Code-Add-ons mit In-App-Editor & Sandbox |
-| **Modell-Wahl** | ✅ | Lokal (vLLM) oder Cloud (Claude Sonnet/Opus, OpenAI) — global, pro Chat & pro Team-Agent wählbar |
+| **Modell-Wahl** | ✅ | Lokal (vLLM) oder Cloud (Claude Sonnet/Opus/Haiku, OpenAI); KI-Quelle wählbar (auto/lokal/Cloud), global, pro Chat & pro Team-Agent |
+| **Verschlüsselter Messenger** | 🛠️ Phase 3 | Eigener E2E-Messenger mit Kontakten & Schlüsseltausch — Kontakte client-seitig, Tausch per `astoris-contact:`-Link |
 | **KI-Aktionen** | ✅ | Die KI bedient Kalender, Mail & verschlüsselten Messenger per Tool-Calling — ausgehende Nachrichten mit Entwurf + Bestätigung |
 
 ### Was die KI selbst bedient

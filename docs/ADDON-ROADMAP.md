@@ -1,29 +1,31 @@
 # Astoris — Add-on-Roadmap
 
 Kuratierte Liste möglicher Add-ons, gefiltert gegen den IST-Stand und den Sandbox-Rahmen
-(Code-Add-ons haben `fetch`, `JSON`, `Math`, `Date`, `console` — kein Dateisystem/Prozesse, 5 s Timeout).
+(Code-Add-ons haben `fetch`, `JSON`, `Math`, `Date`, `console` + `btoa`/`atob`/`crypto`/`TextEncoder`/`TextDecoder`/`URL`/`URLSearchParams` — kein Dateisystem/Prozesse, 5 s Timeout).
 
 ## Schon vorhanden (nicht neu bauen)
 - **Kalender** (eingebautes KI-Werkzeug: list/create/update/delete)
 - **IBAN-Prüfer**, **Passwort-Generator**, **Wetter** (Demo-Add-ons)
 - **aigate** (Secret-Scanner / Cloud-DLP, Premium)
+- **Web-Suche**, **URL-Reader**, **Universal-HTTP** (http-request), **Währungsrechner**,
+  **Einheiten-Rechner**, **Hash & Encode**, **Wikipedia** (alle installiert in `data/plugins`)
 
-## Tier 1 — Pflicht / höchster Hebel (sofort baubar)
-| Add-on | Nutzen | Typ | Bedarf |
+## Tier 1 — Pflicht / höchster Hebel (✅ alle gebaut → siehe „Schon vorhanden")
+| Add-on | Nutzen | Typ | Status |
 |---|---|---|---|
-| **Web-Search** | Live-Websuche mit Quellen — Top-Pick in JEDEM Ökosystem | Externe-API | Such-API (Brave/SerpAPI/DuckDuckGo) |
-| **URL-Reader** | Webseite holen → sauberer Text/Markdown für die KI | fetch | — |
-| **Universal-HTTP** | Generischer GET/POST gegen jede REST-API | fetch | — |
-| **Währungsrechner** | Beträge mit Live-Wechselkursen umrechnen | fetch | gratis (frankfurter.app) |
-| **Einheiten- & Finanz-Rechner** | Längen/Gewicht/Temp + Zins/Marge/ROI, rein offline | Berechnung | — |
-| **Hash & Encode** | Base64, SHA, URL-Encode, JWT-Decode | Berechnung | — |
+| **Web-Search** | Live-Websuche mit Quellen — Top-Pick in JEDEM Ökosystem | Externe-API | ✅ |
+| **URL-Reader** | Webseite holen → sauberer Text/Markdown für die KI | fetch | ✅ |
+| **Universal-HTTP** | Generischer GET/POST gegen jede REST-API | fetch | ✅ |
+| **Währungsrechner** | Beträge mit Live-Wechselkursen umrechnen | fetch | ✅ |
+| **Einheiten- & Finanz-Rechner** | Längen/Gewicht/Temp + Zins/Marge/ROI, rein offline | Berechnung | ✅ |
+| **Hash & Encode** | Base64, SHA, URL-Encode, JWT-Decode | Berechnung | ✅ |
 
 ## Tier 2 — Astoris-Integrationen (eigene Dienste als KI-Werkzeug)
 *Höchster „Wow"-Faktor: die KI bedient Astoris selbst. Als eingebaute Tools wie der Kalender.*
 | Add-on | Nutzen | Bedarf |
 |---|---|---|
-| **Mail-senden/-beantworten** | KI verfasst & versendet Mail aus dem Postfach | nutzt Mail-API + promptGuard |
-| **Messenger-senden** | KI verschickt verschlüsselte Nachricht an einen Kontakt | nutzt Crypt-Messenger |
+| **Mail-senden/-beantworten** ✅ | KI verfasst & versendet Mail aus dem Postfach (Builtin-Tool, fertig) | nutzt Mail-API + promptGuard |
+| **Messenger-senden** ✅ | KI verschickt verschlüsselte Nachricht an einen Kontakt (Builtin-Tool, fertig) | nutzt Crypt-Messenger |
 | **Dokumente durchsuchen (RAG)** | KI greift auf hochgeladene Dokumente zu | Embeddings/Index |
 | **Tresor-Zugriff** | KI liest/legt Secrets (nur nach Auth, sensibel) | Auth-Gate |
 
@@ -35,7 +37,7 @@ Kuratierte Liste möglicher Add-ons, gefiltert gegen den IST-Stand und den Sandb
 | **VAT/USt-Tool** (MwSt + EU-VIES-Validierung) | fetch | — |
 | **Aktien/Krypto-Kurse** | fetch | API-Key (je nach Quelle) |
 | **News-Feed / RSS** | fetch | — |
-| **Wikipedia/Fakten** | fetch | — |
+| **Wikipedia/Fakten** ✅ | fetch | — (installiert) |
 | **QR-Generator** (SEPA/vCard/WLAN) | Daten | QR-Lib |
 | **Zeitzonen-Helper** | Berechnung | — |
 

@@ -110,7 +110,7 @@ Deine Daten (`./data`) und Zertifikate (`./certs`) bleiben erhalten — sie werd
 |---|---|
 | `./data` | Verschlüsselte Verbindungen, Zugangsdaten, Personas, Firma (chmod 700, nie in Git) |
 | `./certs` | TLS-Zertifikate (privater Schlüssel, nie in Git) |
-| `./.env` | Konfiguration (z. B. ENGINE_URL) |
+| `./.env` | Konfiguration (z. B. ENGINE_URL); enthält zusätzlich gespiegelte Verbindungs-Credentials (`ASTORIS_*`) — wie `data/` behandeln, nie in Git |
 
 ---
 

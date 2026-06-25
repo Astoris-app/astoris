@@ -111,7 +111,7 @@ Add-ons können auch **als Code** eingefügt und **direkt in der App bearbeitet*
 ### Wie es läuft
 - Ein Code-Add-on (`type: 'agent-tool'`) trägt ein `code`-Feld: JS, das `async function run(input)` definiert.
 - Der Code läuft **server-seitig in einem eingeschränkten Sandbox-Kontext** (`node:vm`):
-  nur `fetch`, `JSON`, `Math`, `Date`, `console`; **kein** `require`/`process`/`fs`/`child_process`.
+  nur `fetch`, `JSON`, `Math`, `Date`, `console` + `btoa`/`atob`/`crypto`/`TextEncoder`/`TextDecoder`/`URL`/`URLSearchParams` (Encoding/Hashing, keine I/O); **kein** `require`/`process`/`fs`/`child_process`.
   Mit **Timeout** (Standard 5 s).
 - **In-App-Editor**: Code-Add-ons sind in „Erweiterungen" editierbar (Code anzeigen, ändern, speichern).
 

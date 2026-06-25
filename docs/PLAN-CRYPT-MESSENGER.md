@@ -30,19 +30,21 @@ Format-kompatibel zum vorhandenen Tresor (AES256CHAT-Block). Schlüssel = Passph
 zunächst als **Teilen-Link** (manuell, wie heute im Tresor).
 
 ## Phasen
-**Phase 1 — Messenger-UI + Toggle + Senden**
+> **Status:** Phasen 1–3 ✅ umgesetzt (Send-/Receive-Routen + Kontakte & Schlüsseltausch).
+
+**Phase 1 — Messenger-UI + Toggle + Senden** ✅ umgesetzt
 - Toggle „Assistent / Verschlüsselt" im Assistent-Header.
 - Chat-Ansicht (Sprechblasen) mit Passphrase-Feld + Kanal-Wahl.
 - Senden: Nachricht → Tresor-Verschlüsselung → über **Telegram-Bot** oder **E-Mail (SMTP)**
   an einen Kontakt senden. WhatsApp/Signal: Teilen-Link.
 - Lokaler Verlauf (entschlüsselt nur im Browser sichtbar).
 
-**Phase 2 — Empfang (automatisch)**
+**Phase 2 — Empfang (automatisch)** ✅ umgesetzt
 - Telegram-Bot-Polling + IMAP-Check erkennen eingehende **verschlüsselte Blöcke**.
 - Auto-Entschlüsselung mit dem Kontakt-Schlüssel → erscheint im Chat.
 - Hintergrund-Listener (wie agent-v2 IMAP-IDLE / Telegram-Poll).
 
-**Phase 3 — Kontakte & Schlüssel**
+**Phase 3 — Kontakte & Schlüssel** ✅ umgesetzt
 - Kontaktliste (Name, Kanal-Adresse, Schlüssel-Fingerprint).
 - Schlüssel-Tausch per QR/Link (out-of-band), pro Kontakt eigener Schlüssel.
 - Threads pro Kontakt, Zustellstatus.
