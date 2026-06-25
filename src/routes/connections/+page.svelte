@@ -13,6 +13,7 @@
 	let scopeState = $state<Record<string, boolean>>({});
 	let testing = $state(false);
 	let showPw = $state<Record<string, boolean>>({});
+	let tsActive = $state(false);
 	let result = $state<{ ok: boolean; message: string; skipped?: boolean } | null>(null);
 
 	let categories = $derived([...new Set(CONNECTORS.map((c) => c.category))]);
@@ -27,6 +28,10 @@
 		} catch {
 			/* offline ok */
 		}
+		try {
+			const a = await (await fetch('/api/auth')).json();
+			tsActive = a.user?.method === 'tailscale';
+		} catch { /* ignore */ }
 	}
 	onMount(load);
 
@@ -89,6 +94,17 @@
 	<p class="lead">
 		{i18n.t('connections.lead')}
 	</p>
+
+	<div class="tscard" class:on={tsActive}>
+		<div class="tsico">
+			<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2" opacity="0.35"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2" opacity="0.35"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2" opacity="0.35"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2" opacity="0.35"/><circle cx="19" cy="19" r="2"/></svg>
+		</div>
+		<div class="tsinfo">
+			<h3>{i18n.t('connections.tailscaleTitle')}</h3>
+			<p>{i18n.t('connections.tailscaleDesc')}</p>
+		</div>
+		<span class="tsstate" class:on={tsActive}>{tsActive ? i18n.t('connections.tailscaleActive') : i18n.t('connections.tailscaleAvailable')}</span>
+	</div>
 
 	{#each categories as cat (cat)}
 		<section>
@@ -208,7 +224,15 @@
 
 <style>
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px 40px; }
-	.lead { color: var(--text-muted); max-width: 640px; margin: 0 0 26px; }
+	.lead { color: var(--text-muted); max-width: 640px; margin: 0 0 22px; }
+	.tscard { display: flex; align-items: center; gap: 16px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 28px; }
+	.tscard.on { box-shadow: inset 2px 0 0 var(--sage); }
+	.tsico { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 12px; color: var(--ember-bright); background: var(--ember-soft); }
+	.tsinfo { flex: 1; min-width: 0; }
+	.tsinfo h3 { font-size: 15.5px; margin-bottom: 4px; }
+	.tsinfo p { margin: 0; font-size: 13px; color: var(--text-muted); }
+	.tsstate { flex: none; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); border: 1px solid var(--border-soft); padding: 4px 11px; border-radius: 999px; }
+	.tsstate.on { color: var(--sage); border-color: var(--sage-soft); }
 	.cat { font-size: 13px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); margin: 26px 0 12px; }
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 	.card { background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.18s, transform 0.18s var(--ease); }
