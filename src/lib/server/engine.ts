@@ -179,12 +179,12 @@ export async function engineChat(messages: ChatMsg[]): Promise<ChatResult> {
 	// 1. Lokale Modelle — wenn konfiguriert, ist DAS die Quelle.
 	const lm = getDecrypted('local-models');
 	if (lm?.plain?.base_url) {
-		// Kurze vLLM-Aussetzer abfangen: bis zu 2 Versuche mit kleiner Pause.
-		for (let attempt = 0; attempt < 2; attempt++) {
+		// Kurze vLLM-Aussetzer / geteilte Last abfangen: bis zu 3 Versuche mit Backoff.
+		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
 				return await chatWithTools(lm.plain.base_url, lm.plain.api_key ?? '', messages);
 			} catch {
-				if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
+				if (attempt < 2) await new Promise((r) => setTimeout(r, (attempt + 1) * 1200));
 			}
 		}
 		return { source: 'demo', reply: 'Das lokale Modell ist gerade nicht erreichbar. Bitte kurz warten und erneut senden, oder den Endpoint unter „Verbindungen" prüfen.' };
