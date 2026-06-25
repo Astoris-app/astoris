@@ -51,6 +51,24 @@
 		try { localStorage.setItem('astoris-persona', id); } catch { /* ignore */ }
 	}
 
+	// Modell-Wähler
+	let modelOpts = $state<{ id: string; label: string; source: string; model: string }[]>([]);
+	let selModelId = $state('');
+	let modelMenu = $state(false);
+	async function loadModels() {
+		try {
+			const r = await (await fetch('/api/models')).json();
+			modelOpts = r.models ?? [];
+			selModelId = r.selected ? (modelOpts.find((m) => m.source === r.selected.source && m.model === r.selected.model)?.id ?? '') : '';
+		} catch { /* ignore */ }
+	}
+	async function setModel(opt: { id: string; source: string; model: string } | null) {
+		modelMenu = false;
+		selModelId = opt?.id ?? '';
+		const body = opt ? { source: opt.source, model: opt.model } : { clear: true };
+		try { await fetch('/api/models', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); } catch { /* ignore */ }
+	}
+
 	let chats = $state<{ id: string; title: string; updatedAt: string; count: number }[]>([]);
 	let currentChatId = $state<string | null>(assistant.currentChatId);
 	// Zustand in den Store spiegeln, damit er Navigation überlebt.
@@ -286,6 +304,7 @@
 	onMount(() => {
 		loadChats();
 		fetch('/api/personas').then((r) => r.json()).then((d) => { personas = d.personas ?? []; }).catch(() => {});
+		loadModels();
 		try { const sp = localStorage.getItem('astoris-persona'); if (sp) activePersonaId = sp; } catch { /* ignore */ }
 		const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 		if (SR && window.isSecureContext) {
@@ -337,6 +356,27 @@
 			</div>
 		{/if}
 	</div>
+	{#if modelOpts.length > 1}
+	<div class="ppick-wrap">
+		<button class="ppick" onclick={() => (modelMenu = !modelMenu)} title="Modell wählen">
+			<span class="pe">🧠</span>
+			<span>{modelOpts.find((m) => m.id === selModelId)?.label ?? i18n.t('settings.kiSourceAuto')}</span>
+			<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+		</button>
+		{#if modelMenu}
+			<div class="pmenu">
+				<button class="pitem" class:sel={selModelId === ''} onclick={() => setModel(null)}>
+					<span class="pinfo"><strong>{i18n.t('settings.kiSourceAuto')}</strong><small>{i18n.t('settings.kiSource')}</small></span>
+				</button>
+				{#each modelOpts as m (m.id)}
+					<button class="pitem" class:sel={m.id === selModelId} onclick={() => setModel(m)}>
+						<span class="pinfo"><strong>{m.label}</strong><small>{m.source === 'cloud' ? 'Cloud' : 'Lokal'}</small></span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
+	{/if}
 	{#if messages.length}
 		<button class="hbtn" onclick={clearChat} title="Neuer Chat">
 			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>

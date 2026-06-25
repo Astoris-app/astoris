@@ -9,6 +9,7 @@ import { buildAddonTools, runAddonTool, buildBuiltinTools, isBuiltinTool, runBui
 import { scanInjection, wrapAsData } from './promptGuard';
 import { applyAigate, getAigateMode } from './aigate';
 import { getKiSource } from './kiSource';
+import { getSelectedModel } from './models';
 
 export const ENGINE_URL = env.ENGINE_URL ?? 'http://localhost:8081';
 const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
@@ -238,15 +239,16 @@ export async function engineStatus(): Promise<EngineStatus> {
 /** Chat. Nutzt die konfigurierte Modell-Verbindung; bei deren Ausfall klare Meldung
  *  (KEIN Clawy-Fallback, der wäre irreführend). Clawy nur, wenn nichts konfiguriert ist. */
 export async function engineChat(messages: ChatMsg[]): Promise<ChatResult> {
-	// 0. Cloud bevorzugt? Dann Cloud-KI zuerst (bei Fehler fällt es auf Lokal zurück).
-	if (getKiSource() === 'cloud') {
+	// 0. Cloud zuerst? Explizite Modell-Wahl hat Vorrang vor der groben KI-Quelle.
+	const sel = getSelectedModel();
+	if (sel ? sel.source === 'cloud' : getKiSource() === 'cloud') {
 		const c = getDecrypted('cloud-ai');
 		if (c?.plain?.api_key) {
 			const prov = (c.plain.provider || '').toLowerCase();
 			const g = applyAigate(messages, getAigateMode());
 			if (g.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(g.hits.map((h) => h.type))].join(', ')}).` };
 			try {
-				if (prov.includes('anthropic') || prov.includes('claude')) return await chatAnthropic(c.plain.api_key, g.messages);
+				if (prov.includes('anthropic') || prov.includes('claude')) return await chatAnthropic(c.plain.api_key, g.messages, sel?.model || undefined);
 				if (prov.includes('openai')) return await chatOpenAICompat('https://api.openai.com', c.plain.api_key, g.messages);
 			} catch { /* Cloud-Fehler → weiter zu Lokal */ }
 		}
@@ -274,7 +276,7 @@ export async function engineChat(messages: ChatMsg[]): Promise<ChatResult> {
 		if (guard.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(guard.hits.map((h) => h.type))].join(', ')}). Cloud-Versand blockiert.` };
 		if (provider.includes('anthropic') || provider.includes('claude')) {
 			try {
-				return await chatAnthropic(cloud.plain.api_key, guard.messages);
+				return await chatAnthropic(cloud.plain.api_key, guard.messages, getSelectedModel()?.model || undefined);
 			} catch {
 				return { source: 'demo', reply: 'Cloud-KI (Claude) ist gerade nicht erreichbar. Bitte erneut versuchen.' };
 			}
