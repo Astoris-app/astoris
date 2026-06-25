@@ -24,8 +24,8 @@
 	}
 </script>
 
-<nav class="rail" class:expanded aria-label="Bereiche">
-	<button class="toggle" onclick={toggle} title={expanded ? 'Menü einklappen' : 'Menü ausklappen'} aria-label="Menü ein-/ausklappen">
+<nav class="rail" class:expanded aria-label={i18n.t('common.areas')}>
+	<button class="toggle" onclick={toggle} title={expanded ? i18n.t('common.collapseMenu') : i18n.t('common.expandMenu')} aria-label={i18n.t('common.menuToggle')}>
 		<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 	</button>
 

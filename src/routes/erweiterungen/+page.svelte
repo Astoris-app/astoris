@@ -61,12 +61,12 @@
 		if (!editor) return;
 		testRes = '…';
 		let input: unknown = undefined;
-		if (testInput.trim()) { try { input = JSON.parse(testInput); } catch { testRes = 'Test-Eingabe ist kein gültiges JSON.'; return; } }
+		if (testInput.trim()) { try { input = JSON.parse(testInput); } catch { testRes = i18n.t('erweiterungen.testInvalidJson'); return; } }
 		try {
 			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'run', code: editor.code, input }) });
 			const d = await res.json();
-			testRes = d.ok ? JSON.stringify(d.output, null, 2) : '⚠ ' + (d.error ?? 'Fehler');
-		} catch { testRes = '⚠ Ausführung fehlgeschlagen.'; }
+			testRes = d.ok ? JSON.stringify(d.output, null, 2) : '⚠ ' + (d.error ?? i18n.t('erweiterungen.error'));
+		} catch { testRes = '⚠ ' + i18n.t('erweiterungen.runFailed'); }
 	}
 	async function saveCode() {
 		if (!editor) return;

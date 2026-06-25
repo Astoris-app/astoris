@@ -211,7 +211,7 @@
 							<span class="subject">{m.subject}</span>
 							<span class="date mono">{fmtDate(m.date)}</span>
 						</button>
-						<button class="star" class:on={stars.has(m.uid)} onclick={() => toggleStar(m.uid)} aria-label="Favorit" title="Favorit">
+						<button class="star" class:on={stars.has(m.uid)} onclick={() => toggleStar(m.uid)} aria-label={i18n.t('mail.star')} title={i18n.t('mail.star')}>
 							<svg width="15" height="15" viewBox="0 0 24 24" fill={stars.has(m.uid) ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.5"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
 						</button>
 					</li>

@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import Brand from '$lib/components/Brand.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	let step = $state(0);
 	let profile = $state<'personal' | 'business'>('personal');
@@ -10,7 +11,12 @@
 	let engineModel = $state('');
 	let finishing = $state(false);
 
-	const steps = ['Willkommen', 'Profil', 'Maschinenraum', 'Verbindungen'];
+	const steps = $derived([
+		i18n.t('welcome.stepWelcome'),
+		i18n.t('welcome.stepProfile'),
+		i18n.t('welcome.stepEngine'),
+		i18n.t('welcome.stepConnections')
+	]);
 
 	onMount(async () => {
 		try {
@@ -56,75 +62,66 @@
 		{#if step === 0}
 			<div class="hero">
 				<Brand size={56} />
-				<h1>Willkommen bei Astoris</h1>
-				<p class="sub">
-					Dein eigener KI-Maschinenraum. Ein Arbeitsbereich für dich und deine Firma —
-					selbst gehostet, auf deiner Hardware, unter deiner Kontrolle.
-				</p>
+				<h1>{i18n.t('welcome.heroTitle')}</h1>
+				<p class="sub">{i18n.t('welcome.heroSub')}</p>
 			</div>
 			<div class="nav">
 				<span></span>
-				<button class="btn primary" onclick={next}>Los geht's</button>
+				<button class="btn primary" onclick={next}>{i18n.t('welcome.start')}</button>
 			</div>
 		{:else if step === 1}
-			<h2>Wofür nutzt du Astoris?</h2>
-			<p class="sub">Bestimmt nur, welche Bereiche zuerst sichtbar sind — ändern kannst du es jederzeit.</p>
+			<h2>{i18n.t('welcome.profileTitle')}</h2>
+			<p class="sub">{i18n.t('welcome.profileSub')}</p>
 			<div class="choices">
 				<button class="choice" class:sel={profile === 'personal'} onclick={() => (profile = 'personal')}>
-					<strong>Persönlich</strong>
-					<small>Assistent, E-Mail, Kalender, Dokumente, Recherche.</small>
+					<strong>{i18n.t('welcome.personal')}</strong>
+					<small>{i18n.t('welcome.personalDesc')}</small>
 				</button>
 				<button class="choice" class:sel={profile === 'business'} onclick={() => (profile = 'business')}>
-					<strong>Firma</strong>
-					<small>Zusätzlich: Team-Agenten, Kunden-Workflows, Geschäftskonten.</small>
+					<strong>{i18n.t('welcome.business')}</strong>
+					<small>{i18n.t('welcome.businessDesc')}</small>
 				</button>
 			</div>
 			<div class="nav">
-				<button class="btn ghost" onclick={back}>Zurück</button>
-				<button class="btn primary" onclick={next}>Weiter</button>
+				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
+				<button class="btn primary" onclick={next}>{i18n.t('welcome.next')}</button>
 			</div>
 		{:else if step === 2}
-			<h2>Wo deine KI läuft</h2>
-			<p class="sub">
-				Astoris zeigt jederzeit, wo gerechnet wird. Standardmäßig lokal auf deiner Hardware —
-				oder über einen Cloud-Anbieter, falls du keine GPU hast.
-			</p>
+			<h2>{i18n.t('welcome.engineTitle')}</h2>
+			<p class="sub">{i18n.t('welcome.engineSub')}</p>
 			<div class="engine-card" data-on={engineOnline}>
 				<span class="pulse"></span>
 				<div>
 					<strong>
-						{#if engineOnline === null}Prüfe Maschinenraum …
-						{:else if engineOnline}Engine verbunden
-						{:else}Noch keine Engine{/if}
+						{#if engineOnline === null}{i18n.t('welcome.engineChecking')}
+						{:else if engineOnline}{i18n.t('welcome.engineConnected')}
+						{:else}{i18n.t('welcome.engineNone')}{/if}
 					</strong>
-					<small class="mono">{engineOnline ? engineModel : 'unter „Verbindungen → KI-Modelle" einrichten'}</small>
+					<small class="mono">{engineOnline ? engineModel : i18n.t('welcome.engineNoneHint')}</small>
 				</div>
 			</div>
 			<div class="nav">
-				<button class="btn ghost" onclick={back}>Zurück</button>
-				<button class="btn primary" onclick={next}>Weiter</button>
+				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
+				<button class="btn primary" onclick={next}>{i18n.t('welcome.next')}</button>
 			</div>
 		{:else}
-			<h2>Deine Konten, von der KI bedient</h2>
-			<p class="sub">
-				Verbinde E-Mail, Kalender, Modelle und mehr. Die KI darf nur, was du je Verbindung
-				erlaubst — Zugangsdaten werden verschlüsselt gespeichert und verlassen nie deinen Server.
-			</p>
+			<h2>{i18n.t('welcome.connectionsTitle')}</h2>
+			<p class="sub">{i18n.t('welcome.connectionsSub')}</p>
 			<div class="teaser">
 				{#each [
-					{ i: 'M3.5 6.5h17v11h-17zM3.8 7l8.2 6 8.2-6', t: 'E-Mail' },
-					{ i: 'M4.5 6h15v13.5h-15zM4.5 10h15M8 3.5v4M16 3.5v4', t: 'Kalender' },
-					{ i: 'M5 5h14v6H5zM5 13h14v6H5zM8 8h.01M8 16h.01', t: 'Modelle' }
-				] as c (c.t)}
+					{ i: 'M3.5 6.5h17v11h-17zM3.8 7l8.2 6 8.2-6', t: i18n.t('welcome.teaserEmail') },
+					{ i: 'M4.5 6h15v13.5h-15zM4.5 10h15M8 3.5v4M16 3.5v4', t: i18n.t('welcome.teaserCalendar') },
+					{ i: 'M5 5h14v6H5zM5 13h14v6H5zM8 8h.01M8 16h.01', t: i18n.t('welcome.teaserModels') }
+				] as c (c.i)}
 					<div class="tcard"><Icon path={c.i} size={20} /><span>{c.t}</span></div>
 				{/each}
 			</div>
 			<div class="nav">
-				<button class="btn ghost" onclick={back}>Zurück</button>
+				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
 				<div class="right">
-					<button class="btn ghost" onclick={() => finish(false)} disabled={finishing}>Später</button>
+					<button class="btn ghost" onclick={() => finish(false)} disabled={finishing}>{i18n.t('welcome.later')}</button>
 					<button class="btn primary" onclick={() => finish(true)} disabled={finishing}>
-						{finishing ? 'Starte …' : 'Erste Verbindung einrichten'}
+						{finishing ? i18n.t('welcome.starting') : i18n.t('welcome.firstConnection')}
 					</button>
 				</div>
 			</div>

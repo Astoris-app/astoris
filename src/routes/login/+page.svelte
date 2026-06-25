@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import Brand from '$lib/components/Brand.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	let loading = $state(true);
 	let configured = $state(false);
@@ -36,18 +37,18 @@
 			});
 			const d = await res.json();
 			if (d.ok) { goto('/'); return; }
-			err = d.error ?? 'Fehlgeschlagen.';
+			err = d.error ?? i18n.t('login.failed');
 		} catch {
-			err = 'Netzwerkfehler.';
+			err = i18n.t('login.networkError');
 		} finally {
 			busy = false;
 		}
 	}
 
 	function setup() {
-		if (username.trim().length < 3) { err = 'Benutzername: mindestens 3 Zeichen.'; return; }
-		if (pw.length < 8) { err = 'Passwort: mindestens 8 Zeichen.'; return; }
-		if (pw !== pw2) { err = 'Passwörter stimmen nicht überein.'; return; }
+		if (username.trim().length < 3) { err = i18n.t('login.userTooShort'); return; }
+		if (pw.length < 8) { err = i18n.t('login.pwTooShort'); return; }
+		if (pw !== pw2) { err = i18n.t('login.pwMismatch'); return; }
 		post('set-password', { username: username.trim(), password: pw });
 	}
 	function login() {
@@ -63,41 +64,41 @@
 		</div>
 
 		{#if loading}
-			<p class="sub">Lädt …</p>
+			<p class="sub">{i18n.t('login.loading')}</p>
 		{:else if !configured}
-			<h2>Zugang einrichten</h2>
-			<p class="sub">Lege Benutzername und Passwort fest{#if ts} — oder nutze direkt Tailscale{/if}.</p>
+			<h2>{i18n.t('login.setupTitle')}</h2>
+			<p class="sub">{i18n.t('login.setupSub')}{#if ts}{i18n.t('login.setupSubTs')}{/if}.</p>
 
 			{#if ts}
 				<button class="ts" onclick={() => post('tailscale')} disabled={busy}>
-					<span class="tsdot"></span> Mit Tailscale freischalten — {ts.name}
+					<span class="tsdot"></span> {i18n.t('login.tsSetup')} — {ts.name}
 				</button>
-				<div class="divider"><span>oder Zugangsdaten</span></div>
+				<div class="divider"><span>{i18n.t('login.orCredentials')}</span></div>
 			{/if}
 
-			<input type="text" bind:value={username} placeholder="Benutzername" autocomplete="username" />
-			<input type="password" bind:value={pw} placeholder="Passwort (min. 8 Zeichen)" autocomplete="new-password" />
-			<input type="password" bind:value={pw2} placeholder="Passwort wiederholen" autocomplete="new-password" />
-			<button class="primary" onclick={setup} disabled={busy}>{busy ? 'Richte ein …' : 'Zugang festlegen'}</button>
+			<input type="text" bind:value={username} placeholder={i18n.t('login.username')} autocomplete="username" />
+			<input type="password" bind:value={pw} placeholder={i18n.t('login.passwordMin')} autocomplete="new-password" />
+			<input type="password" bind:value={pw2} placeholder={i18n.t('login.passwordRepeat')} autocomplete="new-password" />
+			<button class="primary" onclick={setup} disabled={busy}>{busy ? i18n.t('login.setupBusy') : i18n.t('login.setupBtn')}</button>
 		{:else}
-			<h2>Anmelden</h2>
+			<h2>{i18n.t('login.loginTitle')}</h2>
 			{#if ts && ts.allowed}
 				<button class="ts" onclick={() => post('tailscale')} disabled={busy}>
-					<span class="tsdot"></span> Mit Tailscale anmelden — {ts.name}
+					<span class="tsdot"></span> {i18n.t('login.tsLogin')} — {ts.name}
 				</button>
-				{#if passwordSet}<div class="divider"><span>oder Zugangsdaten</span></div>{/if}
+				{#if passwordSet}<div class="divider"><span>{i18n.t('login.orCredentials')}</span></div>{/if}
 			{/if}
 			{#if passwordSet}
-				<input type="text" bind:value={username} placeholder="Benutzername" autocomplete="username"
+				<input type="text" bind:value={username} placeholder={i18n.t('login.username')} autocomplete="username"
 					onkeydown={(e) => e.key === 'Enter' && login()} />
-				<input type="password" bind:value={pw} placeholder="Passwort" autocomplete="current-password"
+				<input type="password" bind:value={pw} placeholder={i18n.t('login.password')} autocomplete="current-password"
 					onkeydown={(e) => e.key === 'Enter' && login()} />
-				<button class="primary" onclick={login} disabled={busy}>{busy ? 'Prüfe …' : 'Anmelden'}</button>
+				<button class="primary" onclick={login} disabled={busy}>{busy ? i18n.t('login.loginBusy') : i18n.t('login.loginBtn')}</button>
 			{/if}
 		{/if}
 
 		{#if err}<div class="err">{err}</div>{/if}
-		<p class="foot mono">Self-hosted · dein Server, deine Daten</p>
+		<p class="foot mono">{i18n.t('login.foot')}</p>
 	</div>
 </div>
 

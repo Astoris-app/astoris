@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { i18n } from '$lib/stores/i18n.svelte';
 	type Summary = { id: string; title: string; updatedAt: string; count: number };
 	let {
 		chats = [],
@@ -32,11 +33,11 @@
 		const d = new Date(updatedAt);
 		const today = new Date();
 		const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
-		if (diff <= 0) return 'Heute';
-		if (diff === 1) return 'Gestern';
-		if (diff <= 7) return 'Letzte 7 Tage';
-		if (diff <= 30) return 'Letzte 30 Tage';
-		return 'Älter';
+		if (diff <= 0) return i18n.t('chat.today');
+		if (diff === 1) return i18n.t('chat.yesterday');
+		if (diff <= 7) return i18n.t('chat.last7');
+		if (diff <= 30) return i18n.t('chat.last30');
+		return i18n.t('chat.older');
 	}
 	let grouped = $derived.by(() => {
 		const out: { label: string; items: Summary[] }[] = [];
@@ -53,12 +54,12 @@
 <aside class="sidebar">
 	<button class="new" onclick={onNew}>
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-		Neuer Chat
+		{i18n.t('chat.newChat')}
 	</button>
 
 	<div class="list">
 		{#if chats.length === 0}
-			<p class="empty">Noch keine Gespräche.</p>
+			<p class="empty">{i18n.t('chat.noChats')}</p>
 		{:else}
 			{#each grouped as g (g.label)}
 				<div class="grp">{g.label}</div>
@@ -74,10 +75,10 @@
 						{:else}
 							<button class="open" onclick={() => onOpen(c.id)} title={c.title}>{c.title}</button>
 							<div class="acts">
-								<button title="Umbenennen" onclick={() => startEdit(c)} aria-label="Umbenennen">
+								<button title={i18n.t('chat.rename')} onclick={() => startEdit(c)} aria-label={i18n.t('chat.rename')}>
 									<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
 								</button>
-								<button title="Löschen" onclick={() => onDelete(c.id)} aria-label="Löschen">
+								<button title={i18n.t('chat.delete')} onclick={() => onDelete(c.id)} aria-label={i18n.t('chat.delete')}>
 									<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>
 								</button>
 							</div>

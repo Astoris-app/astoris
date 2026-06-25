@@ -183,7 +183,7 @@
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6 12 12.5 20.5 6"/></svg>
 							<span>Gmail</span>
 						</button>
-						<button class="sb sig" onclick={shareSignal} title="Signal (über System-Teilen oder Kopieren)">
+						<button class="sb sig" onclick={shareSignal} title={i18n.t('tresor.signalShareTitle')}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 0 0-7 11.8L4 20l4.2-1A8 8 0 1 0 12 4z"/></svg>
 							<span>Signal</span>
 						</button>

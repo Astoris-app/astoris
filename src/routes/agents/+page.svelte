@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	// ---------- Types ----------
 	type Persona = {
@@ -128,7 +129,7 @@
 	async function savePersona() {
 		if (editor.busy) return;
 		if (!editor.name.trim()) {
-			editor.error = 'Name ist erforderlich.';
+			editor.error = i18n.t('agents.nameRequired');
 			return;
 		}
 		editor.busy = true;
@@ -147,14 +148,14 @@
 				body: JSON.stringify(body)
 			});
 			if (!res.ok) {
-				editor.error = 'Speichern fehlgeschlagen.';
+				editor.error = i18n.t('agents.saveFailed');
 				editor.busy = false;
 				return;
 			}
 			await loadPersonas();
 			closeEditor();
 		} catch {
-			editor.error = 'Netzwerkfehler.';
+			editor.error = i18n.t('agents.networkError');
 		} finally {
 			editor.busy = false;
 		}
@@ -162,7 +163,7 @@
 
 	async function deletePersona(p: Persona) {
 		if (p.builtin) return;
-		if (!confirm(`Persönlichkeit „${p.name}" löschen?`)) return;
+		if (!confirm(i18n.t('agents.deletePersonaConfirm').replace('{name}', p.name))) return;
 		try {
 			await fetch(`/api/personas?id=${encodeURIComponent(p.id)}`, { method: 'DELETE' });
 			await loadPersonas();
@@ -250,13 +251,13 @@
 		try {
 			const r = await fetch('/api/company', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'run-agent', agentId: taskAgent.id, task: taskInput }) });
 			const d = await r.json();
-			taskResult = d.result ?? d.error ?? 'Keine Antwort.';
-		} catch { taskResult = 'Fehler bei der Ausführung.'; }
+			taskResult = d.result ?? d.error ?? i18n.t('agents.noAnswer');
+		} catch { taskResult = i18n.t('agents.runError'); }
 		finally { taskBusy = false; }
 	}
 </script>
 
-<AppHeader title="Team" eyebrow="Persönlichkeiten & Firma" />
+<AppHeader title={i18n.t('agents.title')} eyebrow={i18n.t('agents.eyebrow')} />
 
 <div class="scroll">
 	<!-- Tab switcher -->
@@ -266,7 +267,7 @@
 				<circle cx="12" cy="8" r="3.5" />
 				<path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" />
 			</svg>
-			Persönlichkeiten
+			{i18n.t('agents.tabPersonas')}
 		</button>
 		<button class="tab" class:on={tab === 'company'} role="tab" aria-selected={tab === 'company'} onclick={() => (tab = 'company')}>
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -275,33 +276,30 @@
 				<path d="M3 21h18" />
 				<path d="M7.5 8h.01M7.5 12h.01M10.5 8h.01M10.5 12h.01M7.5 16h3" />
 			</svg>
-			Firma
+			{i18n.t('agents.tabCompany')}
 		</button>
 	</div>
 
 	{#if loading}
-		<p class="muted">Lade …</p>
+		<p class="muted">{i18n.t('agents.loading')}</p>
 	{:else if tab === 'personas'}
 		<!-- =================== PERSONAS =================== -->
 		<div class="section-head">
-			<p class="lead">
-				Persönlichkeiten geben deinen Agenten Charakter und Haltung. Vorlagen sind eingebaut; eigene
-				kannst du frei gestalten und jederzeit anpassen.
-			</p>
+			<p class="lead">{i18n.t('agents.personasLead')}</p>
 			<button class="btn primary" onclick={openCreate}>
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M12 5v14M5 12h14" />
 				</svg>
-				Neue Persönlichkeit
+				{i18n.t('agents.newPersona')}
 			</button>
 		</div>
 
 		{#if personas.length === 0}
 			<div class="empty">
 				<span class="big">🪄</span>
-				<h3>Noch keine Persönlichkeiten</h3>
-				<p>Lege deine erste Persönlichkeit an und gib ihr Stimme und Auftrag.</p>
-				<button class="btn primary" onclick={openCreate}>Erste Persönlichkeit anlegen</button>
+				<h3>{i18n.t('agents.noPersonas')}</h3>
+				<p>{i18n.t('agents.noPersonasHint')}</p>
+				<button class="btn primary" onclick={openCreate}>{i18n.t('agents.createFirstPersona')}</button>
 			</div>
 		{:else}
 			<div class="grid">
@@ -309,17 +307,17 @@
 					<article class="card persona">
 						<div class="top">
 							<span class="emoji">{p.emoji || '🙂'}</span>
-							{#if p.builtin}<span class="badge">Vorlage</span>{/if}
+							{#if p.builtin}<span class="badge">{i18n.t('agents.templateBadge')}</span>{/if}
 						</div>
 						<h3>{p.name}</h3>
 						<p class="tag">{p.tagline || '—'}</p>
 						{#if p.systemPrompt}<p class="prompt">{p.systemPrompt}</p>{/if}
 						<div class="actions">
 							{#if p.builtin}
-								<button class="btn ghost" onclick={() => openEdit(p)}>Ansehen</button>
+								<button class="btn ghost" onclick={() => openEdit(p)}>{i18n.t('agents.view')}</button>
 							{:else}
-								<button class="btn ghost" onclick={() => openEdit(p)}>Bearbeiten</button>
-								<button class="btn danger-ghost" onclick={() => deletePersona(p)}>Löschen</button>
+								<button class="btn ghost" onclick={() => openEdit(p)}>{i18n.t('agents.edit')}</button>
+								<button class="btn danger-ghost" onclick={() => deletePersona(p)}>{i18n.t('agents.delete')}</button>
 							{/if}
 						</div>
 					</article>
@@ -329,28 +327,28 @@
 	{:else}
 		<!-- =================== COMPANY =================== -->
 		<section class="block">
-			<h2 class="cat">Firma</h2>
+			<h2 class="cat">{i18n.t('agents.company')}</h2>
 			<div class="company-head">
 				<div class="field">
-					<label for="c-name">Name</label>
-					<input id="c-name" type="text" placeholder="z. B. Astoris Werkstatt" bind:value={cName} autocomplete="off" />
+					<label for="c-name">{i18n.t('agents.name')}</label>
+					<input id="c-name" type="text" placeholder={i18n.t('agents.companyNamePlaceholder')} bind:value={cName} autocomplete="off" />
 				</div>
 				<div class="field">
-					<label for="c-industry">Branche</label>
+					<label for="c-industry">{i18n.t('agents.industry')}</label>
 					<select id="c-industry" bind:value={cIndustry}>
-						<option value="">Eigene / keine</option>
+						<option value="">{i18n.t('agents.industryOwn')}</option>
 						{#each templateKeys as key (key)}
 							<option value={key}>{templates[key].label}</option>
 						{/each}
 					</select>
 				</div>
 				<div class="field full">
-					<label for="c-mission">Mission</label>
-					<textarea id="c-mission" rows="3" placeholder="Wofür steht deine Firma? Was soll das Team erreichen?" bind:value={cMission}></textarea>
+					<label for="c-mission">{i18n.t('agents.mission')}</label>
+					<textarea id="c-mission" rows="3" placeholder={i18n.t('agents.missionPlaceholder')} bind:value={cMission}></textarea>
 				</div>
 				<div class="head-actions">
 					<button class="btn primary" onclick={saveCompany} disabled={savingCompany}>
-						{savingCompany ? 'Speichere …' : 'Speichern'}
+						{savingCompany ? i18n.t('agents.saving') : i18n.t('agents.save')}
 					</button>
 					{#if activeTemplate}
 						<button class="btn ghost" onclick={applyTemplate}>
@@ -358,23 +356,23 @@
 								<path d="M12 3v6m0 0 3-3m-3 3L9 6" />
 								<path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
 							</svg>
-							Rollen aus Vorlage übernehmen
+							{i18n.t('agents.applyTemplate')}
 						</button>
 					{/if}
 				</div>
 				{#if activeTemplate}
-					<p class="hint mono">Vorlage „{activeTemplate.label}" schlägt {activeTemplate.roles.length} Rollen vor.</p>
+					<p class="hint mono">{i18n.t('agents.templateSuggests').replace('{label}', activeTemplate.label).replace('{count}', String(activeTemplate.roles.length))}</p>
 				{/if}
 			</div>
 		</section>
 
 		<!-- Roles -->
 		<section class="block">
-			<h2 class="cat">Rollen</h2>
+			<h2 class="cat">{i18n.t('agents.roles')}</h2>
 			{#if company.roles.length === 0}
 				<div class="empty small">
 					<span class="big">🧩</span>
-					<p>Noch keine Rollen. Lege Rollen an oder übernimm eine Branchen-Vorlage.</p>
+					<p>{i18n.t('agents.noRoles')}</p>
 				</div>
 			{:else}
 				<div class="list">
@@ -384,25 +382,25 @@
 								<strong>{r.title}</strong>
 								{#if r.description}<span class="row-sub">{r.description}</span>{/if}
 							</div>
-							<button class="x" aria-label="Rolle entfernen" onclick={() => removeRole(r.id)}>×</button>
+							<button class="x" aria-label={i18n.t('agents.removeRole')} onclick={() => removeRole(r.id)}>×</button>
 						</div>
 					{/each}
 				</div>
 			{/if}
 			<div class="add-form">
-				<input type="text" placeholder="Rollen-Titel" bind:value={roleTitle} autocomplete="off" />
-				<input type="text" placeholder="Beschreibung (optional)" bind:value={roleDesc} autocomplete="off" />
-				<button class="btn ghost" onclick={addRole} disabled={!roleTitle.trim()}>Hinzufügen</button>
+				<input type="text" placeholder={i18n.t('agents.roleTitlePlaceholder')} bind:value={roleTitle} autocomplete="off" />
+				<input type="text" placeholder={i18n.t('agents.roleDescPlaceholder')} bind:value={roleDesc} autocomplete="off" />
+				<button class="btn ghost" onclick={addRole} disabled={!roleTitle.trim()}>{i18n.t('agents.add')}</button>
 			</div>
 		</section>
 
 		<!-- Sub-agents -->
 		<section class="block">
-			<h2 class="cat">Unteragenten</h2>
+			<h2 class="cat">{i18n.t('agents.subagents')}</h2>
 			{#if company.agents.length === 0}
 				<div class="empty small">
 					<span class="big">🤝</span>
-					<p>Noch keine Unteragenten. Stelle dein Team zusammen — gib jedem eine Rolle und eine Persönlichkeit.</p>
+					<p>{i18n.t('agents.noSubagents')}</p>
 				</div>
 			{:else}
 				<div class="list">
@@ -419,28 +417,28 @@
 									<span class="chip-emoji">{persona.emoji || '🙂'}</span>
 									<span>{persona.name}</span>
 								{:else}
-									<span class="muted">keine Persona</span>
+									<span class="muted">{i18n.t('agents.noPersona')}</span>
 								{/if}
 							</div>
-							<button class="task-btn" title="Aufgabe geben" onclick={() => openTask(a)}>Aufgabe</button>
-							<button class="x" aria-label="Agent entfernen" onclick={() => removeAgent(a.id)}>×</button>
+							<button class="task-btn" title={i18n.t('agents.taskTitle')} onclick={() => openTask(a)}>{i18n.t('agents.task')}</button>
+							<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)}>×</button>
 						</div>
 					{/each}
 				</div>
 			{/if}
 			<div class="add-form agent-form">
-				<input type="text" placeholder="Name" bind:value={agentName} autocomplete="off" />
-				<input type="text" placeholder="Rolle" bind:value={agentRole} list="role-suggestions" autocomplete="off" />
+				<input type="text" placeholder={i18n.t('agents.namePlaceholder')} bind:value={agentName} autocomplete="off" />
+				<input type="text" placeholder={i18n.t('agents.rolePlaceholder')} bind:value={agentRole} list="role-suggestions" autocomplete="off" />
 				<datalist id="role-suggestions">
 					{#each company.roles as r (r.id)}<option value={r.title}></option>{/each}
 				</datalist>
 				<select bind:value={agentPersona}>
-					<option value="">Persönlichkeit wählen …</option>
+					<option value="">{i18n.t('agents.choosePersona')}</option>
 					{#each personas as p (p.id)}
 						<option value={p.id}>{(p.emoji || '🙂') + ' ' + p.name}</option>
 					{/each}
 				</select>
-				<button class="btn ghost" onclick={addAgent} disabled={!agentName.trim()}>Anlegen</button>
+				<button class="btn ghost" onclick={addAgent} disabled={!agentName.trim()}>{i18n.t('agents.createAgent')}</button>
 			</div>
 		</section>
 	{/if}
@@ -454,7 +452,7 @@
 			class="dialog"
 			role="dialog"
 			aria-modal="true"
-			aria-label="Persönlichkeit bearbeiten"
+			aria-label={i18n.t('agents.dialogLabel')}
 			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={() => {}}
@@ -462,29 +460,29 @@
 			<div class="dhead">
 				<span class="emoji big">{editor.emoji || '🙂'}</span>
 				<div>
-					<h3>{editor.id ? (readOnly ? 'Persönlichkeit ansehen' : 'Persönlichkeit bearbeiten') : 'Neue Persönlichkeit'}</h3>
-					<span class="eyebrow">{readOnly ? 'Eingebaute Vorlage · schreibgeschützt' : 'Charakter & Auftrag'}</span>
+					<h3>{editor.id ? (readOnly ? i18n.t('agents.editorView') : i18n.t('agents.editorEdit')) : i18n.t('agents.editorNew')}</h3>
+					<span class="eyebrow">{readOnly ? i18n.t('agents.editorReadonly') : i18n.t('agents.editorSubtitle')}</span>
 				</div>
 			</div>
 
 			<div class="fields">
 				<div class="two">
 					<label>
-						<span>Emoji</span>
+						<span>{i18n.t('agents.emoji')}</span>
 						<input type="text" maxlength="4" placeholder="🙂" bind:value={editor.emoji} disabled={readOnly} autocomplete="off" />
 					</label>
 					<label class="grow">
-						<span>Name</span>
-						<input type="text" placeholder="z. B. Strategin" bind:value={editor.name} disabled={readOnly} autocomplete="off" />
+						<span>{i18n.t('agents.name')}</span>
+						<input type="text" placeholder={i18n.t('agents.personaNamePlaceholder')} bind:value={editor.name} disabled={readOnly} autocomplete="off" />
 					</label>
 				</div>
 				<label>
-					<span>Tagline</span>
-					<input type="text" placeholder="Kurzbeschreibung in einem Satz" bind:value={editor.tagline} disabled={readOnly} autocomplete="off" />
+					<span>{i18n.t('agents.tagline')}</span>
+					<input type="text" placeholder={i18n.t('agents.taglinePlaceholder')} bind:value={editor.tagline} disabled={readOnly} autocomplete="off" />
 				</label>
 				<label>
-					<span>System-Prompt</span>
-					<textarea rows="6" placeholder="Wie soll diese Persönlichkeit denken, antworten, sich verhalten?" bind:value={editor.systemPrompt} disabled={readOnly}></textarea>
+					<span>{i18n.t('agents.systemPrompt')}</span>
+					<textarea rows="6" placeholder={i18n.t('agents.systemPromptPlaceholder')} bind:value={editor.systemPrompt} disabled={readOnly}></textarea>
 				</label>
 			</div>
 
@@ -493,10 +491,10 @@
 			{/if}
 
 			<div class="dactions">
-				<button class="btn ghost" onclick={closeEditor}>{readOnly ? 'Schließen' : 'Abbrechen'}</button>
+				<button class="btn ghost" onclick={closeEditor}>{readOnly ? i18n.t('agents.close') : i18n.t('agents.cancel')}</button>
 				{#if !readOnly}
 					<button class="btn primary" onclick={savePersona} disabled={editor.busy}>
-						{editor.busy ? 'Speichere …' : editor.id ? 'Änderungen speichern' : 'Anlegen'}
+						{editor.busy ? i18n.t('agents.saving') : editor.id ? i18n.t('agents.saveChanges') : i18n.t('agents.create')}
 					</button>
 				{/if}
 			</div>
@@ -507,12 +505,12 @@
 {#if taskAgent}
 	<div class="task-overlay" role="button" tabindex="0" onclick={() => (taskAgent = null)} onkeydown={(e) => e.key === 'Escape' && (taskAgent = null)}>
 		<div class="task-dialog" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
-			<h3>Aufgabe für {taskAgent.name}</h3>
+			<h3>{i18n.t('agents.taskFor').replace('{name}', taskAgent.name)}</h3>
 			<p class="task-role">{taskAgent.role}</p>
-			<textarea bind:value={taskInput} rows="3" placeholder="Was soll {taskAgent.name} erledigen?"></textarea>
+			<textarea bind:value={taskInput} rows="3" placeholder={i18n.t('agents.taskPlaceholder').replace('{name}', taskAgent.name)}></textarea>
 			<div class="task-actions">
-				<button class="tbtn ghost" onclick={() => (taskAgent = null)}>Schließen</button>
-				<button class="tbtn primary" onclick={runTask} disabled={taskBusy || !taskInput.trim()}>{taskBusy ? 'Arbeitet …' : 'Ausführen'}</button>
+				<button class="tbtn ghost" onclick={() => (taskAgent = null)}>{i18n.t('agents.close')}</button>
+				<button class="tbtn primary" onclick={runTask} disabled={taskBusy || !taskInput.trim()}>{taskBusy ? i18n.t('agents.running') : i18n.t('agents.run')}</button>
 			</div>
 			{#if taskResult}<div class="task-result">{taskResult}</div>{/if}
 		</div>
