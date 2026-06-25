@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { resolveModelTarget, engineChat, type ChatMsg } from '$lib/server/engine';
 import { buildAddonTools } from '$lib/server/tools';
+import { applyAigate, getAigateMode } from '$lib/server/aigate';
 
 // Streamt die Modell-Antwort als SSE. Events: {type:'reasoning'|'content'|'done'|'error'}.
 export async function POST({ request }) {
@@ -26,6 +27,22 @@ export async function POST({ request }) {
 	}
 
 	const target = await resolveModelTarget();
+	// aigate: Cloud-Ziele auf Geheimnisse prüfen.
+	if (target && /api\.openai\.com|anthropic/i.test(target.base)) {
+		const guard = applyAigate(messages, getAigateMode());
+		if (guard.blocked) {
+			const types = [...new Set(guard.hits.map((h) => h.type))].join(', ');
+			const stream = new ReadableStream({
+				start(c) {
+					c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content', text: `aigate hat mögliche Geheimnisse erkannt (${types}) — Cloud-Versand blockiert.` })}\n\n`));
+					c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+					c.close();
+				}
+			});
+			return new Response(stream, { headers: sseHeaders() });
+		}
+		messages = guard.messages;
+	}
 
 	if (!target) {
 		const stream = new ReadableStream({

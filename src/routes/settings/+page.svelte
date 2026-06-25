@@ -20,13 +20,22 @@
 	let pwMsg = $state('');
 	let pwOk = $state(false);
 	let busy = $state(false);
+	let aigateMode = $state('redact');
 
 	onMount(async () => {
 		try {
 			const d = await (await fetch('/api/auth')).json();
 			me = d.user;
 		} catch { /* ignore */ }
+		try {
+			const a = await (await fetch('/api/aigate')).json();
+			if (a.mode) aigateMode = a.mode;
+		} catch { /* ignore */ }
 	});
+	async function setAigate(mode: string) {
+		aigateMode = mode;
+		await fetch('/api/aigate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
+	}
 
 	async function changePw() {
 		pwMsg = ''; pwOk = false;
@@ -104,6 +113,17 @@
 		{/if}
 	</section>
 
+	<!-- aigate Cloud-Schutz -->
+	<section class="card">
+		<h2>{i18n.t('settings.aigate')} <span class="prem">Premium</span></h2>
+		<p class="lbl">{i18n.t('settings.aigateHint')}</p>
+		<div class="seg">
+			<button class:sel={aigateMode === 'off'} onclick={() => setAigate('off')}>{i18n.t('settings.aigateOff')}</button>
+			<button class:sel={aigateMode === 'redact'} onclick={() => setAigate('redact')}>{i18n.t('settings.aigateRedact')}</button>
+			<button class:sel={aigateMode === 'block'} onclick={() => setAigate('block')}>{i18n.t('settings.aigateBlock')}</button>
+		</div>
+	</section>
+
 	<!-- KI -->
 	<section class="card">
 		<h2>{i18n.t('settings.model')}</h2>
@@ -165,4 +185,5 @@
 	.msg.ok { background: var(--sage-soft); color: var(--sage); }
 	.about p { color: var(--text-muted); font-size: 13.5px; margin: 0 0 8px; }
 	.about a { color: var(--ember-bright); }
+	.prem { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ember-bright); background: var(--ember-soft); border: 1px solid var(--ember-line); padding: 2px 7px; border-radius: 999px; vertical-align: middle; margin-left: 6px; }
 </style>

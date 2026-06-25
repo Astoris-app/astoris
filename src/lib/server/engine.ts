@@ -7,6 +7,7 @@ import { env } from '$env/dynamic/private';
 import { getDecrypted } from './store';
 import { buildAddonTools, runAddonTool } from './tools';
 import { scanInjection, wrapAsData } from './promptGuard';
+import { applyAigate, getAigateMode } from './aigate';
 
 export const ENGINE_URL = env.ENGINE_URL ?? 'http://localhost:8081';
 const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
@@ -185,8 +186,11 @@ export async function engineChat(messages: ChatMsg[]): Promise<ChatResult> {
 	// 2. Cloud-KI (OpenAI-kompatibel)
 	const cloud = getDecrypted('cloud-ai');
 	if (cloud?.plain?.api_key && (cloud.plain.provider || '').toLowerCase().includes('openai')) {
+		// aigate: ausgehende Cloud-Inhalte auf Geheimnisse prüfen.
+		const guard = applyAigate(messages, getAigateMode());
+		if (guard.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(guard.hits.map((h) => h.type))].join(', ')}). Cloud-Versand blockiert.` };
 		try {
-			return await chatOpenAICompat('https://api.openai.com', cloud.plain.api_key, messages);
+			return await chatOpenAICompat('https://api.openai.com', cloud.plain.api_key, guard.messages);
 		} catch {
 			return { source: 'demo', reply: 'Cloud-KI ist gerade nicht erreichbar. Bitte erneut versuchen.' };
 		}
