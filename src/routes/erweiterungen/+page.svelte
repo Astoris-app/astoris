@@ -3,6 +3,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import CodeEditor from '$lib/components/CodeEditor.svelte';
+	import InfoHint from '$lib/components/InfoHint.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 
 	const DEFAULT_ICON = 'M4 8V5a1 1 0 0 1 1-1h3a2 2 0 1 1 4 0h3a1 1 0 0 1 1 1v3a2 2 0 1 0 0 4v3a1 1 0 0 1-1 1h-3a2 2 0 1 0-4 0H5a1 1 0 0 1-1-1v-3a2 2 0 1 1 0-4z';
@@ -139,13 +140,13 @@
 		<div class="body">
 			<div class="warn">{i18n.t('erweiterungen.codeWarn')}</div>
 			<div class="row">
-				<label>{i18n.t('erweiterungen.nameLabel')}<input bind:value={editor.name} placeholder="Mein Add-on" /></label>
-				{#if editor.isNew}<label>{i18n.t('erweiterungen.idLabel')}<input bind:value={editor.id} placeholder="mein-addon" /></label>{/if}
+				<label>{i18n.t('erweiterungen.nameLabel')} <InfoHint text={i18n.t('erweiterungen.nameHint')} /><input bind:value={editor.name} placeholder="Mein Add-on" /></label>
+				{#if editor.isNew}<label>{i18n.t('erweiterungen.idLabel')} <InfoHint text={i18n.t('erweiterungen.idHint')} /><input bind:value={editor.id} placeholder="mein-addon" /></label>{/if}
 			</div>
-			<label class="full">{i18n.t('erweiterungen.codeLabel')}
+			<label class="full">{i18n.t('erweiterungen.codeLabel')} <InfoHint text={i18n.t('erweiterungen.codeHint')} />
 				<CodeEditor bind:value={editor.code} placeholder={i18n.t('erweiterungen.codePlaceholder')} />
 			</label>
-			<label class="full">{i18n.t('erweiterungen.testInput')}
+			<label class="full">{i18n.t('erweiterungen.testInput')} <InfoHint text={i18n.t('erweiterungen.testHint')} />
 				<input class="mono" bind:value={testInput} placeholder={'{ "name": "Welt" }'} />
 			</label>
 			{#if testRes}<pre class="out">{testRes}</pre>{/if}

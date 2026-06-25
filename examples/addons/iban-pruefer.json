@@ -1,0 +1,11 @@
+{
+  "id": "iban-pruefer",
+  "name": "IBAN-Prüfer",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Prüft eine IBAN auf Gültigkeit (Mod-97-Prüfsumme). Funktioniert offline — ideal für Rechnungen & Buchhaltung.",
+  "inputHint": "{ \"iban\": \"CH93 0076 2011 6238 5295 7\" }",
+  "code": "// Prüft eine IBAN per Mod-97-Prüfsumme (ISO 13616). Kein Internet nötig.\n// Eingabe: { iban: string }  →  Ausgabe: { gueltig, land, iban }\nasync function run(input) {\n  const raw = String((input && input.iban) || '').replace(/\\s+/g, '').toUpperCase();\n  if (!/^[A-Z]{2}[0-9A-Z]{13,32}$/.test(raw)) return { gueltig: false, grund: 'Format ungueltig' };\n  const rearranged = raw.slice(4) + raw.slice(0, 4);\n  const numeric = rearranged.replace(/[A-Z]/g, c => (c.charCodeAt(0) - 55).toString());\n  let remainder = 0;\n  for (const d of numeric) remainder = (remainder * 10 + Number(d)) % 97;\n  return { gueltig: remainder === 1, land: raw.slice(0, 2), iban: raw };\n}"
+}

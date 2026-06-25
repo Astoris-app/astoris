@@ -6,6 +6,7 @@
 	import { engine } from '$lib/stores/engine.svelte';
 	import { theme } from '$lib/stores/theme.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { hints } from '$lib/stores/hints.svelte';
 
 	let { children } = $props();
 	// Onboarding läuft ohne App-Rail (eigener Vollbild-Flow).
@@ -14,6 +15,7 @@
 	onMount(() => {
 		theme.init();
 		i18n.init();
+		hints.init();
 		engine.start();
 		return () => engine.stop();
 	});

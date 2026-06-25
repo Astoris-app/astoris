@@ -1,0 +1,11 @@
+{
+  "id": "passwort-generator",
+  "name": "Passwort-Generator",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Erzeugt ein Passwort. Länge und Sonderzeichen einstellbar. Kein Internet nötig.",
+  "inputHint": "{ \"laenge\": 16, \"sonderzeichen\": true }",
+  "code": "// Erzeugt ein Passwort. Eingabe: { laenge?: number, sonderzeichen?: boolean }\n// Hinweis: Demo nutzt Math.random (fuer echte Schluessel crypto verwenden).\nasync function run(input) {\n  const laenge = Math.min(64, Math.max(8, Number((input && input.laenge) || 16)));\n  const sonder = !input || input.sonderzeichen !== false;\n  let pool = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n  if (sonder) pool += '!@#$%^&*()-_=+[]{}';\n  let pw = '';\n  for (let i = 0; i < laenge; i++) pw += pool[Math.floor(Math.random() * pool.length)];\n  return { passwort: pw, laenge };\n}"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "wetter",
+  "name": "Wetter-Abfrage",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Holt das aktuelle Wetter für einen Ort über open-meteo (kostenlos, kein Schlüssel). Zeigt, wie Add-ons Live-Daten holen.",
+  "inputHint": "{ \"stadt\": \"Basel\" }",
+  "code": "// Live-Wetter ueber open-meteo (gratis). Verkettet Geocoding + Wetter-Abruf.\n// Eingabe: { stadt: string }\nasync function run(input) {\n  const stadt = String((input && input.stadt) || 'Basel');\n  const geo = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&name=' + encodeURIComponent(stadt))).json();\n  if (!geo.results || !geo.results[0]) return { fehler: 'Ort nicht gefunden' };\n  const g = geo.results[0];\n  const w = await (await fetch('https://api.open-meteo.com/v1/forecast?current=temperature_2m,wind_speed_10m,weather_code&latitude=' + g.latitude + '&longitude=' + g.longitude)).json();\n  const c = w.current || {};\n  return { ort: g.name, land: g.country, temperaturC: c.temperature_2m, windKmh: c.wind_speed_10m, wettercode: c.weather_code };\n}"
+}

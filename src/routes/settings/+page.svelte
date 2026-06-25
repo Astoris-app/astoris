@@ -5,6 +5,7 @@
 	import { theme, ACCENTS } from '$lib/stores/theme.svelte';
 	import { engine } from '$lib/stores/engine.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { hints } from '$lib/stores/hints.svelte';
 
 	const densities = $derived([
 		{ id: 'kompakt', label: i18n.t('settings.compact') },
@@ -77,6 +78,11 @@
 		<div class="seg">
 			<button class:sel={i18n.lang === 'de'} onclick={() => i18n.set('de')}>Deutsch</button>
 			<button class:sel={i18n.lang === 'en'} onclick={() => i18n.set('en')}>English</button>
+		</div>
+		<p class="lbl">{i18n.t('settings.hints')}</p>
+		<div class="seg">
+			<button class:sel={hints.enabled} onclick={() => hints.set(true)}>{i18n.t('settings.on')}</button>
+			<button class:sel={!hints.enabled} onclick={() => hints.set(false)}>{i18n.t('settings.off')}</button>
 		</div>
 	</section>
 
