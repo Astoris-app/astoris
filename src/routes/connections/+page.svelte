@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 	import { CONNECTORS, type Connector } from '$lib/connectors';
 
 	type Status = 'ok' | 'error' | 'untested';
@@ -51,7 +52,7 @@
 			});
 			const data = await res.json();
 			if (!res.ok) {
-				result = { ok: false, message: data.message ?? 'Fehler.' };
+				result = { ok: false, message: data.message ?? i18n.t('connections.error') };
 			} else {
 				result = data.result;
 				if (!testOnly && data.saved) {
@@ -60,7 +61,7 @@
 				}
 			}
 		} catch {
-			result = { ok: false, message: 'Netzwerkfehler.' };
+			result = { ok: false, message: i18n.t('connections.networkError') };
 		} finally {
 			testing = false;
 		}
@@ -72,12 +73,11 @@
 	}
 </script>
 
-<AppHeader title="Verbindungen" eyebrow="Was die KI bedienen darf" />
+<AppHeader title={i18n.t('connections.title')} eyebrow={i18n.t('connections.eyebrow')} />
 
 <div class="scroll">
 	<p class="lead">
-		Verbinde deine Alltags-Konten. Jede Verbindung wird beim Speichern live getestet, und die KI
-		darf ausschließlich, was du je Verbindung erlaubst — sensible Aktionen sind standardmäßig aus.
+		{i18n.t('connections.lead')}
 	</p>
 
 	{#each categories as cat (cat)}
@@ -89,19 +89,19 @@
 						<div class="top">
 							<div class="ico"><Icon path={c.icon} size={20} /></div>
 							{#if saved[c.id] === 'ok'}
-								<span class="state ok mono">verbunden</span>
+								<span class="state ok mono">{i18n.t('connections.connected')}</span>
 							{:else if saved[c.id] === 'untested'}
-								<span class="state warn mono">aktiv</span>
+								<span class="state warn mono">{i18n.t('connections.active')}</span>
 							{/if}
 						</div>
 						<h3>{c.name}</h3>
 						<p>{c.blurb}</p>
 						<div class="actions">
 							{#if saved[c.id]}
-								<button class="btn ghost" onclick={() => disconnect(c.id)}>Trennen</button>
-								<button class="btn ghost" onclick={() => open(c)}>Bearbeiten</button>
+								<button class="btn ghost" onclick={() => disconnect(c.id)}>{i18n.t('connections.disconnect')}</button>
+								<button class="btn ghost" onclick={() => open(c)}>{i18n.t('connections.edit')}</button>
 							{:else}
-								<button class="btn primary" onclick={() => open(c)}>Verbinden</button>
+								<button class="btn primary" onclick={() => open(c)}>{i18n.t('connections.connect')}</button>
 							{/if}
 						</div>
 					</article>
@@ -117,7 +117,7 @@
 			class="dialog"
 			role="dialog"
 			aria-modal="true"
-			aria-label="{active.name} verbinden"
+			aria-label="{active.name} {i18n.t('connections.connectTitle')}"
 			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={() => {}}
@@ -125,7 +125,7 @@
 			<div class="dhead">
 				<div class="ico"><Icon path={active.icon} size={20} /></div>
 				<div>
-					<h3>{active.name} verbinden</h3>
+					<h3>{active.name} {i18n.t('connections.connectTitle')}</h3>
 					<span class="eyebrow">{active.category}</span>
 				</div>
 			</div>
@@ -133,7 +133,7 @@
 			<div class="fields">
 				{#each active.fields as f (f.key)}
 					<label>
-						<span>{f.label}{#if f.optional}<em class="opt">optional</em>{/if}</span>
+						<span>{f.label}{#if f.optional}<em class="opt">{i18n.t('connections.optional')}</em>{/if}</span>
 						<input
 							type={f.type === 'password' ? 'password' : 'text'}
 							placeholder={f.placeholder ?? ''}
@@ -146,13 +146,13 @@
 			</div>
 
 			<div class="perms">
-				<span class="eyebrow">Berechtigungen</span>
+				<span class="eyebrow">{i18n.t('connections.permissions')}</span>
 				{#each active.scopes as s (s.id)}
 					<label class="perm">
 						<input type="checkbox" bind:checked={scopeState[s.id]} />
 						<span class="pl">
 							{s.label}
-							{#if s.sensitive}<em>sensibel</em>{/if}
+							{#if s.sensitive}<em>{i18n.t('connections.sensitive')}</em>{/if}
 						</span>
 					</label>
 				{/each}
@@ -167,13 +167,13 @@
 
 			<div class="dactions">
 				<button class="btn ghost" onclick={() => submit(true)} disabled={testing}>
-					{testing ? 'Teste …' : 'Testen'}
+					{testing ? i18n.t('connections.testing') : i18n.t('connections.test')}
 				</button>
 				<button class="btn primary" onclick={() => submit(false)} disabled={testing}>
-					{testing ? 'Prüfe …' : 'Verbinden & speichern'}
+					{testing ? i18n.t('connections.checking') : i18n.t('connections.connectSave')}
 				</button>
 			</div>
-			<p class="hint mono">Zugangsdaten werden AES-256-verschlüsselt gespeichert · verlassen nie deinen Server</p>
+			<p class="hint mono">{i18n.t('connections.credsNote')}</p>
 		</div>
 	</div>
 {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 	import { encryptMessage, decryptMessage, encryptFile, decryptFile, isEncryptedBlock } from '$lib/crypto/messageCrypto';
 
 	let mode = $state<'enc' | 'dec'>('enc');
@@ -22,13 +23,13 @@
 
 	async function run() {
 		err = ''; output = ''; decFile = null; copied = false;
-		if (!pass) { err = 'Bitte eine Passphrase eingeben.'; return; }
+		if (!pass) { err = i18n.t('tresor.needPassphrase'); return; }
 		busy = true;
 		try {
 			if (mode === 'enc') {
 				if (fileIn) output = await encryptFile(fileIn, pass);
 				else if (input.trim()) output = await encryptMessage(input, pass);
-				else err = 'Nichts zu verschlüsseln.';
+				else err = i18n.t('tresor.nothingToEncrypt');
 			} else {
 				const kind = isEncryptedBlock(input);
 				if (kind === 'file') {
@@ -39,7 +40,7 @@
 				}
 			}
 		} catch (e: any) {
-			err = e?.message?.includes('Secure Context') ? e.message : 'Fehlgeschlagen — falsche Passphrase oder beschädigter Block.';
+			err = e?.message?.includes('Secure Context') ? e.message : i18n.t('tresor.failed');
 		} finally {
 			busy = false;
 		}
@@ -72,19 +73,19 @@
 	function reset() { input = ''; output = ''; err = ''; fileIn = null; decFile = null; if (fileInput) fileInput.value = ''; }
 
 	// --- Teilen ---
-	const SHARE_SUBJECT = 'Verschlüsselte Nachricht (Astoris)';
+	const shareSubject = $derived(i18n.t('tresor.shareSubject'));
 	const tooLongForLink = $derived(output.length > 1500); // Messenger-URL-Limit
 
 	async function shareNative() {
-		try { await navigator.share({ title: SHARE_SUBJECT, text: output }); } catch { /* abgebrochen */ }
+		try { await navigator.share({ title: shareSubject, text: output }); } catch { /* abgebrochen */ }
 	}
 	function shareVia(platform: string) {
 		const t = encodeURIComponent(output);
 		const links: Record<string, string> = {
 			telegram: `https://t.me/share/url?url=${encodeURIComponent('https://astoris.org')}&text=${t}`,
 			whatsapp: `https://wa.me/?text=${t}`,
-			gmail: `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(SHARE_SUBJECT)}&body=${t}`,
-			email: `mailto:?subject=${encodeURIComponent(SHARE_SUBJECT)}&body=${t}`
+			gmail: `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(shareSubject)}&body=${t}`,
+			email: `mailto:?subject=${encodeURIComponent(shareSubject)}&body=${t}`
 		};
 		const u = links[platform];
 		if (u) window.open(u, '_blank', 'noopener');
@@ -99,47 +100,47 @@
 	}
 </script>
 
-<AppHeader title="Tresor" eyebrow="Ende-zu-Ende verschlüsselt" />
+<AppHeader title={i18n.t('tresor.title')} eyebrow={i18n.t('tresor.eyebrow')} />
 
 <div class="wrap">
 	{#if !secure}
 		<div class="banner">
-			🔒 Verschlüsselung braucht <strong>HTTPS</strong>. Öffne Astoris über <code>https://</code>.
+			🔒 {i18n.t('tresor.httpsBanner')} <strong>HTTPS</strong>. {i18n.t('tresor.httpsBannerSuffix')} <code>https://</code>.
 		</div>
 	{/if}
 
 	<div class="toggle">
-		<button class:active={mode === 'enc'} onclick={() => { mode = 'enc'; reset(); }}>Verschlüsseln</button>
-		<button class:active={mode === 'dec'} onclick={() => { mode = 'dec'; reset(); }}>Entschlüsseln</button>
+		<button class:active={mode === 'enc'} onclick={() => { mode = 'enc'; reset(); }}>{i18n.t('tresor.encrypt')}</button>
+		<button class:active={mode === 'dec'} onclick={() => { mode = 'dec'; reset(); }}>{i18n.t('tresor.decrypt')}</button>
 	</div>
 
 	<label class="field">
-		<span>Passphrase <em>(teile sie nur über einen sicheren Kanal)</em></span>
-		<input type="password" bind:value={pass} placeholder="gemeinsames Geheimwort" autocomplete="off" />
+		<span>{i18n.t('tresor.passphrase')} <em>{i18n.t('tresor.passphraseHint')}</em></span>
+		<input type="password" bind:value={pass} placeholder={i18n.t('tresor.passphrasePlaceholder')} autocomplete="off" />
 	</label>
 
 	{#if mode === 'enc'}
 		<label class="field">
-			<span>Nachricht</span>
-			<textarea bind:value={input} rows="5" placeholder="Klartext eingeben …" disabled={!!fileIn}></textarea>
+			<span>{i18n.t('tresor.message')}</span>
+			<textarea bind:value={input} rows="5" placeholder={i18n.t('tresor.plaintextPlaceholder')} disabled={!!fileIn}></textarea>
 		</label>
 		<div class="orfile">
-			<span class="or">oder Datei</span>
+			<span class="or">{i18n.t('tresor.orFile')}</span>
 			<input type="file" bind:this={fileInput} onchange={pickFile} />
 			{#if fileIn}
 				<span class="fname">{fileIn.name}</span>
-				<button class="rmfile" onclick={clearFile} title="Anhang entfernen" aria-label="Anhang entfernen">×</button>
+				<button class="rmfile" onclick={clearFile} title={i18n.t('tresor.removeAttachment')} aria-label={i18n.t('tresor.removeAttachment')}>×</button>
 			{/if}
 		</div>
 	{:else}
 		<label class="field">
-			<span>Verschlüsselter Block</span>
-			<textarea bind:value={input} rows="5" placeholder="🛡️QR-ENC:… hier einfügen"></textarea>
+			<span>{i18n.t('tresor.encryptedBlock')}</span>
+			<textarea bind:value={input} rows="5" placeholder={i18n.t('tresor.encryptedBlockPlaceholder')}></textarea>
 		</label>
 	{/if}
 
 	<button class="run" onclick={run} disabled={busy || !secure}>
-		{busy ? 'Arbeite …' : mode === 'enc' ? 'Verschlüsseln' : 'Entschlüsseln'}
+		{busy ? i18n.t('tresor.working') : mode === 'enc' ? i18n.t('tresor.encrypt') : i18n.t('tresor.decrypt')}
 	</button>
 
 	{#if err}<div class="msg bad">{err}</div>{/if}
@@ -147,19 +148,19 @@
 	{#if output}
 		<div class="result">
 			<div class="rhead">
-				<span class="eyebrow">{mode === 'enc' ? 'Verschlüsselt — zum Versenden' : 'Entschlüsselt'}</span>
-				<button class="mini" onclick={copyOut}>{copied ? '✓ kopiert' : 'Kopieren'}</button>
+				<span class="eyebrow">{mode === 'enc' ? i18n.t('tresor.encryptedResult') : i18n.t('tresor.decryptedResult')}</span>
+				<button class="mini" onclick={copyOut}>{copied ? i18n.t('tresor.copied') : i18n.t('tresor.copy')}</button>
 			</div>
 			<pre class="out">{output}</pre>
 
 			{#if mode === 'enc'}
 				<div class="share">
-					<span class="eyebrow">Teilen</span>
+					<span class="eyebrow">{i18n.t('tresor.share')}</span>
 					<div class="sbtns">
 						{#if canShare}
-							<button class="sb native" onclick={shareNative} title="Teilen …">
+							<button class="sb native" onclick={shareNative} title={i18n.t('tresor.shareNative')}>
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8 15.8 6.2M8.2 13.2l7.6 4.6"/></svg>
-								<span>Teilen…</span>
+								<span>{i18n.t('tresor.shareNative')}</span>
 							</button>
 						{/if}
 						<button class="sb tg" onclick={() => shareVia('telegram')} disabled={tooLongForLink} title="Telegram">
@@ -178,16 +179,16 @@
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 0 0-7 11.8L4 20l4.2-1A8 8 0 1 0 12 4z"/></svg>
 							<span>Signal</span>
 						</button>
-						<button class="sb mail" onclick={() => shareVia('email')} disabled={tooLongForLink} title="E-Mail">
+						<button class="sb mail" onclick={() => shareVia('email')} disabled={tooLongForLink} title={i18n.t('tresor.email')}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 6.5 12 13l8.5-6.5"/></svg>
-							<span>E-Mail</span>
+							<span>{i18n.t('tresor.email')}</span>
 						</button>
 					</div>
 					{#if signalNote}
-						<p class="hint mono">In die Zwischenablage kopiert — in Signal einfügen (Signal bietet keinen Direkt-Link).</p>
+						<p class="hint mono">{i18n.t('tresor.signalNote')}</p>
 					{/if}
 					{#if tooLongForLink}
-						<p class="hint mono">Block zu groß für Direkt-Links — nutze „Teilen…" oder „Kopieren" und füge ihn manuell ein.</p>
+						<p class="hint mono">{i18n.t('tresor.tooLongNote')}</p>
 					{/if}
 				</div>
 			{/if}
@@ -196,8 +197,8 @@
 
 	{#if decFile}
 		<div class="result">
-			<div class="rhead"><span class="eyebrow">Datei entschlüsselt</span></div>
-			<button class="run" onclick={saveFile}>„{decFile.name}" speichern</button>
+			<div class="rhead"><span class="eyebrow">{i18n.t('tresor.fileDecrypted')}</span></div>
+			<button class="run" onclick={saveFile}>„{decFile.name}" {i18n.t('tresor.saveFile')}</button>
 		</div>
 	{/if}
 </div>

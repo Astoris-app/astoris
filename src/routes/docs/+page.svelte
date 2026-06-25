@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	// Ablage mit Upload, Volltextsuche und KI-Zusammenfassung.
 
@@ -44,11 +45,11 @@
 		error = '';
 		try {
 			const res = await fetch(`/api/docs?search=${encodeURIComponent(q)}`);
-			if (!res.ok) throw new Error('Suche fehlgeschlagen');
+			if (!res.ok) throw new Error(i18n.t('docs.searchFailed'));
 			const data = await res.json();
 			hits = data.hits ?? [];
 		} catch (e: any) {
-			error = e?.message ?? 'Suche fehlgeschlagen';
+			error = e?.message ?? i18n.t('docs.searchFailed');
 		} finally {
 			searching = false;
 		}
@@ -68,12 +69,12 @@
 			const res = await fetch(`/api/docs?summarize=${doc.id}`, { method: 'POST' });
 			if (!res.ok) {
 				const msg = await res.text().catch(() => '');
-				throw new Error(msg || 'Zusammenfassung fehlgeschlagen');
+				throw new Error(msg || i18n.t('docs.summaryFailed'));
 			}
 			const data = await res.json();
 			summaries = { ...summaries, [doc.id]: data.summary ?? '' };
 		} catch (e: any) {
-			summaryError = { ...summaryError, [doc.id]: e?.message ?? 'Zusammenfassung fehlgeschlagen' };
+			summaryError = { ...summaryError, [doc.id]: e?.message ?? i18n.t('docs.summaryFailed') };
 		} finally {
 			summaryLoading = { ...summaryLoading, [doc.id]: false };
 		}
@@ -92,11 +93,11 @@
 		error = '';
 		try {
 			const res = await fetch('/api/docs');
-			if (!res.ok) throw new Error('Laden fehlgeschlagen');
+			if (!res.ok) throw new Error(i18n.t('docs.loadFailed'));
 			const data = await res.json();
 			docs = data.docs ?? [];
 		} catch (e: any) {
-			error = e?.message ?? 'Unbekannter Fehler';
+			error = e?.message ?? i18n.t('docs.unknownError');
 		} finally {
 			loading = false;
 		}
@@ -118,12 +119,12 @@
 				const res = await fetch('/api/docs', { method: 'POST', body: fd });
 				if (!res.ok) {
 					const msg = await res.text().catch(() => '');
-					throw new Error(msg || `Upload von „${file.name}“ fehlgeschlagen`);
+					throw new Error(msg || `${i18n.t('docs.uploadFailed')}: ${file.name}`);
 				}
 			}
 			await load();
 		} catch (e: any) {
-			error = e?.message ?? 'Upload fehlgeschlagen';
+			error = e?.message ?? i18n.t('docs.uploadFailed');
 		} finally {
 			uploading = false;
 		}
@@ -152,10 +153,10 @@
 		error = '';
 		try {
 			const res = await fetch(`/api/docs?id=${target.id}`, { method: 'DELETE' });
-			if (!res.ok) throw new Error('Löschen fehlgeschlagen');
+			if (!res.ok) throw new Error(i18n.t('docs.deleteFailed'));
 			await load();
 		} catch (e: any) {
-			error = e?.message ?? 'Löschen fehlgeschlagen';
+			error = e?.message ?? i18n.t('docs.deleteFailed');
 		}
 	}
 
@@ -200,7 +201,7 @@
 	}
 </script>
 
-<AppHeader title="Dokumente" eyebrow="Dein Wissensspeicher" />
+<AppHeader title={i18n.t('docs.title')} eyebrow={i18n.t('docs.eyebrow')} />
 
 <div class="wrap">
 	<!-- Dropzone: Klick oder Drag & Drop -->
@@ -231,8 +232,8 @@
 			</svg>
 		</div>
 		<div class="dz-text">
-			<strong>{uploading ? 'Lade hoch …' : 'Datei hierher ziehen oder klicken'}</strong>
-			<span>PDF, Bilder, Texte und mehr — bis 25 MB pro Datei</span>
+			<strong>{uploading ? i18n.t('docs.uploading') : i18n.t('docs.dropHint')}</strong>
+			<span>{i18n.t('docs.dropSub')}</span>
 		</div>
 		<input
 			bind:this={fileInput}
@@ -252,15 +253,15 @@
 		<input
 			class="search-input"
 			type="search"
-			placeholder="Dokumente durchsuchen …"
+			placeholder={i18n.t('docs.searchPlaceholder')}
 			bind:value={query}
 			oninput={() => { if (!query.trim()) hits = null; }}
 		/>
 		{#if query.trim()}
-			<button type="button" class="search-clear" onclick={clearSearch} aria-label="Suche zurücksetzen">×</button>
+			<button type="button" class="search-clear" onclick={clearSearch} aria-label={i18n.t('docs.clearSearch')}>×</button>
 		{/if}
 		<button type="submit" class="btn primary search-btn" disabled={searching || !query.trim()}>
-			{searching ? 'Suche …' : 'Suchen'}
+			{searching ? i18n.t('docs.searching') : i18n.t('docs.search')}
 		</button>
 	</form>
 
@@ -273,11 +274,11 @@
 		{@const matches = hits.filter((h) => h.matched)}
 		{@const skipped = hits.filter((h) => !h.searchable)}
 		<div class="count">
-			{matches.length} {matches.length === 1 ? 'Treffer' : 'Treffer'}
-			{#if skipped.length > 0} · {skipped.length} nicht durchsuchbar{/if}
+			{matches.length} {i18n.t('docs.hits')}
+			{#if skipped.length > 0} · {skipped.length} {i18n.t('docs.notSearchable')}{/if}
 		</div>
 		{#if matches.length === 0}
-			<p class="state-line">Keine Treffer für „{query}“.</p>
+			<p class="state-line">{i18n.t('docs.noHits')} „{query}".</p>
 		{:else}
 			<ul class="list">
 				{#each matches as hit (hit.id)}
@@ -296,12 +297,12 @@
 			</ul>
 		{/if}
 		{#if skipped.length > 0}
-			<p class="state-line hint">Übersprungen (binär): {skipped.map((s) => s.name).join(', ')}</p>
+			<p class="state-line hint">{i18n.t('docs.skippedBinary')} {skipped.map((s) => s.name).join(', ')}</p>
 		{/if}
 	{/if}
 
 	{#if loading}
-		<p class="state-line">Lade Dokumente …</p>
+		<p class="state-line">{i18n.t('docs.loadingDocs')}</p>
 	{:else if docs.length === 0}
 		<!-- Leerer Zustand -->
 		<div class="empty">
@@ -310,12 +311,12 @@
 					<path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 16.5h6" />
 				</svg>
 			</div>
-			<h2>Noch keine Dokumente</h2>
-			<p>Lade dein erstes Dokument hoch — es landet sicher in deinem lokalen Wissensspeicher.</p>
-			<button class="btn primary" onclick={() => fileInput.click()}>Erstes Dokument hochladen</button>
+			<h2>{i18n.t('docs.noDocs')}</h2>
+			<p>{i18n.t('docs.noDocsHint')}</p>
+			<button class="btn primary" onclick={() => fileInput.click()}>{i18n.t('docs.uploadFirst')}</button>
 		</div>
 	{:else}
-		<div class="count">{docs.length} {docs.length === 1 ? 'Dokument' : 'Dokumente'}</div>
+		<div class="count">{docs.length} {docs.length === 1 ? i18n.t('docs.document') : i18n.t('docs.documents')}</div>
 		<ul class="list">
 			{#each docs as doc (doc.id)}
 				<li class="row-wrap">
@@ -334,21 +335,21 @@
 								<button
 									class="btn ghost"
 									class:active={summaryOpen[doc.id]}
-									title="KI-Zusammenfassung"
+									title={i18n.t('docs.aiSummary')}
 									onclick={() => toggleSummary(doc)}
 								>
 									<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
 										<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8zM18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z" />
 									</svg>
-									<span class="btn-label">KI</span>
+									<span class="btn-label">{i18n.lang === 'de' ? 'KI' : 'AI'}</span>
 								</button>
 							{/if}
-							<button class="btn ghost" title="Herunterladen" onclick={() => download(doc)} aria-label="Herunterladen">
+							<button class="btn ghost" title={i18n.t('docs.download')} onclick={() => download(doc)} aria-label={i18n.t('docs.download')}>
 								<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M12 4v11M8 11l4 4 4-4M5 19h14" />
 								</svg>
 							</button>
-							<button class="btn ghost danger" title="Löschen" onclick={() => (toDelete = doc)} aria-label="Löschen">
+							<button class="btn ghost danger" title={i18n.t('docs.delete')} onclick={() => (toDelete = doc)} aria-label={i18n.t('docs.delete')}>
 								<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" />
 								</svg>
@@ -362,10 +363,10 @@
 								<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z" />
 								</svg>
-								<span>KI-Zusammenfassung</span>
+								<span>{i18n.t('docs.aiSummary')}</span>
 							</div>
 							{#if summaryLoading[doc.id]}
-								<p class="summary-state">Wird zusammengefasst …</p>
+								<p class="summary-state">{i18n.t('docs.summarizing')}</p>
 							{:else if summaryError[doc.id]}
 								<p class="summary-state err">{summaryError[doc.id]}</p>
 							{:else}
@@ -386,18 +387,18 @@
 			class="dialog"
 			role="dialog"
 			aria-modal="true"
-			aria-label="Dokument löschen"
+			aria-label={i18n.t('docs.deleteDoc')}
 			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') toDelete = null;
 			}}
 		>
-			<h3>Dokument löschen?</h3>
-			<p>„{toDelete.name}“ wird unwiderruflich entfernt.</p>
+			<h3>{i18n.t('docs.deleteDoc')}</h3>
+			<p>„{toDelete.name}" {i18n.t('docs.deleteConfirm')}</p>
 			<div class="dialog-actions">
-				<button class="btn ghost" onclick={() => (toDelete = null)}>Abbrechen</button>
-				<button class="btn primary danger-btn" onclick={confirmDelete}>Löschen</button>
+				<button class="btn ghost" onclick={() => (toDelete = null)}>{i18n.t('docs.cancel')}</button>
+				<button class="btn primary danger-btn" onclick={confirmDelete}>{i18n.t('docs.delete')}</button>
 			</div>
 		</div>
 	</div>

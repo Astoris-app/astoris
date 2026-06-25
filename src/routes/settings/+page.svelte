@@ -6,11 +6,11 @@
 	import { engine } from '$lib/stores/engine.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 
-	const densities = [
-		{ id: 'kompakt', label: 'Kompakt' },
-		{ id: 'normal', label: 'Normal' },
-		{ id: 'gross', label: 'Groß' }
-	];
+	const densities = $derived([
+		{ id: 'kompakt', label: i18n.t('settings.compact') },
+		{ id: 'normal', label: i18n.t('settings.normal') },
+		{ id: 'gross', label: i18n.t('settings.large') }
+	]);
 
 	let me = $state<{ name: string; method: string } | null>(null);
 	let oldPw = $state('');
@@ -28,16 +28,16 @@
 
 	async function changePw() {
 		pwMsg = ''; pwOk = false;
-		if (newPw.length < 8) { pwMsg = 'Neues Passwort: mindestens 8 Zeichen.'; return; }
+		if (newPw.length < 8) { pwMsg = i18n.t('settings.pwTooShort'); return; }
 		busy = true;
 		try {
 			const d = await (await fetch('/api/auth', {
 				method: 'POST', headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ action: 'change-password', oldPassword: oldPw, newPassword: newPw })
 			})).json();
-			if (d.ok) { pwOk = true; pwMsg = 'Passwort geändert.'; oldPw = ''; newPw = ''; }
-			else pwMsg = d.error ?? 'Fehlgeschlagen.';
-		} catch { pwMsg = 'Netzwerkfehler.'; }
+			if (d.ok) { pwOk = true; pwMsg = i18n.t('settings.pwChanged'); oldPw = ''; newPw = ''; }
+			else pwMsg = d.error ?? i18n.t('settings.pwFailed');
+		} catch { pwMsg = i18n.t('settings.networkError'); }
 		finally { busy = false; }
 	}
 
@@ -47,18 +47,18 @@
 	}
 </script>
 
-<AppHeader title="Einstellungen" eyebrow="Astoris anpassen" />
+<AppHeader title={i18n.t('settings.title')} eyebrow={i18n.t('settings.eyebrow')} />
 
 <div class="scroll">
 	<!-- Aussehen -->
 	<section class="card">
-		<h2>Aussehen</h2>
-		<p class="lbl">Modus</p>
+		<h2>{i18n.t('settings.appearance')}</h2>
+		<p class="lbl">{i18n.t('settings.mode')}</p>
 		<div class="seg">
-			<button class:sel={theme.mode === 'dark'} onclick={() => theme.setMode('dark')}>Dunkel</button>
-			<button class:sel={theme.mode === 'light'} onclick={() => theme.setMode('light')}>Hell</button>
+			<button class:sel={theme.mode === 'dark'} onclick={() => theme.setMode('dark')}>{i18n.t('settings.dark')}</button>
+			<button class:sel={theme.mode === 'light'} onclick={() => theme.setMode('light')}>{i18n.t('settings.light')}</button>
 		</div>
-		<p class="lbl">Akzentfarbe</p>
+		<p class="lbl">{i18n.t('settings.accent')}</p>
 		<div class="swatches">
 			{#each ACCENTS as a (a.id)}
 				<button class="sw" class:sel={theme.accent === a.id} onclick={() => theme.setAccent(a.id)} title={a.label}>
@@ -67,13 +67,13 @@
 				</button>
 			{/each}
 		</div>
-		<p class="lbl">Schriftgröße</p>
+		<p class="lbl">{i18n.t('settings.fontSize')}</p>
 		<div class="seg">
 			{#each densities as d (d.id)}
 				<button class:sel={theme.density === d.id} onclick={() => theme.setDensity(d.id)}>{d.label}</button>
 			{/each}
 		</div>
-		<p class="lbl">Sprache / Language</p>
+		<p class="lbl">{i18n.t('settings.language')}</p>
 		<div class="seg">
 			<button class:sel={i18n.lang === 'de'} onclick={() => i18n.set('de')}>Deutsch</button>
 			<button class:sel={i18n.lang === 'en'} onclick={() => i18n.set('en')}>English</button>
@@ -82,34 +82,34 @@
 
 	<!-- KI -->
 	<section class="card">
-		<h2>KI-Modell</h2>
+		<h2>{i18n.t('settings.model')}</h2>
 		<div class="row">
 			<div>
-				<strong>{engine.status.online ? engine.status.model : 'Nicht verbunden'}</strong>
+				<strong>{engine.status.online ? engine.status.model : i18n.t('settings.notConnected')}</strong>
 				<small>{engine.status.detail}</small>
 			</div>
-			<a class="btn ghost" href="/connections">Verbindungen</a>
+			<a class="btn ghost" href="/connections">{i18n.t('settings.connections')}</a>
 		</div>
 	</section>
 
 	<!-- Sicherheit -->
 	<section class="card">
-		<h2>Sicherheit</h2>
+		<h2>{i18n.t('settings.security')}</h2>
 		<div class="row">
-			<div><strong>Angemeldet als {me?.name ?? '…'}</strong><small>{me?.method === 'tailscale' ? 'via Tailscale' : 'via Passwort'}</small></div>
-			<button class="btn ghost" onclick={logout}>Abmelden</button>
+			<div><strong>{i18n.t('settings.signedInAs')} {me?.name ?? '…'}</strong><small>{me?.method === 'tailscale' ? i18n.t('settings.viaTailscale') : i18n.t('settings.viaPassword')}</small></div>
+			<button class="btn ghost" onclick={logout}>{i18n.t('settings.logout')}</button>
 		</div>
-		<p class="lbl">Passwort ändern</p>
-		<input type="password" bind:value={oldPw} placeholder="Aktuelles Passwort" autocomplete="current-password" />
-		<input type="password" bind:value={newPw} placeholder="Neues Passwort (min. 8 Zeichen)" autocomplete="new-password" />
-		<button class="btn primary" onclick={changePw} disabled={busy}>{busy ? 'Ändere …' : 'Passwort ändern'}</button>
+		<p class="lbl">{i18n.t('settings.changePw')}</p>
+		<input type="password" bind:value={oldPw} placeholder={i18n.t('settings.currentPw')} autocomplete="current-password" />
+		<input type="password" bind:value={newPw} placeholder={i18n.t('settings.newPw')} autocomplete="new-password" />
+		<button class="btn primary" onclick={changePw} disabled={busy}>{busy ? i18n.t('settings.changing') : i18n.t('settings.changePw')}</button>
 		{#if pwMsg}<div class="msg" class:ok={pwOk}>{pwMsg}</div>{/if}
 	</section>
 
 	<!-- Über -->
 	<section class="card about">
-		<h2>Über</h2>
-		<p>Astoris — dein eigener KI-Maschinenraum. Self-hosted, Open-Core.</p>
+		<h2>{i18n.t('settings.about')}</h2>
+		<p>{i18n.t('settings.aboutText')}</p>
 		<p class="mono"><a href="https://astoris.org" target="_blank" rel="noopener">astoris.org</a> · <a href="mailto:info@astoris.org">info@astoris.org</a></p>
 	</section>
 </div>

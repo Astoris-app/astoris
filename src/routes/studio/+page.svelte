@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	// Image analysis MVP. Bildgenerierung (FLUX) folgt in Verfeinerung.
 	let imageData = $state<string | null>(null); // data URL
@@ -13,7 +14,7 @@
 
 	function readFile(file: File) {
 		if (!file.type.startsWith('image/')) {
-			errMsg = 'Bitte eine Bilddatei wählen.';
+			errMsg = i18n.t('studio.pickImage');
 			return;
 		}
 		errMsg = '';
@@ -24,7 +25,7 @@
 			imageData = String(reader.result);
 		};
 		reader.onerror = () => {
-			errMsg = 'Bild konnte nicht gelesen werden.';
+			errMsg = i18n.t('studio.readFailed');
 		};
 		reader.readAsDataURL(file);
 	}
@@ -62,19 +63,19 @@
 			});
 			const data = await res.json();
 			if (!res.ok || data.error) {
-				errMsg = data.error ?? 'Analyse fehlgeschlagen.';
+				errMsg = data.error ?? i18n.t('studio.analysisFailed');
 			} else {
 				result = data.description ?? '';
 			}
 		} catch {
-			errMsg = 'Verbindung fehlgeschlagen.';
+			errMsg = i18n.t('studio.connectionFailed');
 		} finally {
 			loading = false;
 		}
 	}
 </script>
 
-<AppHeader title="Studio" eyebrow="Bild-Analyse" />
+<AppHeader title={i18n.t('studio.title')} eyebrow={i18n.t('studio.eyebrow')} />
 
 <div class="scroll">
 	<div class="inner">
@@ -104,29 +105,29 @@
 					<path d="M3.5 6.5h17v13h-17z" />
 					<path d="M7 11.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM3.5 17l5-5 4 4 3-3 5 5" />
 				</svg>
-				<span class="dtitle">Bild hochladen</span>
-				<span class="dhint">Klicken oder Datei hierher ziehen</span>
+				<span class="dtitle">{i18n.t('studio.uploadImage')}</span>
+				<span class="dhint">{i18n.t('studio.uploadHint')}</span>
 			</button>
 		{:else}
 			<div class="preview">
-				<img src={imageData} alt={fileName || 'Vorschau'} />
+				<img src={imageData} alt={fileName || i18n.t('studio.preview')} />
 				<div class="prow">
 					<span class="fname">{fileName}</span>
-					<button type="button" class="mini" onclick={reset}>Entfernen</button>
+					<button type="button" class="mini" onclick={reset}>{i18n.t('studio.remove')}</button>
 				</div>
 			</div>
 
 			<label class="field">
-				<span>Was möchtest du wissen? <em>(optional)</em></span>
+				<span>{i18n.t('studio.promptLabel')} <em>{i18n.t('studio.promptOptional')}</em></span>
 				<textarea
 					bind:value={prompt}
 					rows="2"
-					placeholder="Beschreibe dieses Bild detailliert."
+					placeholder={i18n.t('studio.promptPlaceholder')}
 				></textarea>
 			</label>
 
 			<button class="run" onclick={analyze} disabled={loading}>
-				{loading ? 'Analysiere …' : 'Analysieren'}
+				{loading ? i18n.t('studio.analyzing') : i18n.t('studio.analyze')}
 			</button>
 		{/if}
 
@@ -140,7 +141,7 @@
 			</div>
 		{:else if result}
 			<div class="result">
-				<div class="rhead"><span class="eyebrow">Beschreibung</span></div>
+				<div class="rhead"><span class="eyebrow">{i18n.t('studio.description')}</span></div>
 				<p class="out">{result}</p>
 			</div>
 		{/if}

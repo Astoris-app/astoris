@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
+	import { dict } from '$lib/i18n/dict';
 
 	// Google-Kalender-Sync folgt in Verfeinerung (über Verbindungen).
 
@@ -12,11 +14,9 @@
 		notes?: string;
 	};
 
-	const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-	const MONTHS = [
-		'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
-	];
+	// Locale-aware weekday/month labels, reactive to the active language.
+	const WEEKDAYS = $derived(dict[i18n.lang].calendar.weekdays);
+	const MONTHS = $derived(dict[i18n.lang].calendar.months);
 
 	let events = $state<CalendarEvent[]>([]);
 	let loading = $state(true);
@@ -124,11 +124,11 @@
 		errMsg = '';
 		try {
 			const res = await fetch('/api/calendar');
-			if (!res.ok) throw new Error('Laden fehlgeschlagen');
+			if (!res.ok) throw new Error(i18n.t('calendar.loadFailed'));
 			const data = await res.json();
 			events = Array.isArray(data?.events) ? data.events : [];
 		} catch (e) {
-			errMsg = e instanceof Error ? e.message : 'Unbekannter Fehler';
+			errMsg = e instanceof Error ? e.message : i18n.t('calendar.unknownError');
 		} finally {
 			loading = false;
 		}
@@ -139,7 +139,7 @@
 		formErr = '';
 		const title = fTitle.trim();
 		if (!title) {
-			formErr = 'Titel ist erforderlich.';
+			formErr = i18n.t('calendar.titleRequired');
 			return;
 		}
 		saving = true;
@@ -156,7 +156,7 @@
 			});
 			if (!res.ok) {
 				const d = await res.json().catch(() => null);
-				throw new Error(d?.message || 'Speichern fehlgeschlagen');
+				throw new Error(d?.message || i18n.t('calendar.saveFailed'));
 			}
 			const d = await res.json();
 			if (d?.event) events = [...events, d.event];
@@ -164,7 +164,7 @@
 			fTime = '';
 			fNotes = '';
 		} catch (e) {
-			formErr = e instanceof Error ? e.message : 'Unbekannter Fehler';
+			formErr = e instanceof Error ? e.message : i18n.t('calendar.unknownError');
 		} finally {
 			saving = false;
 		}
@@ -176,15 +176,15 @@
 			if (!res.ok) throw new Error();
 			events = events.filter((e) => e.id !== id);
 		} catch {
-			errMsg = 'Löschen fehlgeschlagen';
+			errMsg = i18n.t('calendar.deleteFailed');
 		}
 	}
 
 	onMount(load);
 </script>
 
-<AppHeader title="Kalender" eyebrow="Termine & Notizen">
-	<button class="btn-today" onclick={goToday}>Heute</button>
+<AppHeader title={i18n.t('calendar.title')} eyebrow={i18n.t('calendar.eyebrow')}>
+	<button class="btn-today" onclick={goToday}>{i18n.t('calendar.today')}</button>
 </AppHeader>
 
 <div class="scroll">
@@ -196,11 +196,11 @@
 		<!-- Month grid -->
 		<section class="cal">
 			<div class="navbar">
-				<button class="nav" aria-label="Vorheriger Monat" onclick={prevMonth}>
+				<button class="nav" aria-label={i18n.t('calendar.prevMonth')} onclick={prevMonth}>
 					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
 				</button>
 				<h2>{MONTHS[viewMonth]} {viewYear}</h2>
-				<button class="nav" aria-label="Nächster Monat" onclick={nextMonth}>
+				<button class="nav" aria-label={i18n.t('calendar.nextMonth')} onclick={nextMonth}>
 					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
 				</button>
 			</div>
@@ -238,9 +238,9 @@
 				<h3 class="day-title">{prettyDate(selectedDate)}</h3>
 
 				{#if loading}
-					<p class="muted">Lädt …</p>
+					<p class="muted">{i18n.t('calendar.loading')}</p>
 				{:else if selectedEvents.length === 0}
-					<p class="muted">Keine Termine an diesem Tag.</p>
+					<p class="muted">{i18n.t('calendar.noEventsDay')}</p>
 				{:else}
 					<ul class="evlist">
 						{#each selectedEvents as e (e.id)}
@@ -252,7 +252,7 @@
 									</div>
 									{#if e.notes}<p class="ev-notes">{e.notes}</p>{/if}
 								</div>
-								<button class="del" aria-label="Termin löschen" onclick={() => deleteEvent(e.id)}>
+								<button class="del" aria-label={i18n.t('calendar.deleteEvent')} onclick={() => deleteEvent(e.id)}>
 									<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
 								</button>
 							</li>
@@ -261,22 +261,22 @@
 				{/if}
 
 				<form class="form" onsubmit={addEvent}>
-					<input class="in" type="text" placeholder="Titel" bind:value={fTitle} maxlength="120" />
+					<input class="in" type="text" placeholder={i18n.t('calendar.titlePlaceholder')} bind:value={fTitle} maxlength="120" />
 					<div class="row">
-						<input class="in" type="time" bind:value={fTime} aria-label="Uhrzeit" />
+						<input class="in" type="time" bind:value={fTime} aria-label={i18n.t('calendar.time')} />
 						<button class="btn-add" type="submit" disabled={saving}>
-							{saving ? 'Speichert …' : 'Hinzufügen'}
+							{saving ? i18n.t('calendar.saving') : i18n.t('calendar.add')}
 						</button>
 					</div>
-					<textarea class="in ta" placeholder="Notiz (optional)" bind:value={fNotes} rows="2"></textarea>
+					<textarea class="in ta" placeholder={i18n.t('calendar.notePlaceholder')} bind:value={fNotes} rows="2"></textarea>
 					{#if formErr}<span class="form-err">{formErr}</span>{/if}
 				</form>
 			</section>
 
 			<section class="panel">
-				<h3 class="day-title">Anstehend</h3>
+				<h3 class="day-title">{i18n.t('calendar.upcoming')}</h3>
 				{#if upcoming.length === 0}
-					<p class="muted">Keine anstehenden Termine.</p>
+					<p class="muted">{i18n.t('calendar.noUpcoming')}</p>
 				{:else}
 					<ul class="up">
 						{#each upcoming as e (e.id)}

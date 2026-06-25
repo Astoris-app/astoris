@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	// KI-Zusammenfassung der Quellen folgt in Verfeinerung (über /api/chat).
 
@@ -35,7 +36,7 @@
 			error = data.error ?? '';
 		} catch {
 			results = [];
-			error = 'Netzwerkfehler – Suche nicht möglich.';
+			error = i18n.t('research.networkError');
 		} finally {
 			loading = false;
 		}
@@ -59,7 +60,7 @@
 	}
 </script>
 
-<AppHeader title="Recherche" eyebrow="Web-Suche ohne Spuren" />
+<AppHeader title={i18n.t('research.title')} eyebrow={i18n.t('research.eyebrow')} />
 
 <div class="scroll">
 	<div class="searchbar">
@@ -71,23 +72,23 @@
 			type="text"
 			bind:value={query}
 			onkeydown={onKey}
-			placeholder="Wonach möchtest du suchen?"
-			aria-label="Suchanfrage"
+			placeholder={i18n.t('research.searchPlaceholder')}
+			aria-label={i18n.t('research.searchLabel')}
 		/>
 		<button class="btn primary" onclick={search} disabled={loading || !query.trim()}>
-			{loading ? 'Suche…' : 'Suchen'}
+			{loading ? i18n.t('research.searching') : i18n.t('research.search')}
 		</button>
 	</div>
 
 	{#if loading}
 		<div class="state-line">
 			<span class="spinner" aria-hidden="true"></span>
-			<span>Durchsuche das Web…</span>
+			<span>{i18n.t('research.browsing')}</span>
 		</div>
 	{:else if error && results.length === 0}
 		<div class="notice">{error}</div>
 	{:else if results.length > 0}
-		<p class="meta">{results.length} Treffer gefunden</p>
+		<p class="meta">{results.length} {i18n.t('research.hitsFound')}</p>
 		<div class="list">
 			{#each results as r (r.url)}
 				<article class="card">
@@ -103,8 +104,8 @@
 				<circle cx="11" cy="11" r="7" />
 				<path d="m21 21-4.3-4.3" />
 			</svg>
-			<p class="empty-lead">Suche im Web – datensparsam über DuckDuckGo, ohne API-Schlüssel.</p>
-			<p class="empty-sub">Probier eine dieser Anfragen:</p>
+			<p class="empty-lead">{i18n.t('research.emptyLead')}</p>
+			<p class="empty-sub">{i18n.t('research.emptySub')}</p>
 			<div class="chips">
 				{#each examples as ex (ex)}
 					<button class="chip" onclick={() => useExample(ex)}>{ex}</button>

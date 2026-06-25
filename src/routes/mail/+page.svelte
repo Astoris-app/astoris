@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
 
 	type Mail = { uid: number; from: string; subject: string; date: string; seen: boolean };
 
@@ -29,7 +30,7 @@
 				bodyCache = { ...bodyCache, [m.uid]: data.body ?? '' };
 			}
 		} catch {
-			bodyError = 'Nachrichtentext konnte nicht geladen werden.';
+			bodyError = i18n.t('mail.bodyError');
 		} finally {
 			bodyLoading = false;
 		}
@@ -47,7 +48,7 @@
 			// Keep selection valid after refresh.
 			if (selected && !mails.some((m) => m.uid === selected!.uid)) selected = null;
 		} catch {
-			error = 'Postfach konnte nicht geladen werden.';
+			error = i18n.t('mail.mailboxFailed');
 			mails = [];
 		} finally {
 			loading = false;
@@ -77,9 +78,9 @@
 	}
 </script>
 
-<AppHeader title="Posteingang" eyebrow="E-Mail-Triage durch die KI">
+<AppHeader title={i18n.t('mail.title')} eyebrow={i18n.t('mail.eyebrow')}>
 	{#if connected}
-		<button class="refresh" onclick={load} disabled={loading} title="Aktualisieren" aria-label="Aktualisieren">
+		<button class="refresh" onclick={load} disabled={loading} title={i18n.t('mail.refresh')} aria-label={i18n.t('mail.refresh')}>
 			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class:spin={loading}>
 				<path d="M21 12a9 9 0 1 1-2.64-6.36" />
 				<path d="M21 4v5h-5" />
@@ -91,7 +92,7 @@
 <div class="scroll">
 	{#if loading && !mails.length}
 		<div class="state">
-			<p class="muted">Postfach wird geladen …</p>
+			<p class="muted">{i18n.t('mail.loadingMailbox')}</p>
 		</div>
 	{:else if !connected}
 		<div class="state empty">
@@ -101,9 +102,9 @@
 					<path d="M3.5 6.5 12 13l8.5-6.5" />
 				</svg>
 			</div>
-			<h2>Noch kein Postfach verbunden</h2>
-			<p class="muted">Verbinde dein E-Mail-Konto unter Verbindungen, damit die KI deinen Posteingang lesen und zusammenfassen kann.</p>
-			<a class="btn primary" href="/connections">Zu den Verbindungen</a>
+			<h2>{i18n.t('mail.noMailbox')}</h2>
+			<p class="muted">{i18n.t('mail.noMailboxHint')}</p>
+			<a class="btn primary" href="/connections">{i18n.t('mail.toConnections')}</a>
 		</div>
 	{:else if error}
 		<div class="state empty">
@@ -113,9 +114,9 @@
 					<path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.7 3h16.96a2 2 0 0 0 1.7-3L13.7 3.86a2 2 0 0 0-3.4 0Z" />
 				</svg>
 			</div>
-			<h2>Postfach nicht erreichbar</h2>
+			<h2>{i18n.t('mail.unreachable')}</h2>
 			<p class="muted">{error}</p>
-			<button class="btn ghost" onclick={load}>Erneut versuchen</button>
+			<button class="btn ghost" onclick={load}>{i18n.t('mail.retry')}</button>
 		</div>
 	{:else if !mails.length}
 		<div class="state empty">
@@ -125,13 +126,13 @@
 					<path d="M3.5 6.5 12 13l8.5-6.5" />
 				</svg>
 			</div>
-			<h2>Posteingang leer</h2>
-			<p class="muted">Hier erscheinen deine neuesten Nachrichten.</p>
+			<h2>{i18n.t('mail.empty')}</h2>
+			<p class="muted">{i18n.t('mail.emptyHint')}</p>
 		</div>
 	{:else}
 		<div class="layout" class:has-detail={!!selected}>
 			<ul class="list">
-				<li class="meta mono">{mails.length} Nachrichten · {unreadCount} ungelesen</li>
+				<li class="meta mono">{mails.length} {i18n.t('mail.messages')} · {unreadCount} {i18n.t('mail.unread')}</li>
 				{#each mails as m (m.uid)}
 					<li>
 						<button
@@ -140,7 +141,7 @@
 							class:active={selected?.uid === m.uid}
 							onclick={() => openMail(m)}
 						>
-							{#if !m.seen}<span class="dot" aria-label="ungelesen"></span>{/if}
+							{#if !m.seen}<span class="dot" aria-label={i18n.t('mail.unread')}></span>{/if}
 							<span class="from">{displayName(m.from)}</span>
 							<span class="subject">{m.subject}</span>
 							<span class="date mono">{fmtDate(m.date)}</span>
@@ -151,14 +152,14 @@
 
 			{#if selected}
 				<aside class="detail">
-					<button class="close" onclick={() => (selected = null)} aria-label="Schließen">
+					<button class="close" onclick={() => (selected = null)} aria-label={i18n.t('mail.close')}>
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
 					</button>
 					<h2 class="dsubject">{selected.subject}</h2>
 					<div class="dmeta">
-						<div><span class="lbl mono">Von</span><span>{selected.from}</span></div>
-						<div><span class="lbl mono">Datum</span><span>{fmtDate(selected.date)}</span></div>
-						<div><span class="lbl mono">Status</span><span>{selected.seen ? 'Gelesen' : 'Ungelesen'}</span></div>
+						<div><span class="lbl mono">{i18n.t('mail.from')}</span><span>{selected.from}</span></div>
+						<div><span class="lbl mono">{i18n.t('mail.date')}</span><span>{fmtDate(selected.date)}</span></div>
+						<div><span class="lbl mono">{i18n.t('mail.status')}</span><span>{selected.seen ? i18n.t('mail.read') : i18n.t('mail.unreadStatus')}</span></div>
 					</div>
 					<div class="dbody">
 						{#if bodyLoading}
@@ -167,17 +168,17 @@
 									<path d="M21 12a9 9 0 1 1-2.64-6.36" />
 									<path d="M21 4v5h-5" />
 								</svg>
-								<span class="muted">Nachrichtentext wird geladen …</span>
+								<span class="muted">{i18n.t('mail.bodyLoading')}</span>
 							</div>
 						{:else if bodyError}
 							<div class="bodystate">
 								<span class="muted">{bodyError}</span>
-								<button class="btn ghost" onclick={() => selected && openMail(selected)}>Erneut versuchen</button>
+								<button class="btn ghost" onclick={() => selected && openMail(selected)}>{i18n.t('mail.retry')}</button>
 							</div>
 						{:else if bodyCache[selected.uid] !== undefined}
 							<pre class="bodytext">{bodyCache[selected.uid]}</pre>
 						{:else}
-							<p class="muted">Kein Nachrichtentext verfügbar.</p>
+							<p class="muted">{i18n.t('mail.noBody')}</p>
 						{/if}
 					</div>
 				</aside>
