@@ -15,7 +15,8 @@ function syncToEnv(connectorId: string, fields: Record<string, string>) {
 	let lines: string[] = [];
 	try { if (existsSync(ENV_FILE)) lines = readFileSync(ENV_FILE, 'utf8').split('\n'); } catch { /* neu */ }
 	const updates = new Map<string, string>();
-	for (const [k, v] of Object.entries(fields)) updates.set(envKey(connectorId, k), '"' + String(v).replace(/"/g, '\\"') + '"');
+	// Wert escapen, damit Sonderzeichen die .env-Struktur nicht zerschießen (Newlines/Backslash/Quote).
+	for (const [k, v] of Object.entries(fields)) updates.set(envKey(connectorId, k), '"' + String(v).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/"/g, '\\"') + '"');
 	const seen = new Set<string>();
 	lines = lines.map((line) => {
 		const m = line.match(/^([A-Z0-9_]+)=/);

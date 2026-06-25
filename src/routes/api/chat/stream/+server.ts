@@ -13,12 +13,17 @@ export async function POST({ request }) {
 	const enc = new TextEncoder();
 	const t0 = Date.now();
 	const result = await engineChat(messages);
+	// Sicherheit: Wurde in derselben Antwort fremder Web-Inhalt geladen (url-reader/web-search/http-request),
+	// NIE automatisch senden — auf Bestätigung zwingen (Prompt-Injection-Schutz).
+	const webTools = new Set(['url-reader', 'web-search', 'http-request']);
+	const usedWebTool = (result.tools ?? []).some((t) => webTools.has(t));
+	const sendMode = usedWebTool ? 'confirm' : getSendMode();
 	const stream = new ReadableStream({
 		start(c) {
 			if (result.tools?.length) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'tools', names: result.tools })}\n\n`));
 			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content', text: result.reply })}\n\n`));
-			if (result.pendingMail) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-mail', draft: result.pendingMail, mode: getSendMode() })}\n\n`));
-			if (result.pendingMessage) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-message', draft: result.pendingMessage, mode: getSendMode() })}\n\n`));
+			if (result.pendingMail) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-mail', draft: result.pendingMail, mode: sendMode })}\n\n`));
+			if (result.pendingMessage) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-message', draft: result.pendingMessage, mode: sendMode })}\n\n`));
 			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done', model: result.model, tools: result.tools, demo: result.source === 'demo', ms: Date.now() - t0 })}\n\n`));
 			c.close();
 		}
