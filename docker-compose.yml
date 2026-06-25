@@ -1,0 +1,47 @@
+# Astoris — sicheres Self-Hosting per Container.
+# Start:  cp .env.example .env  →  docker compose up -d
+# HTTPS via Caddy (auto-Zertifikat für deine Domain, oder self-signed lokal).
+
+services:
+  astoris:
+    build: .
+    image: astoris:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - PORT=3000
+      # ORIGIN muss auf die öffentliche HTTPS-URL zeigen (für sichere Cookies/CSRF)
+      - ORIGIN=${ASTORIS_ORIGIN:-https://localhost}
+    volumes:
+      - astoris-data:/app/data     # verschlüsselte Verbindungen, Master-Key, Chats (persistent!)
+      - astoris-certs:/app/certs
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "3000"
+    networks: [astoris-net]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - ASTORIS_DOMAIN=${ASTORIS_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [astoris-net]
+    depends_on: [astoris]
+
+volumes:
+  astoris-data:
+  astoris-certs:
+  caddy-data:
+  caddy-config:
+
+networks:
+  astoris-net:
+    driver: bridge

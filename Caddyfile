@@ -1,0 +1,14 @@
+# Astoris Reverse-Proxy mit automatischem HTTPS.
+# Setze ASTORIS_DOMAIN in .env auf deine Domain (z. B. app.example.com) für ein
+# echtes Let's-Encrypt-Zertifikat. Standard "localhost" → self-signed (lokal/Tailscale).
+{$ASTORIS_DOMAIN:localhost} {
+	reverse_proxy astoris:3000
+	encode gzip
+	header {
+		# Basis-Sicherheits-Header
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

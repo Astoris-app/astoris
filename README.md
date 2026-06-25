@@ -25,9 +25,14 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 
 ## Einblick
 
-<img src="docs/screenshot-login.png" width="100%" alt="Astoris — Anmeldung" />
+**Assistent** — Chat mit Verläufen, wählbaren Persönlichkeiten & Streaming
+<img src="docs/screenshot-chat.png" width="100%" alt="Astoris Assistent" />
 
-<sub>Weitere Screenshots (Assistent, Tresor, Team …) folgen.</sub>
+| Tresor (E2E-Verschlüsselung) | Team (Persönlichkeiten & Firma) |
+|:---:|:---:|
+| <img src="docs/screenshot-tresor.png" alt="Tresor" /> | <img src="docs/screenshot-team.png" alt="Team" /> |
+| **Verbindungen** | **Einstellungen (Theming)** |
+| <img src="docs/screenshot-connections.png" alt="Verbindungen" /> | <img src="docs/screenshot-settings.png" alt="Einstellungen" /> |
 
 ## Kernprinzipien
 
@@ -97,6 +102,19 @@ pnpm run build && node build
 
 Das **Setup-Script** richtet HTTPS ein (Tailscale-Zertifikat, selbstsigniert oder Reverse-Proxy)
 und erklärt jeden Schritt. Beim ersten Aufruf legst du im Browser deinen Zugang an.
+
+### Docker (empfohlen für Self-Hosting)
+
+Sicher isoliert, mit automatischem HTTPS (Caddy) und persistenten, verschlüsselten Daten:
+
+```bash
+cp .env.example .env          # ASTORIS_DOMAIN + ASTORIS_ORIGIN setzen
+docker compose up -d --build
+```
+
+- Läuft als **Non-Root**-Container, Daten/Schlüssel in einem **Volume** (nie im Image).
+- **Caddy** terminiert TLS (Let's-Encrypt-Zertifikat für deine Domain, sonst self-signed).
+- Beim ersten Aufruf im Browser den Zugang einrichten.
 
 ## Architektur
 

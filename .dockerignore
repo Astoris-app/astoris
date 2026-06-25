@@ -1,0 +1,14 @@
+node_modules
+.svelte-kit
+build
+.git
+.gitignore
+# NIEMALS Geheimnisse/Daten ins Image
+data
+certs
+.env
+.env.*
+!.env.example
+docs
+*.md
+backups
