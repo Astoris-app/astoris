@@ -105,8 +105,12 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	const base = rawBase.replace(/\/$/, '');
 	const model = await resolveModel(base, apiKey);
 	const now = new Date();
-	const dateMsg: ChatMsg = { role: 'system', content: `Heute ist ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${now.toISOString().slice(0, 10)}). Nutze für Kalender-Termine das Datumsformat YYYY-MM-DD.` };
-	const msgs: unknown[] = [dateMsg, ...messages];
+	const dateInfo = `Heute ist ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${now.toISOString().slice(0, 10)}). Nutze für Kalender-Termine das Datumsformat YYYY-MM-DD.`;
+	// vLLM erlaubt nur EINE System-Message am Anfang → Datum an vorhandene anhängen statt eine zweite einfügen.
+	const first = messages[0];
+	const msgs: unknown[] = first && first.role === 'system'
+		? [{ role: 'system', content: first.content + '\n\n' + dateInfo }, ...messages.slice(1)]
+		: [{ role: 'system', content: dateInfo }, ...messages];
 	const used: string[] = [];
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
