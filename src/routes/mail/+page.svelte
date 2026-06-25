@@ -284,7 +284,7 @@
 
 <style>
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px; }
-	.mtabs { display: flex; gap: 4px; margin-bottom: 12px; }
+	.mtabs { display: flex; gap: 4px; margin-bottom: 12px; grid-column: 1 / -1; }
 	.mtabs button { font-size: 12.5px; color: var(--text-muted); background: transparent; border: 1px solid var(--border-soft); border-radius: 999px; padding: 5px 13px; transition: all 0.15s; }
 	.mtabs button:hover { color: var(--text); }
 	.mtabs button.sel { color: var(--ember-bright); background: var(--ember-soft); border-color: var(--ember-line); }
