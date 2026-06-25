@@ -105,7 +105,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	const base = rawBase.replace(/\/$/, '');
 	const model = await resolveModel(base, apiKey);
 	const now = new Date();
-	const dateInfo = `Heute ist ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${now.toISOString().slice(0, 10)}). Nutze für Kalender-Termine das Datumsformat YYYY-MM-DD.`;
+	const dateInfo = `Aktuelles Datum und Uhrzeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr (${now.toISOString().slice(0, 10)}). Nutze für Kalender-Termine das Datumsformat YYYY-MM-DD und für Uhrzeiten HH:MM.`;
 	// vLLM erlaubt nur EINE System-Message am Anfang → Datum an vorhandene anhängen statt eine zweite einfügen.
 	const first = messages[0];
 	const msgs: unknown[] = first && first.role === 'system'
