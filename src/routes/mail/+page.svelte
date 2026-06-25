@@ -15,10 +15,16 @@
 	let bodyCache = $state<Record<number, string>>({});
 	let bodyLoading = $state(false);
 	let bodyError = $state<string | null>(null);
+	let aiResult = $state('');
+	let aiLoading = $state(false);
+	let aiError = $state('');
+	let aiAction = $state('');
+	let aiCopied = $state(false);
 
 	async function openMail(m: Mail) {
 		selected = m;
 		bodyError = null;
+		aiResult = ''; aiError = ''; aiAction = ''; aiCopied = false;
 		if (bodyCache[m.uid] !== undefined) return;
 		bodyLoading = true;
 		try {
@@ -36,6 +42,22 @@
 		}
 	}
 
+	async function runAi(action: string) {
+		if (!selected) return;
+		const body = bodyCache[selected.uid];
+		if (!body) return;
+		aiLoading = true; aiError = ''; aiResult = ''; aiAction = action; aiCopied = false;
+		try {
+			const res = await fetch('/api/mail/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, body, subject: selected.subject, from: selected.from }) });
+			const d = await res.json().catch(() => ({}));
+			if (!res.ok) aiError = d.message ?? i18n.t('mail.aiFailed');
+			else aiResult = d.result ?? '';
+		} catch { aiError = i18n.t('mail.aiFailed'); }
+		aiLoading = false;
+	}
+	async function copyAi() {
+		try { await navigator.clipboard.writeText(aiResult); aiCopied = true; setTimeout(() => (aiCopied = false), 1500); } catch { /* ignore */ }
+	}
 	async function load() {
 		loading = true;
 		error = null;
@@ -180,6 +202,20 @@
 						{:else}
 							<p class="muted">{i18n.t('mail.noBody')}</p>
 						{/if}
+						{#if bodyCache[selected.uid]}
+							<div class="aiacts">
+								<button class="btn" onclick={() => runAi('summarize')} disabled={aiLoading}>{i18n.t('mail.summarize')}</button>
+								<button class="btn" onclick={() => runAi('reply-draft')} disabled={aiLoading}>{i18n.t('mail.replyDraft')}</button>
+							</div>
+							{#if aiLoading}<div class="aibox muted">{i18n.t('mail.aiThinking')}</div>{/if}
+							{#if aiError}<div class="aibox err">{aiError}</div>{/if}
+							{#if aiResult}
+								<div class="aibox">
+									<div class="aihead">{aiAction === 'summarize' ? i18n.t('mail.summary') : i18n.t('mail.draft')}<button class="copy" onclick={copyAi}>{aiCopied ? i18n.t('mail.copied') : i18n.t('mail.copy')}</button></div>
+									<div class="aitext">{aiResult}</div>
+								</div>
+							{/if}
+						{/if}
 					</div>
 				</aside>
 			{/if}
@@ -189,6 +225,14 @@
 
 <style>
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px; }
+	.aiacts { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+	.aibox { margin-top: 12px; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 13px 15px; font-size: 13.5px; line-height: 1.6; }
+	.aibox.err { background: var(--danger-soft); color: var(--danger); }
+	.aibox.muted { color: var(--text-muted); }
+	.aihead { display: flex; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ember-bright); margin-bottom: 8px; }
+	.aihead .copy { font-size: 11px; text-transform: none; letter-spacing: 0; color: var(--text-faint); background: transparent; border: none; }
+	.aihead .copy:hover { color: var(--text); }
+	.aitext { white-space: pre-wrap; color: var(--text); }
 
 	.refresh {
 		display: grid; place-items: center;
