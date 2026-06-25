@@ -51,3 +51,31 @@ export async function runAddonTool(byName: Map<string, CodeManifest>, name: stri
 	const res = await runCodeAddon(addon.code, args, 5000);
 	return res.ok ? res.output : { error: res.error };
 }
+
+// --- Eingebaute Werkzeuge: Kalender (immer für die KI verfügbar) ---
+import { listEvents, createEvent, updateEvent, deleteEvent } from './calendar';
+
+export function buildBuiltinTools(): AddonTool[] {
+	return [
+		{ type: 'function', function: { name: 'calendar_list', description: 'Termine im Kalender einsehen. Optional nach Datumsbereich filtern (Format YYYY-MM-DD).', parameters: { type: 'object', properties: { from: { type: 'string', description: 'Startdatum YYYY-MM-DD' }, to: { type: 'string', description: 'Enddatum YYYY-MM-DD' } } } } },
+		{ type: 'function', function: { name: 'calendar_create', description: 'Einen neuen Termin im Kalender erstellen.', parameters: { type: 'object', properties: { title: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD' }, time: { type: 'string', description: 'HH:MM (optional)' }, notes: { type: 'string' } }, required: ['title', 'date'] } } },
+		{ type: 'function', function: { name: 'calendar_update', description: 'Einen bestehenden Termin ändern. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, date: { type: 'string' }, time: { type: 'string' }, notes: { type: 'string' } }, required: ['id'] } } },
+		{ type: 'function', function: { name: 'calendar_delete', description: 'Einen Termin löschen. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } }
+	];
+}
+
+export function isBuiltinTool(name: string): boolean {
+	return name.startsWith('calendar_');
+}
+
+export function runBuiltinTool(name: string, args: any): unknown {
+	try {
+		if (name === 'calendar_list') return { events: listEvents(args?.from, args?.to) };
+		if (name === 'calendar_create') return { event: createEvent(args?.title, args?.date, args?.time, args?.notes) };
+		if (name === 'calendar_update') return { event: updateEvent(args?.id, args ?? {}) };
+		if (name === 'calendar_delete') return { ok: deleteEvent(args?.id) };
+	} catch (e) {
+		return { error: e instanceof Error ? e.message : 'Fehler' };
+	}
+	return { error: 'Unbekanntes Werkzeug' };
+}

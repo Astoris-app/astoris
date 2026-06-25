@@ -5,7 +5,7 @@
 
 import { env } from '$env/dynamic/private';
 import { getDecrypted } from './store';
-import { buildAddonTools, runAddonTool } from './tools';
+import { buildAddonTools, runAddonTool, buildBuiltinTools, isBuiltinTool, runBuiltinTool } from './tools';
 import { scanInjection, wrapAsData } from './promptGuard';
 import { applyAigate, getAigateMode } from './aigate';
 
@@ -100,11 +100,13 @@ async function chatOpenAICompat(rawBase: string, apiKey: string, messages: ChatM
  *  und in der Sandbox ausgeführt, wenn die KI sie aufruft. Fällt ohne Tools auf
  *  den normalen Chat zurück. */
 async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[]): Promise<ChatResult> {
-	const { tools, byName } = buildAddonTools();
-	if (!tools.length) return chatOpenAICompat(rawBase, apiKey, messages);
+	const { tools: addonTools, byName } = buildAddonTools();
+	const tools = [...buildBuiltinTools(), ...addonTools];
 	const base = rawBase.replace(/\/$/, '');
 	const model = await resolveModel(base, apiKey);
-	const msgs: unknown[] = [...messages];
+	const now = new Date();
+	const dateMsg: ChatMsg = { role: 'system', content: `Heute ist ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${now.toISOString().slice(0, 10)}). Nutze für Kalender-Termine das Datumsformat YYYY-MM-DD.` };
+	const msgs: unknown[] = [dateMsg, ...messages];
 	const used: string[] = [];
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
@@ -126,7 +128,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 					let args: unknown = {};
 					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leeres Argument */ }
 					used.push(tc.function?.name);
-					const result = await runAddonTool(byName, tc.function?.name, args);
+					const result = isBuiltinTool(tc.function?.name) ? runBuiltinTool(tc.function?.name, args) : await runAddonTool(byName, tc.function?.name, args);
 					const out = JSON.stringify(result);
 					// Werkzeug-Ausgaben können externe Inhalte enthalten → bei Injektion als Daten markieren.
 					const scan = scanInjection(out);
