@@ -14,6 +14,7 @@ const https =
 
 export default defineConfig({
 	server: {
+		port: 5180,
 		host: true,
 		// Dev-Zugriff über Tailscale-/LAN-Hostnamen erlauben (sonst "Blocked request").
 		allowedHosts: ['.ts.net', 'localhost'],

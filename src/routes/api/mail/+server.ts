@@ -167,7 +167,8 @@ function parseFetch(raw: string): Mail[] {
 		const seg = i === 0 ? '' : parts[i];
 		if (!seg) continue;
 
-		const uidMatch = seg.match(/UID\s+(\d+)/i);
+		const beforeBody = seg.split(/BODY\[/i)[0];
+		const uidMatch = beforeBody.match(/UID\s+(\d+)/i);
 		const uid = uidMatch ? parseInt(uidMatch[1], 10) : 0;
 
 		const flagsMatch = seg.match(/FLAGS\s*\(([^)]*)\)/i);
@@ -216,6 +217,7 @@ function runImapBody(host: string, email: string, secret: string, uid: number): 
 		socket.setEncoding('binary');
 
 		let buffer = '';
+		let allRaw = '';
 		type Step = 'greet' | 'login' | 'select' | 'fetch';
 		let step: Step = 'greet';
 
@@ -223,6 +225,7 @@ function runImapBody(host: string, email: string, secret: string, uid: number): 
 
 		socket.on('data', (chunk: string) => {
 			buffer += chunk;
+			allRaw += chunk;
 
 			if (step === 'greet') {
 				if (/\r?\n/.test(buffer)) {
@@ -266,7 +269,7 @@ function runImapBody(host: string, email: string, secret: string, uid: number): 
 						finish(new Error('Nachrichtentext konnte nicht geladen werden.'));
 						return;
 					}
-					finish(null, extractBody(buffer));
+					finish(null, allRaw); // DBG
 				}
 			}
 		});
@@ -380,6 +383,10 @@ function extractTextFromMessage(raw: string): string {
 		for (const seg of segments) {
 			const trimmed = seg.replace(/^\r?\n/, '');
 			if (!trimmed || trimmed.startsWith('--')) continue;
+			// Preamble/Epilogue (Text ohne MIME-Part-Header) überspringen.
+			const hEnd = trimmed.match(/\r?\n\r?\n/);
+			const partHeader = hEnd ? trimmed.slice(0, hEnd.index ?? 0) : trimmed;
+			if (!/content-type/i.test(partHeader)) continue;
 			const partText = extractTextFromMessage(trimmed);
 			const partMeta = parsePartHeaders(trimmed.slice(0, (trimmed.match(/\r?\n\r?\n/)?.index ?? 0)));
 			if (partMeta.ctype === 'text/plain' && partText.trim()) return partText;
@@ -422,8 +429,8 @@ export async function GET({ url }) {
 			return json({ error: 'Ungültige Nachrichten-ID.' }, { status: 400 });
 		}
 		try {
-			const body = await runImapBody(host, email, secret, uid);
-			return json({ body });
+			const raw = await runImapBody(host, email, secret, uid);
+			return json({ body: extractBody(raw) });
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : 'Nachrichtentext konnte nicht geladen werden.';
 			return json({ error: msg }, { status: 502 });
