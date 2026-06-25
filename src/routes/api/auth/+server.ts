@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import {
 	hasPassword, getUsername, setCredentials, verifyCredentials,
 	allowTailscaleUser, isTailscaleAllowed, tailscaleWhois,
-	authConfigured, createSession, deleteSession
+	authConfigured, createSession, deleteSession,
+	loginAllowed, recordFailure, clearFailures, deleteUserSessions
 } from '$lib/server/auth';
 
 const COOKIE = 'astoris_session';
@@ -44,7 +45,14 @@ export async function POST({ request, cookies, url, getClientAddress, locals }) 
 
 	// Anmeldung: Benutzername + Passwort
 	if (action === 'login') {
-		if (!verifyCredentials(username, pw)) return json({ ok: false, error: 'Benutzername oder Passwort falsch.' }, { status: 401 });
+		const ip = getClientAddress();
+		const limit = loginAllowed(ip);
+		if (!limit.allowed) return json({ ok: false, error: `Zu viele Fehlversuche. Bitte in ${Math.ceil(limit.retryAfter / 60)} Minuten erneut.` }, { status: 429 });
+		if (!verifyCredentials(username, pw)) {
+			recordFailure(ip);
+			return json({ ok: false, error: 'Benutzername oder Passwort falsch.' }, { status: 401 });
+		}
+		clearFailures(ip);
 		setCookie(cookies, createSession(username, 'password'), https);
 		return json({ ok: true });
 	}
@@ -70,6 +78,8 @@ export async function POST({ request, cookies, url, getClientAddress, locals }) 
 		if (!verifyCredentials(user, oldPw)) return json({ ok: false, error: 'Aktuelles Passwort falsch.' }, { status: 401 });
 		if (newPw.length < 8) return json({ ok: false, error: 'Neues Passwort: mindestens 8 Zeichen.' }, { status: 400 });
 		setCredentials(user, newPw);
+		deleteUserSessions(user);
+		setCookie(cookies, createSession(user, 'password'), https);
 		return json({ ok: true });
 	}
 

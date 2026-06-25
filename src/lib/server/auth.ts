@@ -117,3 +117,38 @@ export function deleteSession(token: string | undefined) {
 		writeJson(SESS_FILE, sessions);
 	}
 }
+
+// ---- Brute-Force-Schutz (In-Memory, pro IP) ----
+type Attempt = { count: number; until: number };
+const attempts = new Map<string, Attempt>();
+const MAX_ATTEMPTS = 5;
+const LOCK_WINDOW = 15 * 60 * 1000;
+
+/** Prüft, ob für diesen Schlüssel (z. B. IP) noch Versuche erlaubt sind. */
+export function loginAllowed(keyId: string): { allowed: boolean; retryAfter: number } {
+	const now = Date.now();
+	const rec = attempts.get(keyId);
+	if (rec && rec.until > now && rec.count >= MAX_ATTEMPTS) {
+		return { allowed: false, retryAfter: Math.ceil((rec.until - now) / 1000) };
+	}
+	return { allowed: true, retryAfter: 0 };
+}
+export function recordFailure(keyId: string) {
+	const now = Date.now();
+	const rec = attempts.get(keyId);
+	if (rec && rec.until > now) rec.count++;
+	else attempts.set(keyId, { count: 1, until: now + LOCK_WINDOW });
+}
+export function clearFailures(keyId: string) {
+	attempts.delete(keyId);
+}
+
+/** Alle Sitzungen eines Nutzers beenden (z. B. nach Passwort-Wechsel). */
+export function deleteUserSessions(user: string) {
+	const sessions = readJson<Record<string, Session>>(SESS_FILE, {});
+	let changed = false;
+	for (const [k, v] of Object.entries(sessions)) {
+		if (v.user === user) { delete sessions[k]; changed = true; }
+	}
+	if (changed) writeJson(SESS_FILE, sessions);
+}

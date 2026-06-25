@@ -11,7 +11,10 @@ const KEY_FILE = 'data/.master.key';
 
 function loadKey(): Buffer {
 	const fromEnv = env['ASTORIS_' + 'MASTER_KEY'];
-	if (fromEnv && fromEnv.length >= 64) return Buffer.from(fromEnv.slice(0, 64), 'hex');
+	if (fromEnv) {
+		if (!/^[0-9a-fA-F]{64}$/.test(fromEnv)) throw new Error('ASTORIS_' + 'MASTER_KEY must be exactly 64 hex chars (32 bytes).');
+		return Buffer.from(fromEnv, 'hex');
+	}
 	if (existsSync(KEY_FILE)) return Buffer.from(readFileSync(KEY_FILE, 'utf8').trim(), 'hex');
 	const key = randomBytes(32);
 	mkdirSync(dirname(KEY_FILE), { recursive: true });
