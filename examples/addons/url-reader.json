@@ -1,0 +1,11 @@
+{
+  "id": "url-reader",
+  "name": "URL-Reader",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Holt eine Webseite und liefert sauberen Text + Titel für die KI. Ideal, damit die KI Inhalte von Links lesen kann.",
+  "inputHint": "{ \"url\": \"https://example.com\" }",
+  "code": "// Holt eine URL und extrahiert lesbaren Text (Tags/Skripte entfernt).\nasync function run(input) {\n  const url = String((input && input.url) || '');\n  if (!/^https?:\\/\\//.test(url)) return { fehler: 'Bitte eine vollstaendige http(s)-URL angeben.' };\n  const res = await fetch(url, { headers: { 'user-agent': 'Astoris-AddOn/1.0' } });\n  if (!res.ok) return { fehler: 'HTTP ' + res.status };\n  let html = await res.text();\n  html = html.replace(/<script[\\s\\S]*?<\\/script>/gi, '').replace(/<style[\\s\\S]*?<\\/style>/gi, '');\n  const title = ((html.match(/<title>([\\s\\S]*?)<\\/title>/i) || [])[1] || '').trim();\n  let text = html.replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"')\n    .replace(/\\s+/g, ' ').trim();\n  if (text.length > 6000) text = text.slice(0, 6000) + ' [gekuerzt]';\n  return { titel: title, text: text, zeichen: text.length, url: url };\n}"
+}

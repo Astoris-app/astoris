@@ -1,0 +1,11 @@
+{
+  "id": "einheiten-rechner",
+  "name": "Einheiten-Rechner",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Rechnet Einheiten um: Laenge, Gewicht, Temperatur, Datengroessen. Komplett offline, ohne API.",
+  "inputHint": "{ \"wert\": 100, \"von\": \"km\", \"nach\": \"mi\" }",
+  "code": "// Einheiten-Umrechnung (offline). Laenge, Gewicht, Datengroesse, Temperatur.\nasync function run(input) {\n  const wert = Number((input && input.wert) || 0);\n  const von = String((input && input.von) || '').toLowerCase();\n  const nach = String((input && input.nach) || '').toLowerCase();\n  const laenge = { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344 };\n  const gewicht = { mg: 0.001, g: 1, kg: 1000, t: 1e6, lb: 453.592, oz: 28.3495 };\n  const daten = { b: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776 };\n  const r5 = function (x) { return Math.round(x * 1e6) / 1e6; };\n  if (['c', 'f', 'k'].indexOf(von) >= 0 && ['c', 'f', 'k'].indexOf(nach) >= 0) {\n    const c = von === 'c' ? wert : von === 'f' ? (wert - 32) * 5 / 9 : wert - 273.15;\n    const out = nach === 'c' ? c : nach === 'f' ? c * 9 / 5 + 32 : c + 273.15;\n    return { wert: wert, von: von, nach: nach, ergebnis: r5(out) };\n  }\n  const maps = [laenge, gewicht, daten];\n  for (let i = 0; i < maps.length; i++) {\n    const map = maps[i];\n    if (map[von] != null && map[nach] != null) return { wert: wert, von: von, nach: nach, ergebnis: r5(wert * map[von] / map[nach]) };\n  }\n  return { fehler: 'Einheit nicht erkannt. Laenge (mm,cm,m,km,in,ft,yd,mi), Gewicht (mg,g,kg,t,lb,oz), Daten (b,kb,mb,gb,tb), Temperatur (c,f,k).' };\n}"
+}

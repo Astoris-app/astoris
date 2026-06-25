@@ -1,0 +1,11 @@
+{
+  "id": "hash-encode",
+  "name": "Hash & Encode",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Encoding/Decoding und Hashing: Base64, URL-Encode, SHA-256/SHA-1, JWT dekodieren. Praktisch fuer Entwickler.",
+  "inputHint": "{ \"operation\": \"base64-encode\", \"text\": \"hallo\" }",
+  "code": "// Encoding/Hashing-Werkzeug. operation: base64-encode|base64-decode|url-encode|url-decode|sha-256|sha-1|jwt-decode\nasync function run(input) {\n  const op = String((input && input.operation) || '').toLowerCase();\n  const text = String((input && input.text) || '');\n  const enc = new TextEncoder();\n  async function sha(algo) {\n    const buf = await crypto.subtle.digest(algo, enc.encode(text));\n    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');\n  }\n  function b64dec(s) { return decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))); }\n  switch (op) {\n    case 'base64-encode': return { ergebnis: btoa(unescape(encodeURIComponent(text))) };\n    case 'base64-decode': return { ergebnis: b64dec(text) };\n    case 'url-encode': return { ergebnis: encodeURIComponent(text) };\n    case 'url-decode': return { ergebnis: decodeURIComponent(text) };\n    case 'sha-256': return { ergebnis: await sha('SHA-256') };\n    case 'sha-1': return { ergebnis: await sha('SHA-1') };\n    case 'jwt-decode': {\n      const parts = text.split('.');\n      if (parts.length < 2) return { fehler: 'Kein gueltiges JWT (header.payload.signature).' };\n      try { return { header: JSON.parse(b64dec(parts[0])), payload: JSON.parse(b64dec(parts[1])) }; }\n      catch (e) { return { fehler: 'JWT konnte nicht dekodiert werden.' }; }\n    }\n    default: return { fehler: 'Unbekannte Operation. Erlaubt: base64-encode, base64-decode, url-encode, url-decode, sha-256, sha-1, jwt-decode.' };\n  }\n}"
+}

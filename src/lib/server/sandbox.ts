@@ -1,5 +1,6 @@
 // Eingeschränkter Ausführungs-Kontext für Code-Add-ons (node:vm).
-// Bewusst minimal: nur fetch/JSON/Math/Date/console — kein require/process/fs.
+// Verfügbar: fetch + sichere Utility-Web-APIs (btoa/atob/crypto/TextEncoder/URL).
+// Kein require/process/fs — kein Datei-/Prozess-/Modulzugriff.
 // Kein vollständiger Sicherheits-Sandbox; nur für Self-Host-Code des Betreibers gedacht.
 
 import vm from 'node:vm';
@@ -14,6 +15,14 @@ export async function runCodeAddon(code: string, input: unknown, timeoutMs = 500
 		Math,
 		Date,
 		console: { log: (...a: unknown[]) => logs.push(a.map(String).join(' ')) },
+		// Sichere Utility-APIs für Encoding/Hashing/URLs (keine I/O-Eskalation).
+		btoa,
+		atob,
+		TextEncoder,
+		TextDecoder,
+		URL,
+		URLSearchParams,
+		crypto,
 		input
 	};
 	const context = vm.createContext(sandbox, { name: 'astoris-addon' });

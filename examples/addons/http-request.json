@@ -1,0 +1,11 @@
+{
+  "id": "http-request",
+  "name": "HTTP-Request (Universal)",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Generischer HTTP-Aufruf gegen jede REST-API (GET/POST/PUT/DELETE). Die flexibelste Bruecke zu externen Diensten.",
+  "inputHint": "{ \"method\": \"GET\", \"url\": \"https://api.example.com/data\", \"headers\": {}, \"body\": null }",
+  "code": "// Universeller HTTP-Aufruf gegen eine REST-API.\nasync function run(input) {\n  const url = String((input && input.url) || '');\n  if (!/^https?:\\/\\//.test(url)) return { fehler: 'Bitte eine vollstaendige http(s)-URL angeben.' };\n  const method = String((input && input.method) || 'GET').toUpperCase();\n  const headers = (input && input.headers) || {};\n  const opts = { method: method, headers: headers };\n  if (input && input.body != null && method !== 'GET' && method !== 'HEAD') {\n    opts.body = typeof input.body === 'string' ? input.body : JSON.stringify(input.body);\n    if (!headers['content-type'] && !headers['Content-Type']) headers['content-type'] = 'application/json';\n  }\n  const res = await fetch(url, opts);\n  const ct = res.headers.get('content-type') || '';\n  let data;\n  if (ct.indexOf('application/json') >= 0) { try { data = await res.json(); } catch (e) { data = await res.text(); } }\n  else { data = await res.text(); if (typeof data === 'string' && data.length > 6000) data = data.slice(0, 6000) + ' [gekuerzt]'; }\n  return { status: res.status, ok: res.ok, daten: data };\n}"
+}
