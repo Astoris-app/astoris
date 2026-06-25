@@ -104,8 +104,22 @@
 		}
 	}
 	onMount(load);
+	onMount(() => { try { const v = localStorage.getItem('astoris-mail-stars'); if (v) stars = new Set(JSON.parse(v)); } catch { /* ignore */ } });
 
 	const unreadCount = $derived(mails.filter((m) => !m.seen).length);
+	let tab = $state<'all' | 'unread' | 'starred'>('all');
+	let stars = $state<Set<number>>(new Set());
+	const filtered = $derived(
+		tab === 'unread' ? mails.filter((m) => !m.seen)
+		: tab === 'starred' ? mails.filter((m) => stars.has(m.uid))
+		: mails
+	);
+	function toggleStar(uid: number) {
+		const next = new Set(stars);
+		if (next.has(uid)) next.delete(uid); else next.add(uid);
+		stars = next;
+		try { localStorage.setItem('astoris-mail-stars', JSON.stringify([...next])); } catch { /* ignore */ }
+	}
 
 	// Extract a readable display name from a "Name <addr>" From header.
 	function displayName(from: string): string {
@@ -180,20 +194,25 @@
 		</div>
 	{:else}
 		<div class="layout" class:has-detail={!!selected}>
+			<div class="mtabs">
+				<button class:sel={tab === 'all'} onclick={() => (tab = 'all')}>{i18n.t('mail.filterAll')}</button>
+				<button class:sel={tab === 'unread'} onclick={() => (tab = 'unread')}>{i18n.t('mail.filterUnread')}{#if unreadCount} ({unreadCount}){/if}</button>
+				<button class:sel={tab === 'starred'} onclick={() => (tab = 'starred')}>{i18n.t('mail.filterStarred')}</button>
+			</div>
 			<ul class="list">
-				<li class="meta mono">{mails.length} {i18n.t('mail.messages')} · {unreadCount} {i18n.t('mail.unread')}</li>
-				{#each mails as m (m.uid)}
-					<li>
-						<button
-							class="row"
-							class:unread={!m.seen}
-							class:active={selected?.uid === m.uid}
-							onclick={() => openMail(m)}
-						>
+				{#if filtered.length === 0}
+					<li class="meta mono">{i18n.t('mail.noneInFilter')}</li>
+				{/if}
+				{#each filtered as m (m.uid)}
+					<li class="mrow">
+						<button class="row" class:unread={!m.seen} class:active={selected?.uid === m.uid} onclick={() => openMail(m)}>
 							{#if !m.seen}<span class="dot" aria-label={i18n.t('mail.unread')}></span>{/if}
 							<span class="from">{displayName(m.from)}</span>
 							<span class="subject">{m.subject}</span>
 							<span class="date mono">{fmtDate(m.date)}</span>
+						</button>
+						<button class="star" class:on={stars.has(m.uid)} onclick={() => toggleStar(m.uid)} aria-label="Favorit" title="Favorit">
+							<svg width="15" height="15" viewBox="0 0 24 24" fill={stars.has(m.uid) ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.5"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
 						</button>
 					</li>
 				{/each}
@@ -265,6 +284,15 @@
 
 <style>
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px; }
+	.mtabs { display: flex; gap: 4px; margin-bottom: 12px; }
+	.mtabs button { font-size: 12.5px; color: var(--text-muted); background: transparent; border: 1px solid var(--border-soft); border-radius: 999px; padding: 5px 13px; transition: all 0.15s; }
+	.mtabs button:hover { color: var(--text); }
+	.mtabs button.sel { color: var(--ember-bright); background: var(--ember-soft); border-color: var(--ember-line); }
+	.mrow { display: flex; align-items: stretch; }
+	.mrow .row { flex: 1; }
+	.star { flex: none; width: 38px; display: grid; place-items: center; border: none; background: transparent; color: var(--text-faint); transition: color 0.15s; }
+	.star:hover { color: var(--ember-bright); }
+	.star.on { color: var(--ember); }
 	.aiacts { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 	.aibox { margin-top: 12px; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 13px 15px; font-size: 13.5px; line-height: 1.6; }
 	.aibox.err { background: var(--danger-soft); color: var(--danger); }
