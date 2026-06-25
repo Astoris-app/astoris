@@ -30,8 +30,8 @@
 	.bubble {
 		position: absolute;
 		bottom: calc(100% + 8px);
-		left: 50%;
-		transform: translateX(-50%) translateY(4px);
+		left: 0;
+		transform: translateY(4px);
 		width: max-content;
 		max-width: 250px;
 		background: var(--surface-3);
@@ -52,6 +52,6 @@
 	}
 	.info:hover .bubble, .info:focus-visible .bubble {
 		opacity: 1;
-		transform: translateX(-50%) translateY(0);
+		transform: translateY(0);
 	}
 </style>
