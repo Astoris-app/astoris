@@ -4,6 +4,8 @@
 	import { renderMarkdown } from '$lib/markdown';
 	import ChatSidebar from '$lib/components/ChatSidebar.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { goto } from '$app/navigation';
+	import { handoff } from '$lib/stores/handoff.svelte';
 
 	type Msg = {
 		role: 'user' | 'assistant';
@@ -22,7 +24,7 @@
 	let draft = $state('');
 	let busy = $state(false);
 	let scroller: HTMLDivElement;
-	let ta: HTMLTextAreaElement;
+	let ta = $state<HTMLTextAreaElement>();
 	let abort: AbortController | null = null;
 
 	let copiedIdx = $state(-1);
@@ -30,6 +32,10 @@
 	let micSupported = $state(false);
 	let listening = $state(false);
 	let recog: any = null;
+	let audioLevels = $state<number[]>([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]);
+	let micStream: MediaStream | null = null;
+	let audioCtx: AudioContext | null = null;
+	let rafId = 0;
 
 	let personas = $state<any[]>([]);
 	let activePersonaId = $state('astoris');
@@ -191,6 +197,10 @@
 		} catch { /* ignore */ }
 	}
 
+	function toTresor(text: string) {
+		handoff.tresorText = text;
+		goto('/tresor');
+	}
 	function download(text: string) {
 		const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
 		const a = document.createElement('a');
@@ -215,10 +225,41 @@
 		window.speechSynthesis.speak(u);
 	}
 
+	async function startVisualizer() {
+		try {
+			micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			audioCtx = new AudioContext();
+			const src = audioCtx.createMediaStreamSource(micStream);
+			const analyser = audioCtx.createAnalyser();
+			analyser.fftSize = 64;
+			src.connect(analyser);
+			const data = new Uint8Array(analyser.frequencyBinCount);
+			const n = audioLevels.length;
+			const step = Math.max(1, Math.floor(data.length / n));
+			const loop = () => {
+				analyser.getByteFrequencyData(data);
+				audioLevels = Array.from({ length: n }, (_, i) => {
+					let sum = 0;
+					for (let j = 0; j < step; j++) sum += data[i * step + j] ?? 0;
+					return Math.min(1, sum / step / 170);
+				});
+				rafId = requestAnimationFrame(loop);
+			};
+			loop();
+		} catch { /* Mikrofon verweigert → ohne Pegel-Visualisierung */ }
+	}
+	function stopVisualizer() {
+		if (rafId) cancelAnimationFrame(rafId);
+		rafId = 0;
+		micStream?.getTracks().forEach((t) => t.stop());
+		audioCtx?.close().catch(() => {});
+		micStream = null; audioCtx = null;
+		audioLevels = audioLevels.map(() => 0.1);
+	}
 	function toggleMic() {
 		if (!micSupported || !recog) return;
-		if (listening) { recog.stop(); listening = false; return; }
-		try { recog.start(); listening = true; } catch { /* schon aktiv */ }
+		if (listening) { recog.stop(); listening = false; stopVisualizer(); return; }
+		try { recog.start(); listening = true; startVisualizer(); } catch { /* schon aktiv */ }
 	}
 
 	onMount(() => {
@@ -235,8 +276,8 @@
 				draft += (draft ? ' ' : '') + e.results[0][0].transcript;
 				resize();
 			};
-			recog.onend = () => (listening = false);
-			recog.onerror = () => (listening = false);
+			recog.onend = () => { listening = false; stopVisualizer(); };
+			recog.onerror = () => { listening = false; stopVisualizer(); };
 		}
 	});
 </script>
@@ -330,6 +371,9 @@
 									<button title="Als .txt speichern" onclick={() => download(m.text)}>
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
 									</button>
+									<button title={i18n.t('chat.toVault')} onclick={() => toTresor(m.text)}>
+										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+									</button>
 								</span>
 							</div>
 						{/if}
@@ -350,14 +394,23 @@
 		>
 			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
 		</button>
-		<textarea
-			bind:this={ta}
-			bind:value={draft}
-			oninput={resize}
-			onkeydown={onKey}
-			rows="1"
-			placeholder={i18n.t('chat.placeholder')}
-		></textarea>
+		{#if listening}
+			<div class="wave" aria-live="polite">
+				{#each audioLevels as lvl, i (i)}
+					<span style="transform: scaleY({0.12 + lvl * 0.88})"></span>
+				{/each}
+				<em>{i18n.t('chat.listening')}</em>
+			</div>
+		{:else}
+			<textarea
+				bind:this={ta}
+				bind:value={draft}
+				oninput={resize}
+				onkeydown={onKey}
+				rows="1"
+				placeholder={i18n.t('chat.placeholder')}
+			></textarea>
+		{/if}
 		{#if busy}
 			<button class="send stop" onclick={stop} aria-label="Stop" title="Stoppen">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -435,6 +488,9 @@
 	.mic:not(:disabled):hover { color: var(--text); border-color: var(--ember-line); }
 	.mic:disabled { opacity: 0.4; cursor: not-allowed; }
 	.mic.listening { color: var(--ember-bright); border-color: var(--ember); background: var(--ember-soft); animation: pulse 1.4s infinite; }
+	.wave { flex: 1; display: flex; align-items: center; gap: 3px; height: 44px; padding: 0 16px; }
+	.wave span { width: 3px; height: 24px; border-radius: 3px; background: var(--ember); transform-origin: center; transition: transform 0.07s linear; }
+	.wave em { margin-left: 12px; font-size: 12.5px; color: var(--text-muted); font-style: normal; }
 	@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(232,132,60,0.3); } 50% { box-shadow: 0 0 0 6px rgba(232,132,60,0); } }
 	textarea { flex: 1; resize: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; color: var(--text); padding: 13px 16px; font-family: var(--font-body); font-size: 14.5px; max-height: 180px; line-height: 1.5; transition: border-color 0.16s; }
 	textarea:focus { outline: none; border-color: var(--ember-line); }

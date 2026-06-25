@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { handoff } from '$lib/stores/handoff.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { encryptMessage, decryptMessage, encryptFile, decryptFile, isEncryptedBlock } from '$lib/crypto/messageCrypto';
 
@@ -19,6 +21,12 @@
 	$effect(() => {
 		secure = typeof window === 'undefined' ? true : (window.isSecureContext ?? false);
 		canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+	});
+
+	// Aus dem Chat übergebener Text → direkt zum Verschlüsseln vorausfüllen.
+	onMount(() => {
+		const t = handoff.take();
+		if (t) { input = t; mode = 'enc'; }
 	});
 
 	async function run() {
