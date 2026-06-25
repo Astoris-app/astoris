@@ -3,6 +3,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { renderMarkdown } from '$lib/markdown';
 	import ChatSidebar from '$lib/components/ChatSidebar.svelte';
+	import CryptChat from '$lib/components/CryptChat.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { goto } from '$app/navigation';
 	import { handoff } from '$lib/stores/handoff.svelte';
@@ -26,6 +27,7 @@
 	let busy = $state(false);
 	let scroller: HTMLDivElement;
 	let ta = $state<HTMLTextAreaElement>();
+	let mode = $state<'chat' | 'crypt'>('chat');
 	let abort: AbortController | null = null;
 
 	let copiedIdx = $state(-1);
@@ -301,9 +303,16 @@
 </script>
 
 <div class="alayout">
-	<ChatSidebar chats={chats} currentId={currentChatId} onOpen={openChat} onNew={clearChat} onRename={renameChatItem} onDelete={removeChatItem} />
+	{#if mode === 'chat'}
+		<ChatSidebar chats={chats} currentId={currentChatId} onOpen={openChat} onNew={clearChat} onRename={renameChatItem} onDelete={removeChatItem} />
+	{/if}
 	<div class="amain">
 <AppHeader title="Assistent" eyebrow="Maschinenraum">
+	<div class="modetoggle">
+		<button class:sel={mode === 'chat'} onclick={() => (mode = 'chat')}>{i18n.t('chat.assistant')}</button>
+		<button class:sel={mode === 'crypt'} onclick={() => (mode = 'crypt')}>{i18n.t('crypt.title')}</button>
+	</div>
+	{#if mode === 'chat'}
 	<div class="ppick-wrap">
 		<button class="ppick" onclick={() => (personaMenu = !personaMenu)} title="Persönlichkeit wählen">
 			<span class="pe">{activePersona?.emoji ?? '🛰️'}</span>
@@ -327,9 +336,13 @@
 			{i18n.t('chat.newChat')}
 		</button>
 	{/if}
+	{/if}
 </AppHeader>
 
-<div class="chat">
+{#if mode === 'crypt'}
+	<CryptChat />
+{/if}
+<div class="chat" class:hidden={mode === 'crypt'}>
 	<div class="stream" bind:this={scroller}>
 		{#if messages.length === 0}
 			<div class="welcome">
@@ -448,6 +461,11 @@
 <style>
 	.alayout { display: flex; flex: 1; min-height: 0; }
 	.amain { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+	.hidden { display: none !important; }
+	.modetoggle { display: inline-flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 3px; margin-right: auto; }
+	.modetoggle button { font-size: 12.5px; font-weight: 500; color: var(--text-muted); background: transparent; border: none; border-radius: 999px; padding: 5px 15px; transition: all 0.15s; }
+	.modetoggle button:hover { color: var(--text); }
+	.modetoggle button.sel { color: var(--ember-bright); background: var(--ember-soft); }
 	.hbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }
 	.hbtn:hover { color: var(--text); border-color: var(--ember-line); }
 
