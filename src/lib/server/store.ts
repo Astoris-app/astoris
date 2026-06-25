@@ -4,6 +4,27 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from 'node:fs';
 import { encrypt, decrypt } from './crypto';
+import { env } from '$env/dynamic/private';
+
+const ENV_FILE = '.env';
+function envKey(connectorId: string, fieldKey: string): string {
+	return 'ASTORIS_' + connectorId.toUpperCase().replace(/[^A-Z0-9]/g, '_') + '_' + fieldKey.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+}
+// Spiegelt Credentials zusätzlich (Klartext) in .env — vom Operator gewählt (auch in App änderbar).
+function syncToEnv(connectorId: string, fields: Record<string, string>) {
+	let lines: string[] = [];
+	try { if (existsSync(ENV_FILE)) lines = readFileSync(ENV_FILE, 'utf8').split('\n'); } catch { /* neu */ }
+	const updates = new Map<string, string>();
+	for (const [k, v] of Object.entries(fields)) updates.set(envKey(connectorId, k), '"' + String(v).replace(/"/g, '\\"') + '"');
+	const seen = new Set<string>();
+	lines = lines.map((line) => {
+		const m = line.match(/^([A-Z0-9_]+)=/);
+		if (m && updates.has(m[1])) { seen.add(m[1]); return m[1] + '=' + updates.get(m[1]); }
+		return line;
+	});
+	for (const [k, v] of updates) if (!seen.has(k)) lines.push(k + '=' + v);
+	try { writeFileSync(ENV_FILE, lines.join('\n'), { mode: 0o600 }); } catch { /* best effort */ }
+}
 
 const FILE = 'data/connections.json';
 
@@ -59,7 +80,7 @@ export function listPublic(): PublicConnection[] {
 export function getDecrypted(id: string): (StoredConnection & { plain: Record<string, string> }) | null {
 	const c = loadRaw().find((x) => x.id === id);
 	if (!c) return null;
-	const plain = Object.fromEntries(Object.entries(c.fields).map(([k, v]) => [k, decrypt(v)]));
+	const plain = Object.fromEntries(Object.entries(c.fields).map(([k, v]) => [k, (env[envKey(c.connectorId, k)] ?? decrypt(v))]));
 	return { ...c, plain };
 }
 
@@ -87,6 +108,7 @@ export function upsert(input: {
 	if (idx >= 0) list[idx] = rec;
 	else list.push(rec);
 	persist(list);
+	syncToEnv(input.connectorId, input.fields);
 	const { fields, ...rest } = rec;
 	return { ...rest, fieldKeys: Object.keys(fields) };
 }
