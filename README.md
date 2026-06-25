@@ -50,13 +50,24 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 | **Verbindungen** | ✅ | Alltags-Konten anlegen, live getestet, verschlüsselt gespeichert |
 | **Posteingang** | ✅ | E-Mails über IMAP, Übersicht & Vorschau |
 | **Dokumente** | ✅ | Upload (Drag & Drop), Verwaltung, Download |
-| **Recherche** | ✅ | Web-Suche (DuckDuckGo) mit Trefferliste |
+| **Recherche** | ✅ | Web-Suche (Brave/DuckDuckGo) & Wikipedia — als KI-Werkzeuge im Chat |
 | **Studio** | ✅ | Bild hochladen & vom lokalen Vision-Modell analysieren lassen |
-| **Kalender** | ✅ | Monatsansicht, Termine anlegen (Google-Sync folgt) |
+| **Kalender** | ✅ | Monats-, Wochen- & Agenda-Ansicht; Termine anlegen — auch von der KI bedienbar |
 | **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), **Hell/Dunkel-Modus**, **Sprache DE/EN**, Sicherheit, Modell |
 | **Onboarding & Login** | ✅ | Geführte Einrichtung, Login per Benutzername/Passwort oder Tailscale |
 | **Team** | ✅ | Persönlichkeiten/Charaktere + Firma mit Rollen & Unteragenten |
 | **Erweiterungen** | ✅ | Add-ons installieren — Connector-Add-ons (Upload) & Code-Add-ons mit In-App-Editor & Sandbox |
+| **Modell-Wahl** | ✅ | Lokal (vLLM) oder Cloud (Claude Sonnet/Opus, OpenAI) — global, pro Chat & pro Team-Agent wählbar |
+| **KI-Aktionen** | ✅ | Die KI bedient Kalender, Mail & verschlüsselten Messenger per Tool-Calling — ausgehende Nachrichten mit Entwurf + Bestätigung |
+
+### Was die KI selbst bedient
+
+Aktive Werkzeuge ruft die KI im Chat automatisch auf (Tool-Calling) — beim lokalen Modell **und** bei Claude/OpenAI:
+
+- **Kalender** — Termine einsehen, anlegen, ändern, löschen.
+- **Mail** — die KI bereitet eine E-Mail vor; gesendet wird erst nach deiner **Bestätigung** (oder direkt, wenn in den Einstellungen erlaubt).
+- **Verschlüsselter Messenger** — Nachricht vorbereiten, **client-seitig** verschlüsseln und über Telegram/E-Mail senden (Zero-Knowledge — die KI sieht nie den Schlüssel).
+- **Add-ons** — Web-Suche, Wikipedia, Währungs- & Einheiten-Rechner, URL-Reader, Universal-HTTP, Hash & Encode, IBAN, Passwort-Generator, Wetter.
 
 ### Tresor — verschlüsselt teilen
 
@@ -71,6 +82,8 @@ Beim Verbinden eines Kontos wird live geprüft, ob die Zugangsdaten funktioniere
 WebDAV/Nextcloud, Google Kalender (OAuth).
 
 ### Erweiterungen (Add-ons)
+
+<img src="docs/screenshot-erweiterungen.png" width="100%" alt="Astoris Erweiterungen — Add-on-Verwaltung & Code-Editor" />
 
 Der Kern ist gratis — neue Fähigkeiten kommen als Add-ons:
 
@@ -155,8 +168,9 @@ Als Nächstes:
 
 1. **Erweiterungen**: ✅ Code-Add-ons als KI-Werkzeuge im Chat (Tool-Calling) — als Nächstes: Connector-Add-ons in „Verbindungen" verdrahten, Premium-Lizenz-Freischaltung
 2. Apps verfeinern: Mail-Body-Anzeige, RAG/Volltextsuche, Google-Kalender-Sync, Bildgenerierung (FLUX)
-3. Agenten der Firma echte Aufgaben bearbeiten lassen (Orchestrierung)
-4. Multi-Tenancy (mehrere Nutzer/Workspaces) für öffentlichen Mehrnutzer-Betrieb
+3. **Dokumente-RAG** (Volltext/Embeddings) & Tresor-Zugriff als KI-Werkzeug
+4. Google-Kalender-Sync, Bildgenerierung (FLUX), Premium-Add-on-Freischaltung
+5. Multi-Tenancy (mehrere Nutzer/Workspaces) für öffentlichen Mehrnutzer-Betrieb
 
 ## Lizenz
 
