@@ -105,7 +105,11 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	const base = rawBase.replace(/\/$/, '');
 	const model = await resolveModel(base, apiKey);
 	const now = new Date();
-	const dateInfo = `Aktuelles Datum und Uhrzeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr (${now.toISOString().slice(0, 10)}). Nutze für Kalender-Termine das Datumsformat YYYY-MM-DD und für Uhrzeiten HH:MM.`;
+	const pad = (n: number) => String(n).padStart(2, '0');
+	const off = -now.getTimezoneOffset();
+	const tz = (off >= 0 ? '+' : '-') + pad(Math.floor(Math.abs(off) / 60)) + ':' + pad(Math.abs(off) % 60);
+	const iso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${tz}`;
+	const dateInfo = `Aktueller Zeitstempel (ISO 8601, lokale Zeit): ${iso}. Lesbar: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr. Für Kalender-Termine: Datum YYYY-MM-DD, Uhrzeit HH:MM.`;
 	// vLLM erlaubt nur EINE System-Message am Anfang → Datum an vorhandene anhängen statt eine zweite einfügen.
 	const first = messages[0];
 	const msgs: unknown[] = first && first.role === 'system'

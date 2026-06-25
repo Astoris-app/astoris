@@ -8,6 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { handoff } from '$lib/stores/handoff.svelte';
 	import { voice } from '$lib/stores/voice.svelte';
+	import { assistant } from '$lib/stores/assistant.svelte';
 
 	type Msg = {
 		role: 'user' | 'assistant';
@@ -22,12 +23,12 @@
 		streaming?: boolean;
 	};
 
-	let messages = $state<Msg[]>([]);
-	let draft = $state('');
+	let messages = $state<Msg[]>(assistant.messages as Msg[]);
+	let draft = $state(assistant.draft);
 	let busy = $state(false);
 	let scroller: HTMLDivElement;
 	let ta = $state<HTMLTextAreaElement>();
-	let mode = $state<'chat' | 'crypt'>('chat');
+	let mode = $state<'chat' | 'crypt'>(assistant.mode);
 	let abort: AbortController | null = null;
 
 	let copiedIdx = $state(-1);
@@ -41,7 +42,7 @@
 	let rafId = 0;
 
 	let personas = $state<any[]>([]);
-	let activePersonaId = $state('astoris');
+	let activePersonaId = $state(assistant.activePersonaId);
 	let activePersona = $derived(personas.find((p) => p.id === activePersonaId));
 	let personaMenu = $state(false);
 	function setPersona(id: string) {
@@ -51,7 +52,13 @@
 	}
 
 	let chats = $state<{ id: string; title: string; updatedAt: string; count: number }[]>([]);
-	let currentChatId = $state<string | null>(null);
+	let currentChatId = $state<string | null>(assistant.currentChatId);
+	// Zustand in den Store spiegeln, damit er Navigation überlebt.
+	$effect(() => { assistant.mode = mode; });
+	$effect(() => { assistant.draft = draft; });
+	$effect(() => { assistant.messages = messages; });
+	$effect(() => { assistant.currentChatId = currentChatId; });
+	$effect(() => { assistant.activePersonaId = activePersonaId; });
 	async function loadChats() {
 		try { const d = await (await fetch('/api/chats')).json(); chats = d.chats ?? []; } catch { /* ignore */ }
 	}

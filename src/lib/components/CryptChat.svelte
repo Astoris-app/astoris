@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { encryptMessage, decryptMessage, isEncryptedBlock } from '$lib/crypto/messageCrypto';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { assistant } from '$lib/stores/assistant.svelte';
 
 	const CHANNELS = [
 		{ id: 'telegram', label: 'Telegram', icon: 'M21.5 4.3 2.5 11.6c-1 .4-1 1.8 0 2.1l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.6 3.4c.7.5 1.7.1 1.9-.7l3.3-15.6c.2-1-.8-1.9-1.7-1.5z' },
@@ -10,13 +11,18 @@
 		{ id: 'signal', label: 'Signal', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6z' }
 	];
 
-	let pass = $state('');
+	let pass = $state(assistant.cryptPass);
 	let showPass = $state(false);
-	let channel = $state('telegram');
-	let recipient = $state('');
-	let draft = $state('');
-	let messages = $state<{ text: string; time: string; via: string; dir: 'out' | 'in' }[]>([]);
+	let channel = $state(assistant.cryptChannel);
+	let recipient = $state(assistant.cryptRecipient);
+	let draft = $state(assistant.cryptDraft);
+	let messages = $state<{ text: string; time: string; via: string; dir: 'out' | 'in' }[]>(assistant.cryptMessages as { text: string; time: string; via: string; dir: 'out' | 'in' }[]);
 	let polling = $state(false);
+	$effect(() => { assistant.cryptPass = pass; });
+	$effect(() => { assistant.cryptChannel = channel; });
+	$effect(() => { assistant.cryptRecipient = recipient; });
+	$effect(() => { assistant.cryptDraft = draft; });
+	$effect(() => { assistant.cryptMessages = messages; });
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let busy = $state(false);
 	let err = $state('');
