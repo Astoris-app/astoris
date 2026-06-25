@@ -161,7 +161,7 @@ function parseFetch(raw: string): Mail[] {
 	const mails: Mail[] = [];
 	// Each message starts with: * <seq> FETCH (...)
 	// Split on the message boundary while keeping payloads.
-	const parts = raw.split(/\r?\n\*\s+\d+\s+FETCH\s*\(/);
+	const parts = raw.split(/(?:^|\r?\n)\*\s+\d+\s+FETCH\s*\(/);
 	// First part is before the first FETCH — drop it, re-prepend marker handling.
 	for (let i = 0; i < parts.length; i++) {
 		const seg = i === 0 ? '' : parts[i];
