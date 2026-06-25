@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoHint from '$lib/components/InfoHint.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import AppHeader from '$lib/components/AppHeader.svelte';
@@ -155,13 +156,14 @@
 
 	<!-- aigate Cloud-Schutz -->
 	<section class="card">
-		<h2>{i18n.t('settings.aigate')} <span class="prem">Premium</span></h2>
+		<h2>{i18n.t('settings.aigate')} <span class="prem">Premium</span> <InfoHint text={i18n.t('settings.aigateInfo')} /></h2>
 		<p class="lbl">{i18n.t('settings.aigateHint')}</p>
 		<div class="seg">
-			<button class:sel={aigateMode === 'off'} onclick={() => setAigate('off')}>{i18n.t('settings.aigateOff')}</button>
-			<button class:sel={aigateMode === 'redact'} onclick={() => setAigate('redact')}>{i18n.t('settings.aigateRedact')}</button>
-			<button class:sel={aigateMode === 'block'} onclick={() => setAigate('block')}>{i18n.t('settings.aigateBlock')}</button>
+			<button class:sel={aigateMode === 'off'} title={i18n.t('settings.aigateOffDesc')} onclick={() => setAigate('off')}>{i18n.t('settings.aigateOff')}</button>
+			<button class:sel={aigateMode === 'redact'} title={i18n.t('settings.aigateRedactDesc')} onclick={() => setAigate('redact')}>{i18n.t('settings.aigateRedact')}</button>
+			<button class:sel={aigateMode === 'block'} title={i18n.t('settings.aigateBlockDesc')} onclick={() => setAigate('block')}>{i18n.t('settings.aigateBlock')}</button>
 		</div>
+		<p class="lbl aigate-active">{aigateMode === 'off' ? i18n.t('settings.aigateOffDesc') : aigateMode === 'redact' ? i18n.t('settings.aigateRedactDesc') : i18n.t('settings.aigateBlockDesc')}</p>
 	</section>
 
 	<!-- KI -->
