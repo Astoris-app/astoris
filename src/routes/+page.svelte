@@ -9,6 +9,7 @@
 		role: 'user' | 'assistant';
 		text: string;
 		reasoning?: string;
+		tools?: string[];
 		model?: string;
 		ms?: number;
 		time?: string;
@@ -46,7 +47,7 @@
 		try { const d = await (await fetch('/api/chats')).json(); chats = d.chats ?? []; } catch { /* ignore */ }
 	}
 	async function persistChat() {
-		const stored = messages.filter((m) => !m.streaming && m.text).map((m) => ({ role: m.role, text: m.text, reasoning: m.reasoning, model: m.model, ms: m.ms, time: m.time, demo: m.demo }));
+		const stored = messages.filter((m) => !m.streaming && m.text).map((m) => ({ role: m.role, text: m.text, reasoning: m.reasoning, tools: m.tools, model: m.model, ms: m.ms, time: m.time, demo: m.demo }));
 		if (!stored.length) return;
 		try {
 			const d = await (await fetch('/api/chats', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: currentChatId, messages: stored }) })).json();
@@ -131,6 +132,7 @@
 					const m = messages[aIdx];
 					if (d.type === 'reasoning') m.reasoning = (m.reasoning ?? '') + d.text;
 					else if (d.type === 'content') m.text += d.text;
+					else if (d.type === 'tools') m.tools = d.names;
 					else if (d.type === 'error') { m.text += (m.text ? '\n\n' : '') + (d.text ?? 'Fehler'); m.error = true; }
 					else if (d.type === 'done') { m.model = d.model; m.ms = d.ms; m.demo = d.demo; m.time = nowTime(); }
 					scrollDown();
@@ -304,7 +306,7 @@
 						{#if m.role === 'assistant' && !m.streaming && m.text}
 							<div class="meta">
 								<span class="mono">
-									{m.time}{#if m.ms} · {fmtDur(m.ms)}{/if}{#if m.model} · {m.model}{/if}{#if m.demo} · Demo{/if}
+									{m.time}{#if m.ms} · {fmtDur(m.ms)}{/if}{#if m.model} · {m.model}{/if}{#if m.tools?.length} · 🔧 {m.tools.map((t) => t.replace(/_/g, ' ')).join(', ')}{/if}{#if m.demo} · Demo{/if}
 								</span>
 								<span class="acts">
 									<button title="Kopieren" onclick={() => copy(i, m.text)}>

@@ -5,12 +5,13 @@
 
 import { env } from '$env/dynamic/private';
 import { getDecrypted } from './store';
+import { buildAddonTools, runAddonTool } from './tools';
 
 export const ENGINE_URL = env.ENGINE_URL ?? 'http://localhost:8081';
 const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
 
 export type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string };
-export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string };
+export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[] };
 export type EngineStatus = {
 	online: boolean;
 	mode: 'local' | 'cloud' | 'offline';
@@ -93,6 +94,51 @@ async function chatOpenAICompat(rawBase: string, apiKey: string, messages: ChatM
 	}
 }
 
+/** Chat mit Werkzeugen: aktive Code-Add-ons werden der KI als Tools angeboten
+ *  und in der Sandbox ausgeführt, wenn die KI sie aufruft. Fällt ohne Tools auf
+ *  den normalen Chat zurück. */
+async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[]): Promise<ChatResult> {
+	const { tools, byName } = buildAddonTools();
+	if (!tools.length) return chatOpenAICompat(rawBase, apiKey, messages);
+	const base = rawBase.replace(/\/$/, '');
+	const model = await resolveModel(base, apiKey);
+	const msgs: unknown[] = [...messages];
+	const used: string[] = [];
+	for (let round = 0; round < 4; round++) {
+		const ctrl = new AbortController();
+		const t = setTimeout(() => ctrl.abort(), 120000);
+		try {
+			const res = await fetch(`${base}/v1/chat/completions`, {
+				method: 'POST',
+				headers: bearer(apiKey),
+				body: JSON.stringify({ model, messages: msgs, tools, max_tokens: 4096, temperature: 0.7 }),
+				signal: ctrl.signal
+			});
+			if (!res.ok) throw new Error(`status ${res.status}`);
+			const data = await res.json();
+			const msg = data?.choices?.[0]?.message;
+			if (!msg) throw new Error('keine Antwort');
+			if (Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
+				msgs.push(msg);
+				for (const tc of msg.tool_calls) {
+					let args: unknown = {};
+					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leeres Argument */ }
+					used.push(tc.function?.name);
+					const result = await runAddonTool(byName, tc.function?.name, args);
+					msgs.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+				}
+				continue;
+			}
+			const reply = (msg.content ?? '').trim();
+			if (!reply) throw new Error('leere Antwort');
+			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}) };
+		} finally {
+			clearTimeout(t);
+		}
+	}
+	throw new Error('zu viele Werkzeug-Runden');
+}
+
 /** Status für die Maschinenraum-Anzeige. */
 export async function engineStatus(): Promise<EngineStatus> {
 	// 1. Konfigurierte lokale Modell-Verbindung
@@ -127,7 +173,7 @@ export async function engineChat(messages: ChatMsg[]): Promise<ChatResult> {
 	const lm = getDecrypted('local-models');
 	if (lm?.plain?.base_url) {
 		try {
-			return await chatOpenAICompat(lm.plain.base_url, lm.plain.api_key ?? '', messages);
+			return await chatWithTools(lm.plain.base_url, lm.plain.api_key ?? '', messages);
 		} catch {
 			return { source: 'demo', reply: 'Das lokale Modell ist gerade nicht erreichbar. Bitte kurz warten und erneut senden, oder den Endpoint unter „Verbindungen" prüfen.' };
 		}

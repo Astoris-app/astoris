@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { resolveModelTarget, type ChatMsg } from '$lib/server/engine';
+import { resolveModelTarget, engineChat, type ChatMsg } from '$lib/server/engine';
+import { buildAddonTools } from '$lib/server/tools';
 
 // Streamt die Modell-Antwort als SSE. Events: {type:'reasoning'|'content'|'done'|'error'}.
 export async function POST({ request }) {
@@ -8,8 +9,23 @@ export async function POST({ request }) {
 	messages = messages.filter((m) => m && typeof m.content === 'string' && m.content.trim()).slice(-20);
 	if (!messages.length) throw error(400, 'message fehlt');
 
-	const target = await resolveModelTarget();
 	const enc = new TextEncoder();
+
+	// Sind Code-Add-ons aktiv → Tool-Calling-Pfad (KI darf Werkzeuge nutzen).
+	if (buildAddonTools().tools.length > 0) {
+		const result = await engineChat(messages);
+		const stream = new ReadableStream({
+			start(c) {
+				if (result.tools?.length) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'tools', names: result.tools })}\n\n`));
+				c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content', text: result.reply })}\n\n`));
+				c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done', model: result.model, tools: result.tools })}\n\n`));
+				c.close();
+			}
+		});
+		return new Response(stream, { headers: sseHeaders() });
+	}
+
+	const target = await resolveModelTarget();
 
 	if (!target) {
 		const stream = new ReadableStream({
