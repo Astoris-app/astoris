@@ -1,0 +1,120 @@
+<div align="center">
+
+# Astoris
+
+**Dein eigener KI-Maschinenraum.**
+Ein self-hosted Workspace für Mensch und Firma — auf deiner Hardware, unter deiner Kontrolle.
+
+[astoris.org](https://astoris.org) · [info@astoris.org](mailto:info@astoris.org)
+
+</div>
+
+---
+
+## Was ist Astoris?
+
+Astoris ist eine selbst gehostete KI-Arbeitsumgebung. Ein Assistent, der deinen Kontext kennt
+und deine Alltags-Konten bedient — E-Mail, Kalender, Dokumente, Recherche und mehr. Die
+Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-Anbieter), und
+**du** entscheidest pro Verbindung, was die KI darf.
+
+## Kernprinzipien
+
+- **Souverän** — läuft auf deiner Hardware. Zugangsdaten verlassen nie deinen Server.
+- **Transparent** — der „Maschinenraum"-Status zeigt jederzeit, wo gerechnet wird (lokal/Cloud).
+- **Erlaubnis zuerst** — die KI darf nur, was du je Verbindung freigibst. Sensible Aktionen sind standardmäßig aus.
+
+## Funktionen
+
+| Bereich | Status | Beschreibung |
+|---|---|---|
+| **Assistent** | ✅ | Chat mit Streaming, „denkt nach"-Anzeige, Antwortdauer, Markdown/Code, Kopieren, Vorlesen, Mikrofon |
+| **Tresor** | ✅ | Ende-zu-Ende-Verschlüsselung (AES-256-GCM) für Text & Dateien, Teilen via Messenger/E-Mail |
+| **Verbindungen** | ✅ | Alltags-Konten anlegen, live getestet, verschlüsselt gespeichert |
+| **Posteingang** | ✅ | E-Mails über IMAP, Übersicht & Vorschau |
+| **Dokumente** | ✅ | Upload (Drag & Drop), Verwaltung, Download |
+| **Recherche** | ✅ | Web-Suche (DuckDuckGo) mit Trefferliste |
+| **Studio** | ✅ | Bild hochladen & vom lokalen Vision-Modell analysieren lassen |
+| **Kalender** | ✅ | Monatsansicht, Termine anlegen (Google-Sync folgt) |
+| **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), Sicherheit, Modell |
+| **Onboarding & Login** | ✅ | Geführte Einrichtung, Login per Benutzername/Passwort oder Tailscale |
+| **Team** | ✅ | Persönlichkeiten/Charaktere + Firma mit Rollen & Unteragenten |
+
+### Tresor — verschlüsselt teilen
+
+Beim Verschlüsseln erscheint ein Teilen-Panel: natives System-Teilen, **Telegram**, **WhatsApp**,
+**Gmail**, **E-Mail** (öffnet App/Web-Client) und **Signal** (über System-Teilen). Format-kompatibel
+zur AES256CHAT-App.
+
+### Verbindungen
+
+Beim Verbinden eines Kontos wird live geprüft, ob die Zugangsdaten funktionieren: E-Mail
+(IMAP-Login), Telegram, Trello, Stripe, Cloud-KI (Anthropic/OpenAI), lokale Modelle (vLLM/Ollama),
+WebDAV/Nextcloud, Google Kalender (OAuth).
+
+## Anmeldung & Sicherheit
+
+- **Login** per Benutzername + Passwort (scrypt-gehasht) oder **Tailscale-Identität** (gratis,
+  kein OAuth — wer über dein Tailnet zugreift, wird automatisch erkannt).
+- Zugangsdaten & Schlüssel **AES-256-GCM-verschlüsselt** unter `./data` (chmod 700, nie in Git).
+- **HTTPS** integriert (Tresor-Verschlüsselung, Mikrofon & sichere Cookies brauchen einen Secure Context).
+- **Seiten und APIs** sind nach dem Login geschützt (401 ohne gültige Sitzung).
+
+## Lokale Modelle — Performance
+
+Real gemessen auf einer **NVIDIA DGX Spark (GB10, 128 GB Unified Memory)**, vLLM (FP8):
+
+| Modell | Rolle | Durchsatz / Latenz |
+|---|---|---|
+| `qwen3.5-35b-a3b` (FP8) | Chat | **~54 tok/s** (inkl. Reasoning) |
+| `qwen2.5-vl-3b` | Vision | ~24 tok/s |
+| `nomic-embed-text` | Embeddings | **~10 ms** / Embedding |
+
+MoE-Modelle (z. B. Qwen3.5-A3B) sind ideal: große Kapazität, kleine aktive Parameterzahl →
+hoher Durchsatz. Kein lokales Modell? Über „Verbindungen → Cloud-KI" einen Anbieter eintragen.
+
+## Schnellstart
+
+> Ausführliche Schritt-für-Schritt-Anleitung: **[INSTALL.md](INSTALL.md)**
+
+```bash
+bash setup.sh                   # geführte Einrichtung: Abhängigkeiten, HTTPS, .env
+pnpm run dev -- --port 5180     # Entwicklung
+# oder Produktion (Self-Host):
+pnpm run build && node build
+```
+
+Das **Setup-Script** richtet HTTPS ein (Tailscale-Zertifikat, selbstsigniert oder Reverse-Proxy)
+und erklärt jeden Schritt. Beim ersten Aufruf legst du im Browser deinen Zugang an.
+
+## Architektur
+
+```
+SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Settings
+        | REST + SSE
+   Server-Routen (/api/*) + hooks.server.ts (Auth + Onboarding-Guard)
+        |
+   engine.ts        -> KI (gespeicherte Verbindung / Cloud / Clawy-Engine)
+   auth.ts          -> Tailscale-whois + scrypt + Sessions
+   connector-tests  -> Live-Verbindungstests (SSRF-gehärtet)
+   store + crypto   -> AES-256-GCM (data/)
+   messageCrypto    -> Tresor (client-side, Zero-Knowledge)
+```
+
+- **Frontend:** SvelteKit, reines CSS-Design-System (keine UI-Library), eigenständiges Design.
+- **Engine:** beliebige OpenAI-kompatible KI via Verbindung; Astoris ändert die Engine nicht.
+- **Speicher:** verschlüsselte Dateien unter `data/` (keine DB nötig).
+- **Produktion:** `@sveltejs/adapter-node` (`node build`).
+
+## Status & Roadmap
+
+MVP läuft: Chat, Tresor, Verbindungen, 5 Apps, Login (Passwort + Tailscale), HTTPS, Settings.
+Als Nächstes:
+
+1. Apps verfeinern: Mail-Body-Anzeige, RAG/Volltextsuche (Dokumente), Google-Kalender-Sync, Bildgenerierung (FLUX)
+2. Agenten der Firma echte Aufgaben bearbeiten lassen (Orchestrierung)
+3. Multi-Tenancy (mehrere Nutzer/Workspaces) für öffentlichen Mehrnutzer-Betrieb
+
+## Lizenz
+
+Open-Core (geplant). Details folgen.
