@@ -154,6 +154,29 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	return chatOpenAICompat(rawBase, apiKey, messages);
 }
 
+/** Anthropic Claude — eigenes Message-Format (x-api-key, system separat, content-Array). */
+async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claude-sonnet-4-6'): Promise<ChatResult> {
+	const sys = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+	const msgs = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
+	const ctrl = new AbortController();
+	const t = setTimeout(() => ctrl.abort(), 120000);
+	try {
+		const res = await fetch('https://api.anthropic.com/v1/messages', {
+			method: 'POST',
+			headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+			body: JSON.stringify({ model, max_tokens: 4096, ...(sys ? { system: sys } : {}), messages: msgs }),
+			signal: ctrl.signal
+		});
+		if (!res.ok) throw new Error(`anthropic status ${res.status}`);
+		const data = await res.json();
+		const reply = (data?.content ?? []).filter((b: { type?: string }) => b.type === 'text').map((b: { text?: string }) => b.text ?? '').join('').trim();
+		if (!reply) throw new Error('leere Antwort');
+		return { reply, source: 'model', model: data.model ?? model };
+	} finally {
+		clearTimeout(t);
+	}
+}
+
 /** Status für die Maschinenraum-Anzeige. */
 export async function engineStatus(): Promise<EngineStatus> {
 	// 1. Konfigurierte lokale Modell-Verbindung
@@ -197,16 +220,26 @@ export async function engineChat(messages: ChatMsg[]): Promise<ChatResult> {
 		}
 		return { source: 'demo', reply: 'Das lokale Modell ist gerade nicht erreichbar. Bitte kurz warten und erneut senden, oder den Endpoint unter „Verbindungen" prüfen.' };
 	}
-	// 2. Cloud-KI (OpenAI-kompatibel)
+	// 2. Cloud-KI (Anthropic Claude oder OpenAI)
 	const cloud = getDecrypted('cloud-ai');
-	if (cloud?.plain?.api_key && (cloud.plain.provider || '').toLowerCase().includes('openai')) {
+	if (cloud?.plain?.api_key) {
+		const provider = (cloud.plain.provider || '').toLowerCase();
 		// aigate: ausgehende Cloud-Inhalte auf Geheimnisse prüfen.
 		const guard = applyAigate(messages, getAigateMode());
 		if (guard.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(guard.hits.map((h) => h.type))].join(', ')}). Cloud-Versand blockiert.` };
-		try {
-			return await chatOpenAICompat('https://api.openai.com', cloud.plain.api_key, guard.messages);
-		} catch {
-			return { source: 'demo', reply: 'Cloud-KI ist gerade nicht erreichbar. Bitte erneut versuchen.' };
+		if (provider.includes('anthropic') || provider.includes('claude')) {
+			try {
+				return await chatAnthropic(cloud.plain.api_key, guard.messages);
+			} catch {
+				return { source: 'demo', reply: 'Cloud-KI (Claude) ist gerade nicht erreichbar. Bitte erneut versuchen.' };
+			}
+		}
+		if (provider.includes('openai')) {
+			try {
+				return await chatOpenAICompat('https://api.openai.com', cloud.plain.api_key, guard.messages);
+			} catch {
+				return { source: 'demo', reply: 'Cloud-KI ist gerade nicht erreichbar. Bitte erneut versuchen.' };
+			}
 		}
 	}
 	// 3. Clawy-Engine via env — nur wenn KEINE Modell-Verbindung konfiguriert ist.
