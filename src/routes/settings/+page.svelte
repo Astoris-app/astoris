@@ -21,6 +21,7 @@
 	let pwOk = $state(false);
 	let busy = $state(false);
 	let aigateMode = $state('redact');
+	let kiSource = $state('auto');
 
 	onMount(async () => {
 		try {
@@ -31,10 +32,18 @@
 			const a = await (await fetch('/api/aigate')).json();
 			if (a.mode) aigateMode = a.mode;
 		} catch { /* ignore */ }
+		try {
+			const k = await (await fetch('/api/ki-source')).json();
+			if (k.source) kiSource = k.source;
+		} catch { /* ignore */ }
 	});
 	async function setAigate(mode: string) {
 		aigateMode = mode;
 		await fetch('/api/aigate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
+	}
+	async function setKi(source: string) {
+		kiSource = source;
+		await fetch('/api/ki-source', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source }) });
 	}
 
 	async function changePw() {
@@ -111,6 +120,17 @@
 				<button class:sel={voice.mode === 'ptt'} onclick={() => voice.setMode('ptt')}>{i18n.t('settings.voicePtt')}</button>
 			</div>
 		{/if}
+	</section>
+
+	<!-- KI-Quelle -->
+	<section class="card">
+		<h2>{i18n.t('settings.kiSource')}</h2>
+		<p class="lbl">{i18n.t('settings.kiSourceHint')}</p>
+		<div class="seg">
+			<button class:sel={kiSource === 'auto'} onclick={() => setKi('auto')}>{i18n.t('settings.kiSourceAuto')}</button>
+			<button class:sel={kiSource === 'local'} onclick={() => setKi('local')}>{i18n.t('settings.kiSourceLocal')}</button>
+			<button class:sel={kiSource === 'cloud'} onclick={() => setKi('cloud')}>{i18n.t('settings.kiSourceCloud')}</button>
+		</div>
 	</section>
 
 	<!-- aigate Cloud-Schutz -->
