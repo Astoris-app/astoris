@@ -95,7 +95,7 @@
 		{i18n.t('connections.lead')}
 	</p>
 
-	<div class="tscard" class:on={tsActive}>
+	<div class="tscard" id="ts-top" class:on={tsActive}>
 		<div class="tstop">
 			<div class="tsico">
 				<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2" opacity="0.35"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2" opacity="0.35"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2" opacity="0.35"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2" opacity="0.35"/><circle cx="19" cy="19" r="2"/></svg>
@@ -147,6 +147,23 @@
 			</div>
 		</section>
 	{/each}
+
+	<section>
+		<h2 class="cat">{i18n.t('connections.access')}</h2>
+		<div class="grid">
+			<article class="card" class:on={tsActive}>
+				<div class="top">
+					<div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2" opacity="0.35"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2" opacity="0.35"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2" opacity="0.35"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2" opacity="0.35"/><circle cx="19" cy="19" r="2"/></svg></div>
+					{#if tsActive}<span class="state ok mono">{i18n.t('connections.tailscaleActive')}</span>{/if}
+				</div>
+				<h3>{i18n.t('connections.tailscaleTitle')}</h3>
+				<p>{i18n.t('connections.tailscaleShort')}</p>
+				<div class="actions">
+					<button class="btn ghost" onclick={() => document.getElementById('ts-top')?.scrollIntoView({ behavior: 'smooth' })}>{i18n.t('connections.tailscaleGuide')}</button>
+				</div>
+			</article>
+		</div>
+	</section>
 </div>
 
 {#if active}
