@@ -1,9 +1,21 @@
 import { json, error } from '@sveltejs/kit';
 import { CONNECTORS } from '$lib/connectors';
-import { listPublic, upsert, remove } from '$lib/server/store';
+import { listPublic, upsert, remove, getDecrypted } from '$lib/server/store';
 import { testConnection } from '$lib/server/connector-tests';
 
-export async function GET() {
+export async function GET({ url }) {
+	const id = url.searchParams.get('id');
+	if (id) {
+		const conn = getDecrypted(id);
+		if (!conn) throw error(404, 'Verbindung nicht gefunden.');
+		const def = CONNECTORS.find((c) => c.id === id);
+		// Nur Nicht-Passwort-Felder zurückgeben (Secrets bleiben am Server).
+		const fields: Record<string, string> = {};
+		for (const f of def?.fields ?? []) {
+			if (f.type !== 'password' && conn.plain[f.key]) fields[f.key] = conn.plain[f.key];
+		}
+		return json({ fields, scopes: conn.scopes });
+	}
 	return json({ connections: listPublic() });
 }
 
@@ -13,9 +25,12 @@ export async function POST({ request }) {
 	const def = CONNECTORS.find((c) => c.id === connectorId);
 	if (!def) throw error(400, 'Unbekannte Verbindung.');
 
+	const existing = getDecrypted(connectorId);
 	const fields: Record<string, string> = {};
 	for (const fld of def.fields) {
-		const v = (body?.fields?.[fld.key] ?? '').toString().trim();
+		let v = (body?.fields?.[fld.key] ?? '').toString().trim();
+		// Leeres Feld beim Bearbeiten → gespeicherten Wert behalten (kein Neu-Eingeben).
+		if (!v && existing?.plain?.[fld.key]) v = existing.plain[fld.key];
 		if (!v && !fld.optional) throw error(400, `Feld "${fld.label}" ist erforderlich.`);
 		if (v) fields[fld.key] = v;
 	}

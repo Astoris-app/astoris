@@ -12,6 +12,7 @@
 	let fieldVals = $state<Record<string, string>>({});
 	let scopeState = $state<Record<string, boolean>>({});
 	let testing = $state(false);
+	let showPw = $state<Record<string, boolean>>({});
 	let result = $state<{ ok: boolean; message: string; skipped?: boolean } | null>(null);
 
 	let categories = $derived([...new Set(CONNECTORS.map((c) => c.category))]);
@@ -29,11 +30,20 @@
 	}
 	onMount(load);
 
-	function open(c: Connector) {
+	async function open(c: Connector) {
 		active = c;
 		result = null;
+		showPw = {};
 		fieldVals = Object.fromEntries(c.fields.map((f) => [f.key, '']));
 		scopeState = Object.fromEntries(c.scopes.map((s) => [s.id, s.default]));
+		// Beim Bearbeiten gespeicherte (Nicht-Passwort-)Werte vorausfüllen.
+		if (saved[c.id]) {
+			try {
+				const d = await (await fetch('/api/connections?id=' + encodeURIComponent(c.id))).json();
+				for (const [k, v] of Object.entries(d.fields ?? {})) fieldVals[k] = v as string;
+				if (d.scopes) for (const sc of c.scopes) if (sc.id in d.scopes) scopeState[sc.id] = d.scopes[sc.id];
+			} catch { /* offline ok */ }
+		}
 	}
 	function close() {
 		active = null;
@@ -134,12 +144,30 @@
 				{#each active.fields as f (f.key)}
 					<label>
 						<span>{f.label}{#if f.optional}<em class="opt">{i18n.t('connections.optional')}</em>{/if}</span>
-						<input
-							type={f.type === 'password' ? 'password' : 'text'}
-							placeholder={f.placeholder ?? ''}
-							bind:value={fieldVals[f.key]}
-							autocomplete="off"
-						/>
+						{#if f.type === 'password'}
+							<div class="pwwrap">
+								<input
+									type={showPw[f.key] ? 'text' : 'password'}
+									placeholder={saved[active.id] ? '•••••••• (leer = unverändert)' : (f.placeholder ?? '')}
+									bind:value={fieldVals[f.key]}
+									autocomplete="off"
+								/>
+								<button type="button" class="eye" onclick={() => (showPw[f.key] = !showPw[f.key])} aria-label={showPw[f.key] ? 'Passwort verbergen' : 'Passwort anzeigen'}>
+									{#if showPw[f.key]}
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6.5 0 10 7 10 7a18 18 0 0 1-3 3.8M6.5 6.5A18 18 0 0 0 2 11s3.5 7 10 7a10.9 10.9 0 0 0 3.5-.6M3 3l18 18M9.5 9.5a3 3 0 0 0 4.2 4.2"/></svg>
+									{:else}
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+									{/if}
+								</button>
+							</div>
+						{:else}
+							<input
+								type="text"
+								placeholder={f.placeholder ?? ''}
+								bind:value={fieldVals[f.key]}
+								autocomplete="off"
+							/>
+						{/if}
 						{#if f.hint}<small>{f.hint}</small>{/if}
 					</label>
 				{/each}
@@ -212,6 +240,10 @@
 	.opt { font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin-left: 8px; }
 	input[type='text'], input[type='password'] { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); padding: 10px 12px; font-family: var(--font-body); font-size: 13.5px; }
 	input[type='text']:focus, input[type='password']:focus { outline: none; border-color: var(--ember-line); }
+	.pwwrap { position: relative; display: flex; align-items: center; }
+	.pwwrap input { padding-right: 42px; }
+	.eye { position: absolute; right: 7px; width: 30px; height: 30px; display: grid; place-items: center; border: none; background: transparent; color: var(--text-faint); border-radius: 7px; transition: color 0.14s; }
+	.eye:hover { color: var(--text); }
 	.perms { margin-top: 20px; display: flex; flex-direction: column; gap: 4px; }
 	.perms .eyebrow { margin-bottom: 6px; display: block; }
 	.perm { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; cursor: pointer; transition: background 0.14s; }
