@@ -53,6 +53,11 @@
 	<!-- Aussehen -->
 	<section class="card">
 		<h2>Aussehen</h2>
+		<p class="lbl">Modus</p>
+		<div class="seg">
+			<button class:sel={theme.mode === 'dark'} onclick={() => theme.setMode('dark')}>Dunkel</button>
+			<button class:sel={theme.mode === 'light'} onclick={() => theme.setMode('light')}>Hell</button>
+		</div>
 		<p class="lbl">Akzentfarbe</p>
 		<div class="swatches">
 			{#each ACCENTS as a (a.id)}

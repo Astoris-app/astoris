@@ -46,6 +46,30 @@
 	--ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* --- Heller Modus (warmes Papier) --- */
+:root[data-theme='light'] {
+	color-scheme: light;
+	--bg: #f5f1e9;
+	--bg-veil: #ece5d7;
+	--surface-1: #fbf8f2;
+	--surface-2: #f1ebe0;
+	--surface-3: #e6ded0;
+	--border: #d8cfbd;
+	--border-soft: #e7dfce;
+	--text: #2b2419;
+	--text-muted: #6a5f4f;
+	--text-faint: #9a8d77;
+	--ember: #d9641f;
+	--ember-bright: #c4571a;
+	--ember-soft: rgba(217, 100, 31, 0.12);
+	--ember-line: rgba(217, 100, 31, 0.30);
+	--sage: #4e9a7d;
+	--sage-soft: rgba(78, 154, 125, 0.13);
+	--danger: #c0492f;
+	--danger-soft: rgba(192, 73, 47, 0.12);
+	--shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 14px 34px -18px rgba(60, 45, 25, 0.22);
+}
+
 * {
 	box-sizing: border-box;
 }

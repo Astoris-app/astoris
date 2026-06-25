@@ -17,6 +17,7 @@ const DENSITIES: Record<string, string> = { kompakt: '13.5px', normal: '15px', g
 class ThemeState {
 	accent = $state('glut');
 	density = $state('normal');
+	mode = $state<'dark' | 'light'>('dark');
 
 	apply() {
 		if (typeof document === 'undefined') return;
@@ -27,11 +28,17 @@ class ThemeState {
 		r.setProperty('--ember-soft', a.soft);
 		r.setProperty('--ember-line', a.line);
 		document.body.style.fontSize = DENSITIES[this.density] ?? DENSITIES.normal;
+		document.documentElement.setAttribute('data-theme', this.mode);
 	}
 
 	setAccent(id: string) {
 		this.accent = id;
 		try { localStorage.setItem('astoris-accent', id); } catch { /* ignore */ }
+		this.apply();
+	}
+	setMode(m: 'dark' | 'light') {
+		this.mode = m;
+		try { localStorage.setItem('astoris-mode', m); } catch { /* ignore */ }
 		this.apply();
 	}
 	setDensity(id: string) {
@@ -44,6 +51,7 @@ class ThemeState {
 		try {
 			this.accent = localStorage.getItem('astoris-accent') ?? 'glut';
 			this.density = localStorage.getItem('astoris-density') ?? 'normal';
+			const m = localStorage.getItem('astoris-mode'); if (m === 'light' || m === 'dark') this.mode = m;
 		} catch { /* ignore */ }
 		this.apply();
 	}

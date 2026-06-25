@@ -1,11 +1,16 @@
 <div align="center">
 
-# Astoris
+<img src="docs/logo.png" width="320" alt="Astoris" />
 
-**Dein eigener KI-Maschinenraum.**
+### Dein eigener KI-Maschinenraum.
+
 Ein self-hosted Workspace für Mensch und Firma — auf deiner Hardware, unter deiner Kontrolle.
 
-[astoris.org](https://astoris.org) · [info@astoris.org](mailto:info@astoris.org)
+[**astoris.org**](https://astoris.org) · [info@astoris.org](mailto:info@astoris.org)
+
+<br />
+
+<img src="docs/banner.png" width="100%" alt="Astoris — Self-hosted KI-Workspace" />
 
 </div>
 
@@ -17,6 +22,12 @@ Astoris ist eine selbst gehostete KI-Arbeitsumgebung. Ein Assistent, der deinen 
 und deine Alltags-Konten bedient — E-Mail, Kalender, Dokumente, Recherche und mehr. Die
 Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-Anbieter), und
 **du** entscheidest pro Verbindung, was die KI darf.
+
+## Einblick
+
+<img src="docs/screenshot-login.png" width="100%" alt="Astoris — Anmeldung" />
+
+<sub>Weitere Screenshots (Assistent, Tresor, Team …) folgen.</sub>
 
 ## Kernprinzipien
 
