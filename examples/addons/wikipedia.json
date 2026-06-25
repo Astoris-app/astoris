@@ -1,0 +1,11 @@
+{
+  "id": "wikipedia",
+  "name": "Wikipedia",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Sucht in Wikipedia und liefert eine Zusammenfassung des besten Treffers (kein API-Schluessel, sehr robust). Sprache via lang (de/en).",
+  "inputHint": "{ \"query\": \"Basel\", \"lang\": \"de\" }",
+  "code": "// Wikipedia-Suche + Zusammenfassung (REST-API, kein Schluessel).\nasync function run(input) {\n  const q = String((input && input.query) || '').trim();\n  if (!q) return { fehler: 'Bitte einen Suchbegriff angeben.' };\n  const lang = String((input && input.lang) || 'de').toLowerCase().replace(/[^a-z]/g, '') || 'de';\n  const sr = await fetch('https://' + lang + '.wikipedia.org/w/api.php?action=query&list=search&srlimit=1&format=json&origin=*&srsearch=' + encodeURIComponent(q));\n  if (!sr.ok) return { fehler: 'Wikipedia-Suche fehlgeschlagen.' };\n  const sd = await sr.json();\n  const hit = sd.query && sd.query.search && sd.query.search[0];\n  if (!hit) return { fehler: 'Kein Wikipedia-Artikel gefunden.', anfrage: q };\n  const title = hit.title;\n  const su = await fetch('https://' + lang + '.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));\n  if (!su.ok) return { titel: title, zusammenfassung: '', url: 'https://' + lang + '.wikipedia.org/wiki/' + encodeURIComponent(title) };\n  const d = await su.json();\n  return { titel: d.title || title, zusammenfassung: d.extract || '', url: (d.content_urls && d.content_urls.desktop && d.content_urls.desktop.page) || '' };\n}"
+}
