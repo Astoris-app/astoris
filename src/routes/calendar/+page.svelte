@@ -31,6 +31,9 @@
 
 	let selectedDate = $state<string>(todayKey);
 
+	// Active view: month grid, week strip, or agenda list.
+	let view = $state<'month' | 'week' | 'agenda'>('month');
+
 	// New-event form fields.
 	let fTitle = $state('');
 	let fTime = $state('');
@@ -87,8 +90,52 @@
 			.slice(0, 8);
 	});
 
+	// Parse a YYYY-MM-DD key into a local Date (noon to dodge DST edges).
+	function keyToDate(key: string): Date {
+		const [y, m, d] = key.split('-').map((n) => parseInt(n, 10));
+		return new Date(y, m - 1, d, 12, 0, 0);
+	}
+
+	// Monday–Sunday keys for the week containing selectedDate.
+	let weekDays = $derived.by(() => {
+		const base = keyToDate(selectedDate);
+		const lead = (base.getDay() + 6) % 7; // 0=Mon..6=Sun
+		const monday = new Date(base);
+		monday.setDate(base.getDate() - lead);
+		const out: string[] = [];
+		for (let i = 0; i < 7; i++) {
+			const d = new Date(monday);
+			d.setDate(monday.getDate() + i);
+			out.push(ymd(d));
+		}
+		return out;
+	});
+
+	// All upcoming events from today onward, grouped by date for the agenda list.
+	let agendaGroups = $derived.by(() => {
+		const future = events
+			.filter((e) => e.date >= todayKey)
+			.sort((a, b) => {
+				const c = a.date.localeCompare(b.date);
+				return c !== 0 ? c : (a.time ?? '99:99').localeCompare(b.time ?? '99:99');
+			});
+		const groups: { date: string; items: CalendarEvent[] }[] = [];
+		for (const e of future) {
+			const last = groups[groups.length - 1];
+			if (last && last.date === e.date) last.items.push(e);
+			else groups.push({ date: e.date, items: [e] });
+		}
+		return groups;
+	});
+
 	function dayNum(key: string): number {
 		return parseInt(key.slice(8), 10);
+	}
+
+	// Short weekday label (Mon..Sun) for a given date key.
+	function weekdayLabel(key: string): string {
+		const idx = (keyToDate(key).getDay() + 6) % 7;
+		return WEEKDAYS[idx];
 	}
 
 	function prettyDate(key: string): string {
@@ -114,8 +161,25 @@
 		selectedDate = todayKey;
 	}
 
+	function shiftWeek(delta: number) {
+		const d = keyToDate(selectedDate);
+		d.setDate(d.getDate() + delta * 7);
+		selectedDate = ymd(d);
+		formErr = '';
+	}
+	function prevWeek() {
+		shiftWeek(-1);
+	}
+	function nextWeek() {
+		shiftWeek(1);
+	}
+
 	function selectDay(key: string) {
 		selectedDate = key;
+		// Keep the month grid in sync when a day from another month is picked.
+		const d = keyToDate(key);
+		viewYear = d.getFullYear();
+		viewMonth = d.getMonth();
 		formErr = '';
 	}
 
@@ -184,6 +248,11 @@
 </script>
 
 <AppHeader title={i18n.t('calendar.title')} eyebrow={i18n.t('calendar.eyebrow')}>
+	<div class="segmented" role="group" aria-label={i18n.t('calendar.title')}>
+		<button class="seg" class:active={view === 'month'} onclick={() => (view = 'month')}>{i18n.t('calendar.viewMonth')}</button>
+		<button class="seg" class:active={view === 'week'} onclick={() => (view = 'week')}>{i18n.t('calendar.viewWeek')}</button>
+		<button class="seg" class:active={view === 'agenda'} onclick={() => (view = 'agenda')}>{i18n.t('calendar.viewAgenda')}</button>
+	</div>
 	<button class="btn-today" onclick={goToday}>{i18n.t('calendar.today')}</button>
 </AppHeader>
 
@@ -193,43 +262,117 @@
 	{/if}
 
 	<div class="layout">
-		<!-- Month grid -->
+		<!-- Main view: month grid · week strip · agenda list -->
 		<section class="cal">
-			<div class="navbar">
-				<button class="nav" aria-label={i18n.t('calendar.prevMonth')} onclick={prevMonth}>
-					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-				</button>
-				<h2>{MONTHS[viewMonth]} {viewYear}</h2>
-				<button class="nav" aria-label={i18n.t('calendar.nextMonth')} onclick={nextMonth}>
-					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-				</button>
-			</div>
+			{#if view === 'month'}
+				<div class="navbar">
+					<button class="nav" aria-label={i18n.t('calendar.prevMonth')} onclick={prevMonth}>
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+					</button>
+					<h2>{MONTHS[viewMonth]} {viewYear}</h2>
+					<button class="nav" aria-label={i18n.t('calendar.nextMonth')} onclick={nextMonth}>
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+					</button>
+				</div>
 
-			<div class="weekdays">
-				{#each WEEKDAYS as w (w)}
-					<span>{w}</span>
-				{/each}
-			</div>
+				<div class="weekdays">
+					{#each WEEKDAYS as w (w)}
+						<span>{w}</span>
+					{/each}
+				</div>
 
-			<div class="grid">
-				{#each cells as key, i (i)}
-					{#if key === null}
-						<div class="cell empty"></div>
-					{:else}
+				<div class="grid">
+					{#each cells as key, i (i)}
+						{#if key === null}
+							<div class="cell empty"></div>
+						{:else}
+							<button
+								class="cell"
+								class:today={key === todayKey}
+								class:selected={key === selectedDate}
+								onclick={() => selectDay(key)}
+							>
+								<span class="num">{dayNum(key)}</span>
+								{#if byDate.has(key)}
+									<span class="marker" class:multi={(byDate.get(key)?.length ?? 0) > 1}></span>
+								{/if}
+							</button>
+						{/if}
+					{/each}
+				</div>
+			{:else if view === 'week'}
+				<div class="navbar">
+					<button class="nav" aria-label={i18n.t('calendar.prevWeek')} onclick={prevWeek}>
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+					</button>
+					<h2>{prettyDate(weekDays[0])} – {prettyDate(weekDays[6])}</h2>
+					<button class="nav" aria-label={i18n.t('calendar.nextWeek')} onclick={nextWeek}>
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+					</button>
+				</div>
+
+				<div class="week">
+					{#each weekDays as key (key)}
 						<button
-							class="cell"
+							class="wday"
 							class:today={key === todayKey}
 							class:selected={key === selectedDate}
 							onclick={() => selectDay(key)}
 						>
-							<span class="num">{dayNum(key)}</span>
-							{#if byDate.has(key)}
-								<span class="marker" class:multi={(byDate.get(key)?.length ?? 0) > 1}></span>
+							<div class="wday-head">
+								<span class="wday-name">{weekdayLabel(key)}</span>
+								<span class="wday-num">{dayNum(key)}</span>
+							</div>
+							{#if (byDate.get(key)?.length ?? 0) === 0}
+								<span class="wday-empty">—</span>
+							{:else}
+								<ul class="wday-evs">
+									{#each byDate.get(key) ?? [] as e (e.id)}
+										<li class="wday-ev">
+											{#if e.time}<span class="wday-ev-time mono">{e.time}</span>{/if}
+											<span class="wday-ev-title">{e.title}</span>
+										</li>
+									{/each}
+								</ul>
 							{/if}
 						</button>
-					{/if}
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{:else}
+				<h2 class="agenda-title">{i18n.t('calendar.upcoming')}</h2>
+				{#if loading}
+					<p class="muted">{i18n.t('calendar.loading')}</p>
+				{:else if agendaGroups.length === 0}
+					<p class="muted">{i18n.t('calendar.noUpcoming')}</p>
+				{:else}
+					<div class="agenda">
+						{#each agendaGroups as g (g.date)}
+							<div class="agenda-group">
+								<button class="agenda-date" class:today={g.date === todayKey} onclick={() => selectDay(g.date)}>
+									<span class="agenda-wd">{weekdayLabel(g.date)}</span>
+									<span>{prettyDate(g.date)}</span>
+								</button>
+								<ul class="evlist">
+									{#each g.items as e (e.id)}
+										<li class="ev">
+											<div class="ev-main">
+												<div class="ev-head">
+													{#if e.time}<span class="ev-time mono">{e.time}</span>{/if}
+													<span class="ev-title">{e.title}</span>
+												</div>
+												{#if e.notes}<p class="ev-notes">{e.notes}</p>{/if}
+											</div>
+											<button class="del" aria-label={i18n.t('calendar.deleteEvent')} onclick={() => deleteEvent(e.id)}>
+												<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			{/if}
 		</section>
 
 		<!-- Side: selected day + upcoming -->
@@ -325,6 +468,162 @@
 	.btn-today:hover {
 		color: var(--text);
 		border-color: var(--ember-line);
+	}
+
+	/* View switcher */
+	.segmented {
+		display: inline-flex;
+		gap: 2px;
+		padding: 2px;
+		border-radius: 999px;
+		border: 1px solid var(--border-soft);
+		background: var(--surface-1);
+	}
+	.seg {
+		padding: 5px 13px;
+		border-radius: 999px;
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--text-muted);
+		font-size: 12px;
+		font-family: var(--font-body);
+		cursor: pointer;
+	}
+	.seg:hover {
+		color: var(--text);
+	}
+	.seg.active {
+		background: var(--ember-soft);
+		border-color: var(--ember-line);
+		color: var(--ember-bright);
+	}
+
+	/* Week view */
+	.week {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.wday {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 10px 12px;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border-soft);
+		background: var(--surface-2);
+		color: var(--text);
+		font-family: var(--font-body);
+		text-align: left;
+		cursor: pointer;
+		transition: border-color 0.12s, background 0.12s;
+	}
+	.wday:hover {
+		border-color: var(--ember-line);
+	}
+	.wday.today {
+		border-color: var(--ember-line);
+		background: var(--ember-soft);
+	}
+	.wday.selected {
+		outline: 2px solid var(--ember);
+		outline-offset: -1px;
+	}
+	.wday-head {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-width: 44px;
+	}
+	.wday-name {
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-faint);
+	}
+	.wday.today .wday-name,
+	.wday.today .wday-num {
+		color: var(--ember-bright);
+	}
+	.wday-num {
+		font-size: 18px;
+		color: var(--text);
+	}
+	.wday-empty {
+		align-self: center;
+		font-size: 13px;
+		color: var(--text-faint);
+	}
+	.wday-evs {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		align-self: center;
+	}
+	.wday-ev {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+	}
+	.wday-ev-time {
+		flex: none;
+		font-size: 12px;
+		color: var(--ember-bright);
+		min-width: 42px;
+	}
+	.wday-ev-title {
+		font-size: 13.5px;
+		color: var(--text);
+	}
+
+	/* Agenda view */
+	.agenda-title {
+		font-size: 17px;
+		margin-bottom: 16px;
+	}
+	.agenda {
+		display: flex;
+		flex-direction: column;
+		gap: 18px;
+	}
+	.agenda-group {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.agenda-date {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		padding: 4px 0;
+		border: none;
+		background: transparent;
+		color: var(--text-muted);
+		font-family: var(--font-body);
+		font-size: 13px;
+		text-align: left;
+		cursor: pointer;
+	}
+	.agenda-date:hover {
+		color: var(--text);
+	}
+	.agenda-date.today {
+		color: var(--ember-bright);
+	}
+	.agenda-wd {
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-faint);
+		min-width: 28px;
+	}
+	.agenda-date.today .agenda-wd {
+		color: var(--ember-bright);
 	}
 
 	.layout {
