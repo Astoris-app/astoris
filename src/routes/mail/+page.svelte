@@ -20,11 +20,19 @@
 	let aiError = $state('');
 	let aiAction = $state('');
 	let aiCopied = $state(false);
+	let replyOpen = $state(false);
+	let replyTo = $state('');
+	let replySubject = $state('');
+	let replyBody = $state('');
+	let sending = $state(false);
+	let sendMsg = $state('');
+	let sendOk = $state(false);
 
 	async function openMail(m: Mail) {
 		selected = m;
 		bodyError = null;
 		aiResult = ''; aiError = ''; aiAction = ''; aiCopied = false;
+		replyOpen = false; sendMsg = '';
 		if (bodyCache[m.uid] !== undefined) return;
 		bodyLoading = true;
 		try {
@@ -57,6 +65,25 @@
 	}
 	async function copyAi() {
 		try { await navigator.clipboard.writeText(aiResult); aiCopied = true; setTimeout(() => (aiCopied = false), 1500); } catch { /* ignore */ }
+	}
+	function openReply() {
+		if (!selected) return;
+		replyTo = selected.from.match(/<(.+?)>/)?.[1] ?? selected.from;
+		replySubject = selected.subject.startsWith('Re:') ? selected.subject : 'Re: ' + selected.subject;
+		replyBody = aiResult || '';
+		sendMsg = ''; sendOk = false;
+		replyOpen = true;
+	}
+	async function sendReply() {
+		if (!replyTo.trim() || !replyBody.trim()) return;
+		sending = true; sendMsg = ''; sendOk = false;
+		try {
+			const res = await fetch('/api/mail/send', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ to: replyTo, subject: replySubject, text: replyBody }) });
+			const d = await res.json().catch(() => ({}));
+			if (!res.ok) { sendMsg = d.message ?? i18n.t('mail.sendFailed'); }
+			else { sendOk = true; sendMsg = i18n.t('mail.sent'); setTimeout(() => (replyOpen = false), 1200); }
+		} catch { sendMsg = i18n.t('mail.sendFailed'); }
+		sending = false;
 	}
 	async function load() {
 		loading = true;
@@ -206,6 +233,7 @@
 							<div class="aiacts">
 								<button class="btn" onclick={() => runAi('summarize')} disabled={aiLoading}>{i18n.t('mail.summarize')}</button>
 								<button class="btn" onclick={() => runAi('reply-draft')} disabled={aiLoading}>{i18n.t('mail.replyDraft')}</button>
+								<button class="btn" onclick={openReply} disabled={aiLoading}>{i18n.t('mail.reply')}</button>
 							</div>
 							{#if aiLoading}<div class="aibox muted">{i18n.t('mail.aiThinking')}</div>{/if}
 							{#if aiError}<div class="aibox err">{aiError}</div>{/if}
@@ -220,6 +248,18 @@
 				</aside>
 			{/if}
 		</div>
+							{#if replyOpen}
+								<div class="reply">
+									<label><span>{i18n.t('mail.replyTo')}</span><input bind:value={replyTo} /></label>
+									<label><span>{i18n.t('mail.replySubject')}</span><input bind:value={replySubject} /></label>
+									<label><span>{i18n.t('mail.replyBody')}</span><textarea bind:value={replyBody} rows="6"></textarea></label>
+									{#if sendMsg}<div class="sendmsg" class:ok={sendOk}>{sendMsg}</div>{/if}
+									<div class="replyacts">
+										<button class="btn ghost" onclick={() => (replyOpen = false)}>{i18n.t('mail.cancel')}</button>
+										<button class="btn primary" onclick={sendReply} disabled={sending}>{sending ? i18n.t('mail.sending') : i18n.t('mail.sendReply')}</button>
+									</div>
+								</div>
+							{/if}
 	{/if}
 </div>
 
@@ -233,6 +273,17 @@
 	.aihead .copy { font-size: 11px; text-transform: none; letter-spacing: 0; color: var(--text-faint); background: transparent; border: none; }
 	.aihead .copy:hover { color: var(--text); }
 	.aitext { white-space: pre-wrap; color: var(--text); }
+	.reply { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 10px; }
+	.reply label { display: flex; flex-direction: column; gap: 5px; }
+	.reply label span { font-size: 11.5px; color: var(--text-muted); }
+	.reply input, .reply textarea { background: var(--surface-1); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; color: var(--text); font: inherit; font-size: 13.5px; }
+	.reply textarea { resize: vertical; }
+	.reply input:focus, .reply textarea:focus { outline: none; border-color: var(--ember-line); }
+	.sendmsg { font-size: 12.5px; color: var(--danger); }
+	.sendmsg.ok { color: var(--sage); }
+	.replyacts { display: flex; justify-content: flex-end; gap: 10px; }
+	.btn.primary { background: var(--ember); color: #1a1206; border: none; }
+	.btn.primary:not(:disabled):hover { background: var(--ember-bright); }
 
 	.refresh {
 		display: grid; place-items: center;
