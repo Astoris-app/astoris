@@ -61,12 +61,13 @@ export function buildBuiltinTools(): AddonTool[] {
 		{ type: 'function', function: { name: 'calendar_create', description: 'Einen neuen Termin im Kalender erstellen.', parameters: { type: 'object', properties: { title: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD' }, time: { type: 'string', description: 'HH:MM (optional)' }, notes: { type: 'string' } }, required: ['title', 'date'] } } },
 		{ type: 'function', function: { name: 'calendar_update', description: 'Einen bestehenden Termin ändern. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, date: { type: 'string' }, time: { type: 'string' }, notes: { type: 'string' } }, required: ['id'] } } },
 		{ type: 'function', function: { name: 'calendar_delete', description: 'Einen Termin löschen. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } },
-		{ type: 'function', function: { name: 'mail_send', description: 'Eine E-Mail VORBEREITEN. Sie wird dem Nutzer zur Bestätigung angezeigt und NICHT automatisch versendet. Nutze dies, wenn der Nutzer eine Mail schreiben/senden möchte.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'Empfänger-E-Mail-Adresse' }, subject: { type: 'string', description: 'Betreff' }, text: { type: 'string', description: 'Mail-Text' } }, required: ['to', 'text'] } } }
+		{ type: 'function', function: { name: 'mail_send', description: 'Eine E-Mail VORBEREITEN. Sie wird dem Nutzer zur Bestätigung angezeigt und NICHT automatisch versendet. Nutze dies, wenn der Nutzer eine Mail schreiben/senden möchte.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'Empfänger-E-Mail-Adresse' }, subject: { type: 'string', description: 'Betreff' }, text: { type: 'string', description: 'Mail-Text' } }, required: ['to', 'text'] } } },
+		{ type: 'function', function: { name: 'messenger_send', description: 'Eine verschlüsselte Messenger-Nachricht VORBEREITEN (Kanal: telegram/email/whatsapp/signal). Wird dem Nutzer zur Bestätigung angezeigt und erst nach client-seitiger Verschlüsselung gesendet — NICHT automatisch.', parameters: { type: 'object', properties: { channel: { type: 'string', description: 'telegram, email, whatsapp oder signal' }, recipient: { type: 'string', description: 'Empfänger-Adresse (z. B. Telegram-Chat-ID, E-Mail)' }, text: { type: 'string', description: 'Klartext der Nachricht' } }, required: ['text'] } } }
 	];
 }
 
 export function isBuiltinTool(name: string): boolean {
-	return name.startsWith('calendar_') || name === 'mail_send';
+	return name.startsWith('calendar_') || name === 'mail_send' || name === 'messenger_send';
 }
 
 export function runBuiltinTool(name: string, args: any): unknown {
@@ -76,6 +77,7 @@ export function runBuiltinTool(name: string, args: any): unknown {
 		if (name === 'calendar_update') return { event: updateEvent(args?.id, args ?? {}) };
 		if (name === 'calendar_delete') return { ok: deleteEvent(args?.id) };
 		if (name === 'mail_send') return { pendingMail: { to: String(args?.to ?? ''), subject: String(args?.subject ?? ''), text: String(args?.text ?? '') }, hinweis: 'Entwurf vorbereitet — der Nutzer bestätigt den Versand.' };
+		if (name === 'messenger_send') return { pendingMessage: { channel: String(args?.channel ?? 'telegram'), recipient: String(args?.recipient ?? ''), text: String(args?.text ?? '') }, hinweis: 'Nachricht vorbereitet — der Nutzer bestätigt + verschlüsselt vor dem Versand.' };
 	} catch (e) {
 		return { error: e instanceof Error ? e.message : 'Fehler' };
 	}

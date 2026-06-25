@@ -17,6 +17,7 @@ export async function POST({ request }) {
 			if (result.tools?.length) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'tools', names: result.tools })}\n\n`));
 			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content', text: result.reply })}\n\n`));
 			if (result.pendingMail) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-mail', draft: result.pendingMail, mode: getSendMode() })}\n\n`));
+			if (result.pendingMessage) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-message', draft: result.pendingMessage, mode: getSendMode() })}\n\n`));
 			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done', model: result.model, tools: result.tools, demo: result.source === 'demo' })}\n\n`));
 			c.close();
 		}

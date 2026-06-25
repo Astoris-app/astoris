@@ -9,6 +9,8 @@
 	import { handoff } from '$lib/stores/handoff.svelte';
 	import { voice } from '$lib/stores/voice.svelte';
 	import { assistant } from '$lib/stores/assistant.svelte';
+	import { contacts } from '$lib/stores/contacts.svelte';
+	import { encryptMessage } from '$lib/crypto/messageCrypto';
 
 	type Msg = {
 		role: 'user' | 'assistant';
@@ -34,6 +36,12 @@
 	let pendingMail = $state<{ to: string; subject: string; text: string } | null>(null);
 	let mailStatus = $state('');
 	let mailSending = $state(false);
+
+	let pendingMsg = $state<{ channel: string; recipient: string; text: string } | null>(null);
+	let msgKey = $state('');
+	let msgStatus = $state('');
+	let msgSending = $state(false);
+	let showMsgKey = $state(false);
 
 	let copiedIdx = $state(-1);
 	let speakingIdx = $state(-1);
@@ -172,6 +180,11 @@
 					else if (d.type === 'content') m.text += d.text;
 					else if (d.type === 'tools') m.tools = d.names;
 					else if (d.type === 'pending-mail') { if (d.mode === 'direct') { sendPendingMail(d.draft); } else { pendingMail = d.draft; mailStatus = ''; } }
+					else if (d.type === 'pending-message') {
+						const k = findContactKey(d.draft) || assistant.cryptPass || '';
+						if (d.mode === 'direct' && k.trim()) { sendPendingMsg(d.draft, k); }
+						else { pendingMsg = d.draft; msgKey = k; msgStatus = ''; }
+					}
 					else if (d.type === 'error') { m.text += (m.text ? '\n\n' : '') + (d.text ?? 'Fehler'); m.error = true; }
 					else if (d.type === 'done') { m.model = d.model; m.ms = d.ms; m.demo = d.demo; m.time = nowTime(); }
 					scrollDown();
@@ -232,6 +245,66 @@
 	function cancelPendingMail() {
 		pendingMail = null;
 		mailStatus = '';
+	}
+
+	function findContactKey(draft: { recipient: string }): string {
+		const c = contacts.all().find((x) => x.address === draft.recipient);
+		return c?.key ?? '';
+	}
+
+	// Zero-Knowledge: Verschlüsselung passiert hier client-seitig. Der Schlüssel
+	// verlässt das Gerät nie — nur der bereits verschlüsselte Block geht an den Server.
+	async function sendPendingMsg(draft?: { channel: string; recipient: string; text: string }, key?: string) {
+		const msg = draft ?? pendingMsg;
+		if (!msg) return;
+		const k = (key ?? msgKey).trim();
+		if (!k) { msgStatus = i18n.t('msgcard.needKey'); return; }
+		// Nur Kanäle, die der Server automatisch verschicken kann.
+		if (msg.channel !== 'telegram' && msg.channel !== 'email') {
+			pendingMsg = msg;
+			msgKey = k;
+			msgStatus = i18n.t('msgcard.manualChannel');
+			return;
+		}
+		msgSending = true;
+		msgStatus = '';
+		try {
+			const block = await encryptMessage(msg.text, k);
+			const res = await fetch('/api/crypt/send', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ channel: msg.channel, to: msg.recipient, text: block })
+			});
+			const d = await res.json().catch(() => ({}));
+			if (res.ok) {
+				assistant.cryptPass = k;
+				msgStatus = i18n.t('msgcard.sent');
+				pendingMsg = null;
+				for (let i = messages.length - 1; i >= 0; i--) {
+					if (messages[i].role === 'assistant') {
+						const note = `${i18n.t('msgcard.sent')} — ${msg.recipient}`;
+						messages[i].text += (messages[i].text ? '\n\n' : '') + note;
+						break;
+					}
+				}
+				persistChat();
+			} else {
+				pendingMsg = msg;
+				msgKey = k;
+				msgStatus = d.message ?? i18n.t('msgcard.failed');
+			}
+		} catch {
+			pendingMsg = msg;
+			msgKey = k;
+			msgStatus = i18n.t('msgcard.failed');
+		} finally {
+			msgSending = false;
+		}
+	}
+
+	function cancelPendingMsg() {
+		pendingMsg = null;
+		msgStatus = '';
 	}
 
 	function clearChat() {
@@ -531,6 +604,50 @@
 		<div class="mailcard mc-flash">{mailStatus}</div>
 	{/if}
 
+	{#if pendingMsg}
+		<div class="mailcard">
+			<div class="mc-head">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+				<strong>{i18n.t('msgcard.title')}</strong>
+			</div>
+			<label class="mc-field">
+				<span>{i18n.t('msgcard.channel')}</span>
+				<select bind:value={pendingMsg.channel}>
+					<option value="telegram">Telegram</option>
+					<option value="email">E-Mail</option>
+					<option value="whatsapp">WhatsApp</option>
+					<option value="signal">Signal</option>
+				</select>
+			</label>
+			<label class="mc-field">
+				<span>{i18n.t('msgcard.recipient')}</span>
+				<input type="text" bind:value={pendingMsg.recipient} />
+			</label>
+			<label class="mc-field">
+				<span>{i18n.t('msgcard.message')}</span>
+				<textarea class="mc-text" rows="4" bind:value={pendingMsg.text}></textarea>
+			</label>
+			<label class="mc-field">
+				<span>{i18n.t('msgcard.key')}</span>
+				<div class="mc-pwwrap">
+					<input type={showMsgKey ? 'text' : 'password'} bind:value={msgKey} autocomplete="off" placeholder="••••••••" />
+					<button type="button" class="mc-eye" onclick={() => (showMsgKey = !showMsgKey)} aria-label="toggle">
+						{#if showMsgKey}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6.5 0 10 7 10 7a18 18 0 0 1-3 3.8M6.5 6.5A18 18 0 0 0 2 11s3.5 7 10 7a10.9 10.9 0 0 0 3.5-.6M3 3l18 18"/></svg>
+						{:else}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>{/if}
+					</button>
+				</div>
+			</label>
+			<div class="mc-hint">🔒 {i18n.t('msgcard.hint')}</div>
+			{#if msgStatus}<div class="mc-status">{msgStatus}</div>{/if}
+			<div class="mc-actions">
+				<button class="mc-cancel" onclick={cancelPendingMsg} disabled={msgSending}>{i18n.t('msgcard.cancel')}</button>
+				<button class="mc-send" onclick={() => sendPendingMsg()} disabled={msgSending}>{i18n.t('msgcard.send')}</button>
+			</div>
+		</div>
+	{:else if msgStatus}
+		<div class="mailcard mc-flash">{msgStatus}</div>
+	{/if}
+
 	<div class="composer">
 		{#if voice.enabled}
 			<button
@@ -672,6 +789,13 @@
 	.mc-send:not(:disabled):hover { transform: translateY(-1px); }
 	.mc-cancel:disabled, .mc-send:disabled { opacity: 0.5; cursor: not-allowed; }
 	.mc-flash { font-size: 12.5px; color: var(--text-muted); padding: 12px 18px; }
+	.mailcard select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); padding: 9px 12px; font-size: 13.5px; font-family: var(--font-body); transition: border-color 0.16s; }
+	.mailcard select:focus { outline: none; border-color: var(--ember-line); }
+	.mc-pwwrap { position: relative; display: flex; align-items: center; }
+	.mc-pwwrap input { width: 100%; padding-right: 40px; }
+	.mc-eye { position: absolute; right: 7px; width: 28px; height: 28px; display: grid; place-items: center; border: none; background: transparent; color: var(--text-faint); border-radius: 6px; }
+	.mc-eye:hover { color: var(--text); }
+	.mc-hint { font-size: 11.5px; color: var(--text-faint); }
 
 	.ppick-wrap { position: relative; }
 	.ppick { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }
