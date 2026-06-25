@@ -128,4 +128,8 @@ Als Nächstes:
 
 ## Lizenz
 
-Open-Core (geplant). Details folgen.
+**[FSL-1.1-MIT](LICENSE.md)** (Functional Source License) — der Code ist offen einsehbar und
+für jeden **erlaubten Zweck** frei nutzbar (interne Nutzung, Lernen, Forschung), **außer als
+konkurrierendes kommerzielles Produkt**. Zwei Jahre nach Veröffentlichung jeder Version wird
+diese automatisch zur **MIT-Lizenz**. So bleiben alle Rechte beim Projekt, während der Code
+trotzdem transparent und community-freundlich ist.
