@@ -6,6 +6,7 @@
 import { env } from '$env/dynamic/private';
 import { getDecrypted } from './store';
 import { buildAddonTools, runAddonTool } from './tools';
+import { scanInjection, wrapAsData } from './promptGuard';
 
 export const ENGINE_URL = env.ENGINE_URL ?? 'http://localhost:8081';
 const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
@@ -125,7 +126,10 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leeres Argument */ }
 					used.push(tc.function?.name);
 					const result = await runAddonTool(byName, tc.function?.name, args);
-					msgs.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+					const out = JSON.stringify(result);
+					// Werkzeug-Ausgaben können externe Inhalte enthalten → bei Injektion als Daten markieren.
+					const scan = scanInjection(out);
+					msgs.push({ role: 'tool', tool_call_id: tc.id, content: scan.injection ? wrapAsData(out, 'WERKZEUG-AUSGABE') : out });
 				}
 				continue;
 			}

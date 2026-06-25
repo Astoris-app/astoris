@@ -96,14 +96,26 @@
 	</p>
 
 	<div class="tscard" class:on={tsActive}>
-		<div class="tsico">
-			<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2" opacity="0.35"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2" opacity="0.35"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2" opacity="0.35"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2" opacity="0.35"/><circle cx="19" cy="19" r="2"/></svg>
+		<div class="tstop">
+			<div class="tsico">
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2" opacity="0.35"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2" opacity="0.35"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2" opacity="0.35"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2" opacity="0.35"/><circle cx="19" cy="19" r="2"/></svg>
+			</div>
+			<div class="tsinfo">
+				<h3>{i18n.t('connections.tailscaleTitle')}</h3>
+				<p>{i18n.t('connections.tailscaleDesc')}</p>
+			</div>
+			{#if tsActive}<span class="tsstate on">{i18n.t('connections.tailscaleActive')}</span>{/if}
 		</div>
-		<div class="tsinfo">
-			<h3>{i18n.t('connections.tailscaleTitle')}</h3>
-			<p>{i18n.t('connections.tailscaleDesc')}</p>
-		</div>
-		<span class="tsstate" class:on={tsActive}>{tsActive ? i18n.t('connections.tailscaleActive') : i18n.t('connections.tailscaleAvailable')}</span>
+		{#if !tsActive}
+			<div class="tssteps">
+				<span class="tshow">{i18n.t('connections.tailscaleHow')}</span>
+				<ol>
+					<li>{i18n.t('connections.tailscaleStep1')}</li>
+					<li>{i18n.t('connections.tailscaleStep2')}</li>
+					<li>{i18n.t('connections.tailscaleStep3')}</li>
+				</ol>
+			</div>
+		{/if}
 	</div>
 
 	{#each categories as cat (cat)}
@@ -225,14 +237,19 @@
 <style>
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px 40px; }
 	.lead { color: var(--text-muted); max-width: 640px; margin: 0 0 22px; }
-	.tscard { display: flex; align-items: center; gap: 16px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 28px; }
+	.tscard { display: flex; flex-direction: column; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 28px; }
 	.tscard.on { box-shadow: inset 2px 0 0 var(--sage); }
+	.tstop { display: flex; align-items: center; gap: 16px; }
 	.tsico { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 12px; color: var(--ember-bright); background: var(--ember-soft); }
 	.tsinfo { flex: 1; min-width: 0; }
 	.tsinfo h3 { font-size: 15.5px; margin-bottom: 4px; }
 	.tsinfo p { margin: 0; font-size: 13px; color: var(--text-muted); }
-	.tsstate { flex: none; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); border: 1px solid var(--border-soft); padding: 4px 11px; border-radius: 999px; }
-	.tsstate.on { color: var(--sage); border-color: var(--sage-soft); }
+	.tsstate { flex: none; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--sage); border: 1px solid var(--sage-soft); padding: 4px 11px; border-radius: 999px; }
+	.tssteps { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+	.tshow { font-size: 12px; font-weight: 600; color: var(--text); display: block; margin-bottom: 10px; }
+	.tssteps ol { margin: 0; padding: 0; list-style: none; counter-reset: ts; display: flex; flex-direction: column; gap: 8px; }
+	.tssteps li { position: relative; padding-left: 30px; font-size: 13px; color: var(--text-muted); counter-increment: ts; line-height: 1.45; }
+	.tssteps li::before { content: counter(ts); position: absolute; left: 0; top: 0; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--ember-soft); color: var(--ember-bright); font-size: 11px; font-weight: 600; }
 	.cat { font-size: 13px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); margin: 26px 0 12px; }
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 	.card { background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.18s, transform 0.18s var(--ease); }
