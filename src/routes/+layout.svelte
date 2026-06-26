@@ -13,6 +13,15 @@
 	// Onboarding läuft ohne App-Rail (eigener Vollbild-Flow).
 	let showRail = $derived(!page.url.pathname.startsWith('/welcome') && !page.url.pathname.startsWith('/login'));
 
+	// Seitentitel je Route (vermeidet „untitled page").
+	const PAGE_TITLES: Record<string, string> = {
+		'/': 'Assistent', '/mail': 'Posteingang', '/docs': 'Dokumente', '/research': 'Recherche',
+		'/studio': 'Studio', '/calendar': 'Kalender', '/agents': 'Team', '/tresor': 'Tresor',
+		'/connections': 'Verbindungen', '/erweiterungen': 'Erweiterungen', '/settings': 'Einstellungen',
+		'/welcome': 'Willkommen', '/login': 'Anmelden'
+	};
+	let pageTitle = $derived('Astoris · ' + (PAGE_TITLES[page.url.pathname] ?? 'Maschinenraum'));
+
 	onMount(() => {
 		theme.init();
 		i18n.init();
@@ -22,6 +31,8 @@
 		return () => engine.stop();
 	});
 </script>
+
+<svelte:head><title>{pageTitle}</title></svelte:head>
 
 <div class="shell">
 	{#if showRail}<AppRail />{/if}
