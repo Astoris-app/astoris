@@ -36,6 +36,16 @@ export const APPS: AppDef[] = [
 		icon: 'M4 5.5h16v13H4zM4 9.5h16M9 14a1.6 1.6 0 1 0 0-.01M7 17c0-1.1.9-1.9 2-1.9s2 .8 2 1.9M14 13h3M14 16h3'
 	},
 	{
+		id: 'metrics',
+		label: 'Kennzahlen',
+		href: '/metrics',
+		group: 'work',
+		ready: true,
+		capability: 'metrics',
+		blurb: 'Deine wichtigsten Kennzahlen mit Verlauf und Trend — manuell gepflegt, jederzeit im Blick.',
+		icon: 'M4 19V5M4 19h16M8 16l3.5-4 3 2.5L20 8'
+	},
+	{
 		id: 'marketing',
 		label: 'Marketing',
 		href: '/marketing',
