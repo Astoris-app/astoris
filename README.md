@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/hero.png" width="720" alt="Astoris — dein eigener KI-Maschinenraum" />
+<img src="docs/hero.webp" width="720" alt="Astoris — dein eigener KI-Maschinenraum" />
 
 ### Dein eigener KI-Maschinenraum.
 
@@ -10,7 +10,7 @@ Ein self-hosted Workspace für Mensch und Firma — auf deiner Hardware, unter d
 
 <br />
 
-<img src="docs/banner.png" width="100%" alt="Astoris — Self-hosted KI-Workspace" />
+<img src="docs/banner.webp" width="100%" alt="Astoris — Self-hosted KI-Workspace" />
 
 </div>
 
@@ -26,13 +26,13 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 ## Einblick
 
 **Assistent** — Chat mit Verläufen, wählbaren Persönlichkeiten & Streaming
-<img src="docs/screenshot-chat.png" width="100%" alt="Astoris Assistent" />
+<img src="docs/screenshot-chat.webp" width="100%" alt="Astoris Assistent" />
 
 | Tresor (E2E-Verschlüsselung) | Team (Persönlichkeiten & Firma) |
 |:---:|:---:|
-| <img src="docs/screenshot-tresor.png" alt="Tresor" /> | <img src="docs/screenshot-team.png" alt="Team" /> |
+| <img src="docs/screenshot-tresor.webp" alt="Tresor" /> | <img src="docs/screenshot-team.webp" alt="Team" /> |
 | **Verbindungen** | **Einstellungen (Theming)** |
-| <img src="docs/screenshot-connections.png" alt="Verbindungen" /> | <img src="docs/screenshot-settings.png" alt="Einstellungen" /> |
+| <img src="docs/screenshot-connections.webp" alt="Verbindungen" /> | <img src="docs/screenshot-settings.webp" alt="Einstellungen" /> |
 
 ## Kernprinzipien
 
@@ -84,7 +84,7 @@ WebDAV/Nextcloud, Google Kalender (OAuth).
 
 ### Erweiterungen (Add-ons)
 
-<img src="docs/screenshot-erweiterungen.png" width="100%" alt="Astoris Erweiterungen — Add-on-Verwaltung & Code-Editor" />
+<img src="docs/screenshot-erweiterungen.webp" width="100%" alt="Astoris Erweiterungen — Add-on-Verwaltung & Code-Editor" />
 
 Der Kern ist gratis — neue Fähigkeiten kommen als Add-ons:
 
