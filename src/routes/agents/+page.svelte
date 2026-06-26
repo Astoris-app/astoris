@@ -25,6 +25,7 @@
 		model?: { source: string; model: string } | null;
 		tools?: string[];
 		history?: HistoryEntry[];
+		autonomyLevel?: number;
 	};
 	type GoalMetric = { name: string; target: number; current: number; unit: string };
 	type Goal = {
@@ -106,10 +107,19 @@
 	let agentRole = $state('');
 	let agentPersona = $state('');
 
+	// autonomy levels (0–5) — labels/descriptions come from the dictionary
+	const AUTONOMY_LEVELS = [0, 1, 2, 3, 4, 5];
+	const AUTONOMY_DEFAULT = 1;
+	function autonomyOf(a: SubAgent): number {
+		const n = a.autonomyLevel;
+		return typeof n === 'number' && n >= 0 && n <= 5 ? Math.round(n) : AUTONOMY_DEFAULT;
+	}
+
 	// double-click guards
 	let addingRole = $state(false);
 	let addingAgent = $state(false);
 	let rowBusy = $state<string | null>(null);
+	let autonomyBusy = $state<string | null>(null);
 
 	// ---------- Derived ----------
 	let templateKeys = $derived(Object.keys(templates));
@@ -337,6 +347,13 @@
 			? { source: val.split(':')[0], model: val.split(':').slice(1).join(':') }
 			: null;
 		await postCompany({ action: 'set-agent-model', agentId, model });
+	}
+	async function changeAgentAutonomy(agentId: string, val: string) {
+		if (autonomyBusy) return;
+		const level = Math.max(0, Math.min(5, Math.round(Number(val))));
+		autonomyBusy = agentId;
+		try { await postCompany({ action: 'set-agent-autonomy', agentId, level }); }
+		finally { autonomyBusy = null; }
 	}
 
 	// ---------- Knowledge base ----------
@@ -914,6 +931,7 @@
 					{#each company.agents as a (a.id)}
 						{@const persona = personaById(a.personaId)}
 						{@const sel = Array.isArray(a.tools) ? a.tools : []}
+						{@const lvl = autonomyOf(a)}
 						<div class="agent-wrap">
 							<div class="row agent">
 								<span class="status-dot" class:online={a.status === 'online' || a.status === 'active'}></span>
@@ -946,6 +964,19 @@
 								{/if}
 								<button class="task-btn" title={i18n.t('agents.taskTitle')} onclick={() => openTask(a)}>{i18n.t('agents.task')}</button>
 								<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)} disabled={rowBusy === a.id}>×</button>
+							</div>
+							<div class="autonomy-row">
+								<span class="autonomy-label">{i18n.t('agents.autonomy')}</span>
+								<select
+									class="autonomy-select level-{lvl}"
+									value={lvl}
+									onchange={(e) => changeAgentAutonomy(a.id, e.currentTarget.value)}
+									disabled={autonomyBusy === a.id}
+									aria-label={i18n.t('agents.autonomy')}
+								>
+									{#each AUTONOMY_LEVELS as l (l)}<option value={l}>{l} · {i18n.t('agents.autonomyL' + l)}</option>{/each}
+								</select>
+								<span class="autonomy-desc">{i18n.t('agents.autonomyD' + lvl)}</span>
 							</div>
 							{#if openTools === a.id && (toolsBuiltin.length || toolsAddons.length)}
 								<div class="tools-panel">
@@ -1373,6 +1404,20 @@
 
 	/* Agent wrap + tools panel */
 	.agent-wrap { display: flex; flex-direction: column; }
+
+	/* Autonomy selector (per agent) */
+	.autonomy-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px 2px; }
+	.autonomy-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; font-family: var(--font-mono); color: var(--text-faint); flex: none; }
+	.autonomy-select { flex: none; width: auto; max-width: 220px; font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--text-muted); cursor: pointer; }
+	.autonomy-select:hover { border-color: var(--border); }
+	.autonomy-select:focus { outline: none; border-color: var(--ember-line); }
+	.autonomy-select:disabled { opacity: 0.5; cursor: not-allowed; }
+	/* Low levels read as "safe/advisory", high levels as "ember/active". */
+	.autonomy-select.level-0, .autonomy-select.level-1, .autonomy-select.level-2 { color: var(--sage); border-color: var(--sage); }
+	.autonomy-select.level-3 { color: var(--text-muted); border-color: var(--border-soft); }
+	.autonomy-select.level-4, .autonomy-select.level-5 { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
+	.autonomy-desc { font-size: 12px; color: var(--text-muted); flex: 1; min-width: 160px; }
+
 	.tools-toggle.on { color: var(--ember-bright); border-color: var(--ember-line); }
 	.tools-panel { background: var(--bg-veil); border: 1px solid var(--border-soft); border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm); padding: 12px 14px; margin: -2px 0 0; display: flex; flex-direction: column; gap: 12px; }
 	.tools-hint { margin: 0; font-size: 12px; color: var(--text-muted); }
@@ -1489,5 +1534,8 @@
 		.goal-status { max-width: none; width: 100%; }
 		.subgoals { margin-left: 10px; padding-left: 10px; }
 		.fields .two { flex-direction: column; }
+		.autonomy-row { align-items: flex-start; }
+		.autonomy-select { max-width: none; width: 100%; }
+		.autonomy-desc { flex-basis: 100%; }
 	}
 </style>

@@ -9,7 +9,8 @@ const FILE = 'data/company.json';
 export type Role = { id: string; title: string; description: string };
 export type AgentModel = { source: 'local' | 'cloud'; model: string };
 export type TaskEntry = { task: string; result: string; at: string };
-export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active'; model?: AgentModel | null; tools?: string[]; history?: TaskEntry[] };
+export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active'; model?: AgentModel | null; tools?: string[]; history?: TaskEntry[]; autonomyLevel?: number };
+export type AutonomyLevel = { level: number; label: string; description: string };
 export type GoalStatus = 'geplant' | 'aktiv' | 'blockiert' | 'erledigt';
 export type GoalPriority = 'hoch' | 'mittel' | 'niedrig';
 export type GoalMetric = { name: string; target: number; current: number; unit: string };
@@ -56,6 +57,25 @@ export type Company = {
 };
 
 export const MEMORY_CATEGORIES: MemoryCategory[] = ['firma', 'produkt', 'kunde', 'marke', 'entscheidung', 'nicht-tun', 'experiment'];
+
+// Autonomie-Level je Agent (0–5). Steuern das Verhalten via System-Prompt.
+// label/description werden direkt in den (deutschen) System-Prompt eingebaut.
+export const AUTONOMY_DEFAULT = 1;
+export const AUTONOMY_LEVELS: AutonomyLevel[] = [
+	{ level: 0, label: 'Nur analysieren', description: 'Schätzt die Lage ein, schlägt nichts vor und tut nichts.' },
+	{ level: 1, label: 'Vorschläge machen', description: 'Empfiehlt Optionen, führt aber nichts aus.' },
+	{ level: 2, label: 'Entwürfe vorbereiten', description: 'Erstellt fertige Entwürfe und wartet auf Freigabe.' },
+	{ level: 3, label: 'Nach Freigabe ausführen', description: 'Handelt nur mit ausdrücklichem OK.' },
+	{ level: 4, label: 'In Grenzen automatisch', description: 'Handelt selbstständig in klaren Grenzen.' },
+	{ level: 5, label: 'Vollständig autonom', description: 'Handelt vollständig autonom im zugewiesenen Bereich.' }
+];
+
+// Clampt einen beliebigen Wert auf ein gültiges Autonomie-Level (0–5).
+export function clampAutonomy(level: unknown): number {
+	const n = Math.round(Number(level));
+	if (!Number.isFinite(n)) return AUTONOMY_DEFAULT;
+	return Math.max(0, Math.min(5, n));
+}
 
 const FEED_MAX = 100;
 
@@ -133,6 +153,13 @@ export function setAgentTools(id: string, tools: string[]): Company {
 	const c = load();
 	const a = c.agents.find((x) => x.id === id);
 	if (a) a.tools = tools;
+	save(c);
+	return c;
+}
+export function setAgentAutonomy(id: string, level: number): Company {
+	const c = load();
+	const a = c.agents.find((x) => x.id === id);
+	if (a) a.autonomyLevel = clampAutonomy(level);
 	save(c);
 	return c;
 }

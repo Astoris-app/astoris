@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import {
 	getCompany, saveCompany, addRole, removeRole, addAgent, removeAgent,
-	setAgentModel, setAgentTools, addAgentHistory, clearAgentHistory,
+	setAgentModel, setAgentTools, setAgentAutonomy, addAgentHistory, clearAgentHistory,
 	addGoal, updateGoal, removeGoal, setGoalStatus, updateGoalMetric,
 	addMemory, updateMemory, removeMemory,
 	addFeedEntry, clearFeed,
-	INDUSTRY_TEMPLATES, MEMORY_CATEGORIES,
+	INDUSTRY_TEMPLATES, MEMORY_CATEGORIES, AUTONOMY_LEVELS, AUTONOMY_DEFAULT, clampAutonomy,
 	type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric, type FeedEntry, type MemoryCategory
 } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
@@ -73,13 +73,40 @@ function memoryBlock(c: Company): string {
 	return parts.join('\n\n');
 }
 
-// Baut den System-Kontext eines Agenten (Persona + Rolle + Firma + strukturierte Memory + allg. Wissen).
+// Baut den Autonomie-Block: Level + konkrete Verhaltensanweisung, was der Agent (nicht) tun darf.
+function autonomyBlock(agent: Agent): string {
+	const lvl = clampAutonomy(agent.autonomyLevel ?? AUTONOMY_DEFAULT);
+	const def = AUTONOMY_LEVELS.find((a) => a.level === lvl) ?? AUTONOMY_LEVELS[AUTONOMY_DEFAULT];
+	let instruction: string;
+	if (lvl <= 2) {
+		// 0–2: ausdrücklich NICHTS ausführen — nur analysieren / vorschlagen / entwerfen.
+		instruction =
+			'Führe NICHTS aus und versende, veröffentliche oder verändere nichts. Du darfst ausschließlich analysieren, empfehlen und Entwürfe vorbereiten. ' +
+			'Kennzeichne jedes Ergebnis ausdrücklich als Vorschlag und warte auf eine ausdrückliche Freigabe, bevor irgendetwas umgesetzt wird.';
+	} else if (lvl === 3) {
+		// 3: nur nach Freigabe handeln.
+		instruction =
+			'Handle ausschließlich nach ausdrücklicher Freigabe. Schlage konkrete Schritte vor und führe sie erst aus, wenn ein explizites OK vorliegt.';
+	} else if (lvl === 4) {
+		// 4: in klaren Grenzen selbstständig.
+		instruction =
+			'Du darfst innerhalb klarer, vereinbarter Grenzen selbstständig handeln und umsetzen. Bei allem, was über diese Grenzen hinausgeht, hol erst eine Freigabe ein.';
+	} else {
+		// 5: vollständig autonom im zugewiesenen Bereich.
+		instruction =
+			'Du darfst im dir zugewiesenen Bereich vollständig selbstständig handeln, entscheiden und umsetzen, ohne auf eine Freigabe zu warten.';
+	}
+	return `Dein Autonomie-Level: ${lvl} (${def.label}) — ${def.description}\nVerhalten: ${instruction}`;
+}
+
+// Baut den System-Kontext eines Agenten (Persona + Rolle + Firma + Autonomie + strukturierte Memory + allg. Wissen).
 function agentContext(c: Company, agent: Agent): string {
 	const persona = getPersona(agent.personaId);
 	return [
 		`Du bist ${agent.name}, ${agent.role}${c.name ? ' bei ' + c.name : ''}.`,
 		persona?.systemPrompt ?? '',
 		c.mission ? 'Mission der Firma: ' + c.mission : '',
+		autonomyBlock(agent),
 		memoryBlock(c),
 		c.knowledge ? 'Allgemeines Wissen über die Firma (berücksichtige es):\n' + c.knowledge : ''
 	].filter(Boolean).join('\n\n');
@@ -129,6 +156,7 @@ export async function POST({ request }) {
 	if (action === 'remove-agent') return json({ company: removeAgent((b.id ?? '').toString()) });
 	if (action === 'set-agent-model') return json({ company: setAgentModel((b.agentId ?? '').toString(), b.model ?? null) });
 	if (action === 'set-agent-tools') return json({ company: setAgentTools((b.agentId ?? '').toString(), Array.isArray(b.tools) ? b.tools.map(String) : []) });
+	if (action === 'set-agent-autonomy') return json({ company: setAgentAutonomy((b.agentId ?? '').toString(), clampAutonomy(b.level)) });
 	if (action === 'clear-history') return json({ company: clearAgentHistory((b.agentId ?? '').toString()) });
 
 	// ---------- Goals ----------
