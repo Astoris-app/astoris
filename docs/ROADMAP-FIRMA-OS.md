@@ -49,8 +49,12 @@ KI-Engine (lokal+Cloud, Tool-Calling).
 und Agenten ein — Astoris plant, priorisiert, schreibt, analysiert, automatisiert und optimiert
 den Alltag.
 
-## Fortschritt
-- [ ] Phase 1.1 Goals-System
-- [ ] Phase 1.2 Company-Dashboard
-- [ ] Phase 1.3 Company Feed
-- [ ] Phase 2 …
+## Fortschritt — Phase 1–4 KOMPLETT (Stand 2026-06-27)
+- [x] **Phase 1** — Goals-System · Company-Dashboard (Cockpit) · Company Feed
+- [x] **Phase 2** — Strukturiertes Memory · Autonomie-Level (0–5) · Task/Action-System
+- [x] **Phase 3** — CRM-Light · Marketing-Modul (KI-gestützt)
+- [x] **Phase 4** — Kennzahlen-Modul · Optimierungs-Schleifen (KI bewertet → Learning → Memory)
+- [x] Querschnitt — SEO/AEO/GEO (Landing) · Mobile · Security-Härtung · DE/EN
+- [ ] **Phase 4.3 (offen)** — Echte Integrationen (Google Ads/Analytics, Meta/LinkedIn, Stripe) — brauchen OAuth/API-Keys + echte Accounts, später iterativ
+
+Demo-Firma **DEV_AI** bewohnt alle Module (Ziele, Agenten, Memory, Tasks, CRM, KPIs, Experimente) — direkt testbar.
