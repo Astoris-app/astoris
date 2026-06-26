@@ -199,7 +199,7 @@
 	.x { width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); background: transparent; border: none; font-size: 14px; }
 	.x:hover { background: var(--surface-2); color: var(--text); }
 	.body { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-	.warn { background: var(--ember-soft); color: var(--ember-bright); border: 1px solid var(--ember-line); border-radius: var(--radius); padding: 10px 13px; font-size: 12.5px; }
+	.warn { background: var(--ember-soft); color: var(--text); border: 1px solid var(--ember-line); border-radius: var(--radius); padding: 10px 13px; font-size: 12.5px; font-weight: 500; }
 	.row { display: flex; gap: 12px; }
 	.row label { flex: 1; }
 	label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted); }
