@@ -792,7 +792,7 @@
 	.tbtn.primary { background: var(--ember); color: #1a1206; }
 	.tbtn.primary:disabled { opacity: 0.5; }
 	.tbtn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-	.task-result { margin-top: 16px; padding: 13px; background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 10px; font-size: 13.5px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+	.task-result { margin-top: 16px; padding: 13px; background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 10px; font-size: 13.5px; line-height: 1.6; height: 320px; min-height: 140px; max-width: 100%; overflow: auto; resize: both; }
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px 48px; }
 
 	/* Tabs */
@@ -912,6 +912,7 @@
 	.working-note { font-size: 12.5px; color: var(--ember-bright); }
 	.overall { background: var(--bg-veil); border: 1px solid var(--ember-line); border-radius: 10px; padding: 13px; }
 	.overall-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ember-bright); margin-bottom: 7px; }
+	.overall .result-md { height: 340px; min-height: 160px; max-width: 100%; overflow: auto; resize: both; }
 	.breakdown summary { cursor: pointer; font-size: 12.5px; color: var(--text-muted); font-family: var(--font-mono); list-style: none; user-select: none; }
 	.breakdown summary::before { content: '▸ '; }
 	.breakdown[open] summary::before { content: '▾ '; }
