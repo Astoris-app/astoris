@@ -26,6 +26,16 @@ export const APPS: AppDef[] = [
 		icon: 'M4 4h7v7H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 13h7v7H4z'
 	},
 	{
+		id: 'crm',
+		label: 'CRM',
+		href: '/crm',
+		group: 'work',
+		ready: true,
+		capability: 'crm',
+		blurb: 'Kontakte und Leads, Deal-Pipeline und Produkte — dein leichtgewichtiges CRM.',
+		icon: 'M4 5.5h16v13H4zM4 9.5h16M9 14a1.6 1.6 0 1 0 0-.01M7 17c0-1.1.9-1.9 2-1.9s2 .8 2 1.9M14 13h3M14 16h3'
+	},
+	{
 		id: 'chat',
 		label: 'Assistent',
 		href: '/',
