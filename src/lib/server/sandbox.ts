@@ -73,6 +73,10 @@ export async function runCodeAddon(code: string, input: unknown, timeoutMs = 500
 		URL,
 		URLSearchParams,
 		crypto,
+		// Für Multipart-Uploads (z. B. Bild an Erkennungs-API ohne öffentliche URL).
+		FormData,
+		Blob,
+		Uint8Array,
 		input
 	};
 	const context = vm.createContext(sandbox, { name: 'astoris-addon' });
