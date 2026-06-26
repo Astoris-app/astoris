@@ -26,6 +26,19 @@
 		tools?: string[];
 		history?: HistoryEntry[];
 	};
+	type GoalMetric = { name: string; target: number; current: number; unit: string };
+	type Goal = {
+		id: string;
+		title: string;
+		description?: string;
+		parentId?: string | null;
+		status: 'geplant' | 'aktiv' | 'blockiert' | 'erledigt';
+		metric?: GoalMetric;
+		deadline?: string;
+		priority: 'hoch' | 'mittel' | 'niedrig';
+		agentIds: string[];
+		createdAt: string;
+	};
 	type Company = {
 		name: string;
 		industry: string;
@@ -33,6 +46,7 @@
 		roles: Role[];
 		agents: SubAgent[];
 		knowledge?: string;
+		goals?: Goal[];
 	};
 	type Template = { label: string; roles: { title: string; description: string }[] };
 	type Tool = { name: string; label: string };
@@ -42,7 +56,7 @@
 	let tab = $state<'personas' | 'company'>('personas');
 
 	let personas = $state<Persona[]>([]);
-	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '' });
+	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', goals: [] });
 	let templates = $state<Record<string, Template>>({});
 	let modelOpts = $state<{ id: string; label: string; source: string; model: string }[]>([]);
 	let loading = $state(true);
@@ -124,7 +138,8 @@
 				mission: c.mission ?? '',
 				roles: Array.isArray(c.roles) ? c.roles : [],
 				agents: Array.isArray(c.agents) ? c.agents : [],
-				knowledge: c.knowledge ?? ''
+				knowledge: c.knowledge ?? '',
+				goals: Array.isArray(c.goals) ? c.goals : []
 			};
 			templates = data?.templates && typeof data.templates === 'object' ? data.templates : {};
 			// sync head form
@@ -133,7 +148,7 @@
 			cMission = company.mission;
 			cKnowledge = company.knowledge ?? '';
 		} catch {
-			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '' };
+			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', goals: [] };
 			templates = {};
 		}
 	}
@@ -237,7 +252,8 @@
 			mission: c.mission ?? '',
 			roles: Array.isArray(c.roles) ? c.roles : [],
 			agents: Array.isArray(c.agents) ? c.agents : [],
-			knowledge: c.knowledge ?? ''
+			knowledge: c.knowledge ?? '',
+			goals: Array.isArray(c.goals) ? c.goals : []
 		};
 	}
 
@@ -381,6 +397,121 @@
 		finally { coBusy = false; }
 	}
 
+	// ---------- Goals ----------
+	const GOAL_STATUSES: Goal['status'][] = ['geplant', 'aktiv', 'blockiert', 'erledigt'];
+	const GOAL_PRIORITIES: Goal['priority'][] = ['hoch', 'mittel', 'niedrig'];
+
+	let mainGoals = $derived((company.goals ?? []).filter((g) => !g.parentId));
+	function subGoalsOf(id: string): Goal[] {
+		return (company.goals ?? []).filter((g) => g.parentId === id);
+	}
+	function statusLabel(s: Goal['status']): string {
+		return i18n.t('agents.status' + s.charAt(0).toUpperCase() + s.slice(1));
+	}
+	function prioLabel(p: Goal['priority']): string {
+		return i18n.t('agents.prio' + p.charAt(0).toUpperCase() + p.slice(1));
+	}
+	function progressPct(m?: GoalMetric): number {
+		if (!m || !(m.target > 0)) return 0;
+		return Math.max(0, Math.min(100, Math.round((m.current / m.target) * 100)));
+	}
+	function agentNamesFor(ids: string[]): string[] {
+		return ids.map((id) => company.agents.find((a) => a.id === id)?.name).filter(Boolean) as string[];
+	}
+	function fmtDate(d?: string): string {
+		if (!d) return '';
+		const dt = new Date(d);
+		if (isNaN(dt.getTime())) return d;
+		return dt.toLocaleDateString(i18n.lang === 'en' ? 'en-GB' : 'de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+	}
+
+	// goal editor dialog (create + edit)
+	let goalEditor = $state<{
+		open: boolean;
+		id: string | null;
+		parentId: string | null;
+		title: string;
+		description: string;
+		status: Goal['status'];
+		priority: Goal['priority'];
+		deadline: string;
+		metricName: string;
+		metricTarget: string;
+		metricCurrent: string;
+		metricUnit: string;
+		agentIds: string[];
+		busy: boolean;
+	}>({ open: false, id: null, parentId: null, title: '', description: '', status: 'geplant', priority: 'mittel', deadline: '', metricName: '', metricTarget: '', metricCurrent: '', metricUnit: '', agentIds: [], busy: false });
+
+	let goalRowBusy = $state<string | null>(null);
+
+	function openGoalCreate(parentId: string | null = null) {
+		goalEditor = { open: true, id: null, parentId, title: '', description: '', status: 'geplant', priority: 'mittel', deadline: '', metricName: '', metricTarget: '', metricCurrent: '', metricUnit: '', agentIds: [], busy: false };
+	}
+	function openGoalEdit(g: Goal) {
+		goalEditor = {
+			open: true,
+			id: g.id,
+			parentId: g.parentId ?? null,
+			title: g.title ?? '',
+			description: g.description ?? '',
+			status: g.status,
+			priority: g.priority,
+			deadline: g.deadline ?? '',
+			metricName: g.metric?.name ?? '',
+			metricTarget: g.metric?.target != null ? String(g.metric.target) : '',
+			metricCurrent: g.metric?.current != null ? String(g.metric.current) : '',
+			metricUnit: g.metric?.unit ?? '',
+			agentIds: Array.isArray(g.agentIds) ? [...g.agentIds] : [],
+			busy: false
+		};
+	}
+	function closeGoalEditor() { goalEditor = { ...goalEditor, open: false }; }
+	function toggleGoalAgent(id: string, checked: boolean) {
+		goalEditor.agentIds = checked
+			? [...new Set([...goalEditor.agentIds, id])]
+			: goalEditor.agentIds.filter((x) => x !== id);
+	}
+	function editorMetric() {
+		const name = goalEditor.metricName.trim();
+		const unit = goalEditor.metricUnit.trim();
+		const target = goalEditor.metricTarget.trim();
+		const current = goalEditor.metricCurrent.trim();
+		if (!name && !unit && !target && !current) return null;
+		return { name, unit, target: Number(target) || 0, current: Number(current) || 0 };
+	}
+	async function saveGoal() {
+		if (goalEditor.busy || !goalEditor.title.trim()) return;
+		goalEditor.busy = true;
+		const payload: Record<string, unknown> = {
+			title: goalEditor.title.trim(),
+			description: goalEditor.description,
+			status: goalEditor.status,
+			priority: goalEditor.priority,
+			deadline: goalEditor.deadline,
+			metric: editorMetric(),
+			parentId: goalEditor.parentId,
+			agentIds: goalEditor.agentIds
+		};
+		try {
+			const ok = goalEditor.id
+				? await postCompany({ action: 'update-goal', id: goalEditor.id, ...payload })
+				: await postCompany({ action: 'add-goal', ...payload });
+			if (ok) closeGoalEditor();
+		} finally { goalEditor.busy = false; }
+	}
+	async function removeGoalUI(id: string) {
+		if (goalRowBusy) return;
+		if (!confirm(i18n.t('agents.removeGoalConfirm'))) return;
+		goalRowBusy = id;
+		try { await postCompany({ action: 'remove-goal', id }); } finally { goalRowBusy = null; }
+	}
+	async function setGoalStatusUI(id: string, status: string) {
+		if (goalRowBusy) return;
+		goalRowBusy = id;
+		try { await postCompany({ action: 'set-goal-status', id, status }); } finally { goalRowBusy = null; }
+	}
+
 	function fmtTime(at?: string): string {
 		if (!at) return '';
 		const d = new Date(at);
@@ -458,6 +589,91 @@
 		{/if}
 	{:else}
 		<!-- =================== COMPANY =================== -->
+
+		{#snippet goalCard(g: Goal, isSub: boolean)}
+			{@const pct = progressPct(g.metric)}
+			{@const agentNames = agentNamesFor(g.agentIds)}
+			<article class="goal-card" class:sub={isSub} class:done={g.status === 'erledigt'}>
+				<div class="goal-top">
+					<div class="goal-title-wrap">
+						<span class="prio-dot" class:hoch={g.priority === 'hoch'} class:mittel={g.priority === 'mittel'} class:niedrig={g.priority === 'niedrig'} title={prioLabel(g.priority)}></span>
+						<strong class="goal-title">{g.title}</strong>
+					</div>
+					<select
+						class="goal-status status-{g.status}"
+						value={g.status}
+						onchange={(e) => setGoalStatusUI(g.id, e.currentTarget.value)}
+						disabled={goalRowBusy === g.id}
+						aria-label={i18n.t('agents.goalStatus')}
+					>
+						{#each GOAL_STATUSES as s (s)}<option value={s}>{statusLabel(s)}</option>{/each}
+					</select>
+				</div>
+
+				{#if g.description}<p class="goal-desc">{g.description}</p>{/if}
+
+				{#if g.metric && (g.metric.target > 0 || g.metric.current > 0)}
+					<div class="goal-metric">
+						<div class="metric-row">
+							<span class="metric-name">{g.metric.name || i18n.t('agents.goalProgress')}</span>
+							<span class="metric-val">{g.metric.current} / {g.metric.target} {g.metric.unit} · {pct}%</span>
+						</div>
+						<div class="progress-track"><div class="progress-fill" style="width:{pct}%"></div></div>
+					</div>
+				{/if}
+
+				<div class="goal-meta">
+					<span class="meta-chip prio-{g.priority}">{prioLabel(g.priority)}</span>
+					{#if g.deadline}<span class="meta-chip">{i18n.t('agents.goalDeadlineLabel')}: {fmtDate(g.deadline)}</span>{/if}
+					{#each agentNames as n (n)}<span class="meta-chip agent">{n}</span>{/each}
+				</div>
+
+				<div class="goal-actions">
+					{#if !isSub}
+						<button class="mini-btn" onclick={() => openGoalCreate(g.id)}>+ {i18n.t('agents.newSubgoal')}</button>
+					{/if}
+					<button class="mini-btn" onclick={() => openGoalEdit(g)}>{i18n.t('agents.editGoal')}</button>
+					<button class="mini-btn danger" onclick={() => removeGoalUI(g.id)} disabled={goalRowBusy === g.id}>{i18n.t('agents.removeGoal')}</button>
+				</div>
+			</article>
+		{/snippet}
+
+		<section class="block">
+			<div class="goals-head">
+				<h2 class="cat">{i18n.t('agents.goalsSection')}</h2>
+				<button class="btn primary" onclick={() => openGoalCreate(null)}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					{i18n.t('agents.newGoal')}
+				</button>
+			</div>
+			<p class="lead goals-lead">{i18n.t('agents.goalsLead')}</p>
+
+			{#if mainGoals.length === 0}
+				<div class="empty small">
+					<span class="big">🎯</span>
+					<p>{i18n.t('agents.goalsEmpty')}</p>
+				</div>
+			{:else}
+				<div class="goals-list">
+					{#each mainGoals as g (g.id)}
+						{@const subs = subGoalsOf(g.id)}
+						<div class="goal-group">
+							{@render goalCard(g, false)}
+							{#if subs.length}
+								<div class="subgoals">
+									{#each subs as sg (sg.id)}
+										{@render goalCard(sg, true)}
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+
 		<section class="block">
 			<h2 class="cat">{i18n.t('agents.company')}</h2>
 			<div class="company-head">
@@ -778,6 +994,97 @@
 	</div>
 {/if}
 
+<!-- =================== GOAL EDITOR DIALOG =================== -->
+{#if goalEditor.open}
+	<div class="overlay" role="button" tabindex="0" onclick={closeGoalEditor} onkeydown={(e) => e.key === 'Escape' && closeGoalEditor()}>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label={i18n.t('agents.goalEditorEdit')} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+			<div class="dhead">
+				<span class="emoji big">🎯</span>
+				<div>
+					<h3>{goalEditor.id ? i18n.t('agents.goalEditorEdit') : i18n.t('agents.goalEditorNew')}</h3>
+					<span class="eyebrow">{goalEditor.parentId ? i18n.t('agents.newSubgoal') : i18n.t('agents.goalsSection')}</span>
+				</div>
+			</div>
+
+			<div class="fields">
+				<label>
+					<span>{i18n.t('agents.goalTitle')}</span>
+					<input type="text" placeholder={i18n.t('agents.goalTitlePlaceholder')} bind:value={goalEditor.title} autocomplete="off" />
+				</label>
+				<label>
+					<span>{i18n.t('agents.goalDesc')}</span>
+					<textarea rows="2" placeholder={i18n.t('agents.goalDescPlaceholder')} bind:value={goalEditor.description}></textarea>
+				</label>
+				<div class="two">
+					<label class="grow">
+						<span>{i18n.t('agents.goalStatus')}</span>
+						<select bind:value={goalEditor.status}>
+							{#each GOAL_STATUSES as s (s)}<option value={s}>{statusLabel(s)}</option>{/each}
+						</select>
+					</label>
+					<label class="grow">
+						<span>{i18n.t('agents.goalPriority')}</span>
+						<select bind:value={goalEditor.priority}>
+							{#each GOAL_PRIORITIES as p (p)}<option value={p}>{prioLabel(p)}</option>{/each}
+						</select>
+					</label>
+				</div>
+				<label>
+					<span>{i18n.t('agents.goalDeadline')}</span>
+					<input type="date" bind:value={goalEditor.deadline} />
+				</label>
+
+				<div class="metric-edit">
+					<span class="metric-edit-title">{i18n.t('agents.goalMetric')}</span>
+					<div class="two">
+						<label class="grow">
+							<span>{i18n.t('agents.metricName')}</span>
+							<input type="text" placeholder={i18n.t('agents.metricNamePlaceholder')} bind:value={goalEditor.metricName} autocomplete="off" />
+						</label>
+						<label class="grow">
+							<span>{i18n.t('agents.metricUnit')}</span>
+							<input type="text" placeholder={i18n.t('agents.metricUnitPlaceholder')} bind:value={goalEditor.metricUnit} autocomplete="off" />
+						</label>
+					</div>
+					<div class="two">
+						<label class="grow">
+							<span>{i18n.t('agents.metricCurrent')}</span>
+							<input type="number" inputmode="decimal" bind:value={goalEditor.metricCurrent} />
+						</label>
+						<label class="grow">
+							<span>{i18n.t('agents.metricTarget')}</span>
+							<input type="number" inputmode="decimal" bind:value={goalEditor.metricTarget} />
+						</label>
+					</div>
+				</div>
+
+				<div class="goal-agents-edit">
+					<span class="metric-edit-title">{i18n.t('agents.goalAgents')}</span>
+					{#if company.agents.length === 0}
+						<p class="hint">{i18n.t('agents.goalNoAgents')}</p>
+					{:else}
+						<div class="agent-checks">
+							{#each company.agents as a (a.id)}
+								<label class="tool-check">
+									<input type="checkbox" checked={goalEditor.agentIds.includes(a.id)} onchange={(e) => toggleGoalAgent(a.id, e.currentTarget.checked)} />
+									<span>{a.name}</span>
+								</label>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<div class="dactions">
+				<button class="btn ghost" onclick={closeGoalEditor}>{i18n.t('agents.cancel')}</button>
+				<button class="btn primary" onclick={saveGoal} disabled={goalEditor.busy || !goalEditor.title.trim()}>
+					{goalEditor.busy ? i18n.t('agents.saving') : i18n.t('agents.goalSave')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.task-btn { font-size: 12px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 10px; transition: all 0.14s; }
 	.task-btn:hover { color: var(--ember-bright); border-color: var(--ember-line); }
@@ -967,8 +1274,59 @@
 	.md :global(table) { border-collapse: collapse; font-size: 12.5px; margin-bottom: 8px; }
 	.md :global(th), .md :global(td) { border: 1px solid var(--border); padding: 4px 8px; }
 
+	/* Goals */
+	.goals-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+	.goals-lead { margin: 0 0 16px; max-width: 620px; }
+	.goals-list { display: flex; flex-direction: column; gap: 14px; }
+	.goal-group { display: flex; flex-direction: column; gap: 8px; }
+	.subgoals { display: flex; flex-direction: column; gap: 8px; margin-left: 22px; padding-left: 14px; border-left: 2px solid var(--border-soft); }
+	.goal-card { background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.18s; }
+	.goal-card:hover { border-color: var(--border); }
+	.goal-card.sub { background: var(--bg-veil); padding: 12px 14px; }
+	.goal-card.done { opacity: 0.7; }
+	.goal-card.done .goal-title { text-decoration: line-through; }
+	.goal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+	.goal-title-wrap { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; }
+	.goal-title { font-size: 14.5px; font-weight: 600; word-break: break-word; }
+	.prio-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--text-faint); }
+	.prio-dot.hoch { background: var(--danger); }
+	.prio-dot.mittel { background: var(--ember); }
+	.prio-dot.niedrig { background: var(--sage); }
+	.goal-desc { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+	.goal-status { flex: none; width: auto; max-width: 150px; font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--text-muted); cursor: pointer; }
+	.goal-status:focus { outline: none; border-color: var(--ember-line); }
+	.goal-status.status-geplant { color: var(--text-muted); border-color: var(--border-soft); }
+	.goal-status.status-aktiv { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
+	.goal-status.status-blockiert { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+	.goal-status.status-erledigt { color: var(--sage); border-color: var(--sage); }
+	.goal-metric { display: flex; flex-direction: column; gap: 5px; }
+	.metric-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+	.metric-name { font-size: 12px; color: var(--text-muted); }
+	.metric-val { font-size: 11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+	.progress-track { height: 7px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+	.progress-fill { height: 100%; background: var(--ember); border-radius: 999px; transition: width 0.3s var(--ease); }
+	.goal-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+	.meta-chip { font-size: 11px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 3px 9px; }
+	.meta-chip.agent { color: var(--text); }
+	.meta-chip.prio-hoch { color: var(--danger); border-color: var(--danger-soft); }
+	.meta-chip.prio-mittel { color: var(--ember-bright); border-color: var(--ember-line); }
+	.meta-chip.prio-niedrig { color: var(--sage); border-color: var(--sage); }
+	.goal-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+	.mini-btn { font-size: 12px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 10px; transition: all 0.14s; }
+	.mini-btn:hover { color: var(--text); border-color: var(--border); }
+	.mini-btn.danger:hover { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+	.mini-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+	.metric-edit, .goal-agents-edit { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 10px; }
+	.metric-edit-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); }
+	.agent-checks { display: flex; flex-wrap: wrap; gap: 7px; }
+
 	@media (max-width: 640px) {
 		.company-head { grid-template-columns: 1fr; }
 		.section-head { flex-direction: column; }
+		.goals-head { flex-direction: column; align-items: flex-start; }
+		.goal-top { flex-direction: column; }
+		.goal-status { max-width: none; width: 100%; }
+		.subgoals { margin-left: 10px; padding-left: 10px; }
+		.fields .two { flex-direction: column; }
 	}
 </style>

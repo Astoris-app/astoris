@@ -10,6 +10,21 @@ export type Role = { id: string; title: string; description: string };
 export type AgentModel = { source: 'local' | 'cloud'; model: string };
 export type TaskEntry = { task: string; result: string; at: string };
 export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active'; model?: AgentModel | null; tools?: string[]; history?: TaskEntry[] };
+export type GoalStatus = 'geplant' | 'aktiv' | 'blockiert' | 'erledigt';
+export type GoalPriority = 'hoch' | 'mittel' | 'niedrig';
+export type GoalMetric = { name: string; target: number; current: number; unit: string };
+export type Goal = {
+	id: string;
+	title: string;
+	description?: string;
+	parentId?: string | null;
+	status: GoalStatus;
+	metric?: GoalMetric;
+	deadline?: string;
+	priority: GoalPriority;
+	agentIds: string[];
+	createdAt: string;
+};
 export type Company = {
 	name: string;
 	industry: string;
@@ -17,9 +32,10 @@ export type Company = {
 	knowledge?: string;
 	roles: Role[];
 	agents: Agent[];
+	goals?: Goal[];
 };
 
-const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [] };
+const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [] };
 
 // Branchen-Vorlagen → vorgeschlagene Rollen (das "coole" Auto-Setup)
 export const INDUSTRY_TEMPLATES: Record<string, { label: string; roles: { title: string; description: string }[] }> = {
@@ -113,6 +129,101 @@ export function clearAgentHistory(id: string): Company {
 export function removeAgent(id: string): Company {
 	const c = load();
 	c.agents = c.agents.filter((a) => a.id !== id);
+	save(c);
+	return c;
+}
+
+// ---------- Goals (Ziele) ----------
+// Hauptziele haben parentId null, Unterziele verweisen auf die Hauptziel-id.
+
+const VALID_STATUS: GoalStatus[] = ['geplant', 'aktiv', 'blockiert', 'erledigt'];
+const VALID_PRIORITY: GoalPriority[] = ['hoch', 'mittel', 'niedrig'];
+
+function goalsOf(c: Company): Goal[] {
+	if (!Array.isArray(c.goals)) c.goals = [];
+	return c.goals;
+}
+
+export function addGoal(input: {
+	title: string;
+	description?: string;
+	parentId?: string | null;
+	status?: GoalStatus;
+	metric?: GoalMetric;
+	deadline?: string;
+	priority?: GoalPriority;
+	agentIds?: string[];
+}): Company {
+	const c = load();
+	const goals = goalsOf(c);
+	// Only allow a parent that exists and is itself a top-level goal (no deeper nesting).
+	let parentId: string | null = null;
+	if (input.parentId) {
+		const parent = goals.find((g) => g.id === input.parentId);
+		if (parent && !parent.parentId) parentId = parent.id;
+	}
+	goals.push({
+		id: randomUUID(),
+		title: input.title,
+		description: input.description || undefined,
+		parentId,
+		status: VALID_STATUS.includes(input.status as GoalStatus) ? (input.status as GoalStatus) : 'geplant',
+		metric: input.metric,
+		deadline: input.deadline || undefined,
+		priority: VALID_PRIORITY.includes(input.priority as GoalPriority) ? (input.priority as GoalPriority) : 'mittel',
+		agentIds: Array.isArray(input.agentIds) ? input.agentIds : [],
+		createdAt: new Date().toISOString()
+	});
+	save(c);
+	return c;
+}
+
+export function updateGoal(id: string, patch: Partial<Omit<Goal, 'id' | 'createdAt'>>): Company {
+	const c = load();
+	const goals = goalsOf(c);
+	const g = goals.find((x) => x.id === id);
+	if (g) {
+		if (typeof patch.title === 'string' && patch.title.trim()) g.title = patch.title.trim();
+		if (typeof patch.description === 'string') g.description = patch.description.trim() || undefined;
+		if (patch.status && VALID_STATUS.includes(patch.status)) g.status = patch.status;
+		if (patch.priority && VALID_PRIORITY.includes(patch.priority)) g.priority = patch.priority;
+		if ('deadline' in patch) g.deadline = patch.deadline || undefined;
+		if ('metric' in patch) g.metric = patch.metric || undefined;
+		if (Array.isArray(patch.agentIds)) g.agentIds = patch.agentIds;
+		if ('parentId' in patch) {
+			let parentId: string | null = null;
+			if (patch.parentId) {
+				const parent = goals.find((p) => p.id === patch.parentId);
+				if (parent && !parent.parentId && parent.id !== id) parentId = parent.id;
+			}
+			g.parentId = parentId;
+		}
+	}
+	save(c);
+	return c;
+}
+
+export function removeGoal(id: string): Company {
+	const c = load();
+	const goals = goalsOf(c);
+	// Remove the goal and all of its sub-goals.
+	c.goals = goals.filter((g) => g.id !== id && g.parentId !== id);
+	save(c);
+	return c;
+}
+
+export function setGoalStatus(id: string, status: GoalStatus): Company {
+	const c = load();
+	const g = goalsOf(c).find((x) => x.id === id);
+	if (g && VALID_STATUS.includes(status)) g.status = status;
+	save(c);
+	return c;
+}
+
+export function updateGoalMetric(id: string, metric: GoalMetric | null): Company {
+	const c = load();
+	const g = goalsOf(c).find((x) => x.id === id);
+	if (g) g.metric = metric || undefined;
 	save(c);
 	return c;
 }

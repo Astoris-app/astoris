@@ -2,10 +2,28 @@ import { json } from '@sveltejs/kit';
 import {
 	getCompany, saveCompany, addRole, removeRole, addAgent, removeAgent,
 	setAgentModel, setAgentTools, addAgentHistory, clearAgentHistory,
-	INDUSTRY_TEMPLATES, type Company, type Agent
+	addGoal, updateGoal, removeGoal, setGoalStatus, updateGoalMetric,
+	INDUSTRY_TEMPLATES, type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric
 } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
 import { engineChat } from '$lib/server/engine';
+
+// Normalisiert eine eingehende Metrik (oder null, wenn unbrauchbar/leer).
+function parseMetric(m: unknown): GoalMetric | undefined {
+	if (!m || typeof m !== 'object') return undefined;
+	const o = m as Record<string, unknown>;
+	const name = (o.name ?? '').toString().trim();
+	const unit = (o.unit ?? '').toString().trim();
+	const target = Number(o.target);
+	const current = Number(o.current);
+	if (!name && !unit && !Number.isFinite(target) && !Number.isFinite(current)) return undefined;
+	return {
+		name,
+		unit,
+		target: Number.isFinite(target) ? target : 0,
+		current: Number.isFinite(current) ? current : 0
+	};
+}
 
 // Baut den System-Kontext eines Agenten (Persona + Rolle + Firma + Wissensbasis).
 function agentContext(c: Company, agent: Agent): string {
@@ -46,6 +64,35 @@ export async function POST({ request }) {
 	if (action === 'set-agent-model') return json({ company: setAgentModel((b.agentId ?? '').toString(), b.model ?? null) });
 	if (action === 'set-agent-tools') return json({ company: setAgentTools((b.agentId ?? '').toString(), Array.isArray(b.tools) ? b.tools.map(String) : []) });
 	if (action === 'clear-history') return json({ company: clearAgentHistory((b.agentId ?? '').toString()) });
+
+	// ---------- Goals ----------
+	if (action === 'add-goal') {
+		return json({ company: addGoal({
+			title: (b.title ?? '').toString().trim(),
+			description: (b.description ?? '').toString(),
+			parentId: b.parentId ? b.parentId.toString() : null,
+			status: b.status as GoalStatus,
+			metric: parseMetric(b.metric),
+			deadline: (b.deadline ?? '').toString(),
+			priority: b.priority as GoalPriority,
+			agentIds: Array.isArray(b.agentIds) ? b.agentIds.map(String) : []
+		}) });
+	}
+	if (action === 'update-goal') {
+		const patch: Record<string, unknown> = {};
+		if ('title' in b) patch.title = (b.title ?? '').toString();
+		if ('description' in b) patch.description = (b.description ?? '').toString();
+		if ('status' in b) patch.status = b.status as GoalStatus;
+		if ('priority' in b) patch.priority = b.priority as GoalPriority;
+		if ('deadline' in b) patch.deadline = (b.deadline ?? '').toString();
+		if ('metric' in b) patch.metric = parseMetric(b.metric);
+		if ('parentId' in b) patch.parentId = b.parentId ? b.parentId.toString() : null;
+		if (Array.isArray(b.agentIds)) patch.agentIds = b.agentIds.map(String);
+		return json({ company: updateGoal((b.id ?? '').toString(), patch) });
+	}
+	if (action === 'remove-goal') return json({ company: removeGoal((b.id ?? '').toString()) });
+	if (action === 'set-goal-status') return json({ company: setGoalStatus((b.id ?? '').toString(), b.status as GoalStatus) });
+	if (action === 'update-goal-metric') return json({ company: updateGoalMetric((b.id ?? '').toString(), parseMetric(b.metric) ?? null) });
 
 	// Einzelner Agent bearbeitet eine Aufgabe.
 	if (action === 'run-agent') {
