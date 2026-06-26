@@ -45,7 +45,15 @@ function load(): Persona[] {
 		save(seeded);
 		return seeded;
 	}
-	try { return JSON.parse(readFileSync(FILE, 'utf8')) as Persona[]; } catch { return []; }
+	let stored: Persona[];
+	try { stored = JSON.parse(readFileSync(FILE, 'utf8')) as Persona[]; } catch { return []; }
+	// Neue Builtin-Presets nachtragen, die noch nicht in der Datei stehen (z. B. nach einem Update).
+	const missing = PRESETS.filter((p) => !stored.some((s) => s.id === p.id));
+	if (missing.length) {
+		stored = [...stored, ...missing.map((p) => ({ ...p, createdAt: new Date().toISOString() }))];
+		save(stored);
+	}
+	return stored;
 }
 function save(list: Persona[]) {
 	mkdirSync('data', { recursive: true });
