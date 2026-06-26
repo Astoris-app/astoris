@@ -3,8 +3,10 @@ import {
 	getCompany, saveCompany, addRole, removeRole, addAgent, removeAgent,
 	setAgentModel, setAgentTools, addAgentHistory, clearAgentHistory,
 	addGoal, updateGoal, removeGoal, setGoalStatus, updateGoalMetric,
+	addMemory, updateMemory, removeMemory,
 	addFeedEntry, clearFeed,
-	INDUSTRY_TEMPLATES, type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric, type FeedEntry
+	INDUSTRY_TEMPLATES, MEMORY_CATEGORIES,
+	type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric, type FeedEntry, type MemoryCategory
 } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
 import { engineChat } from '$lib/server/engine';
@@ -37,14 +39,49 @@ function feed(entry: Omit<FeedEntry, 'id' | 'at'>) {
 	try { addFeedEntry(entry); } catch { /* feed write must never break the main flow */ }
 }
 
-// Baut den System-Kontext eines Agenten (Persona + Rolle + Firma + Wissensbasis).
+// Überschriften je Memory-Kategorie für den System-Prompt.
+const MEMORY_HEADINGS: Record<MemoryCategory, string> = {
+	firma: 'Firmen-Wissen:',
+	produkt: 'Produkt-Wissen:',
+	kunde: 'Über unsere Kunden:',
+	marke: 'Marken-Stimme/Tonalität:',
+	entscheidung: 'Frühere Entscheidungen:',
+	'nicht-tun': 'NICHT tun (Tabus):',
+	experiment: 'Experimente & Ergebnisse:'
+};
+
+// Begrenzungen, damit der Prompt kompakt bleibt.
+const MEMORY_MAX_PER_CAT = 8;
+const MEMORY_CONTENT_MAX = 400;
+
+// Baut den strukturierten Memory-Block (nur nicht-leere Kategorien, sinnvoll begrenzt).
+function memoryBlock(c: Company): string {
+	const mem = Array.isArray(c.memory) ? c.memory : [];
+	if (!mem.length) return '';
+	const parts: string[] = [];
+	for (const cat of MEMORY_CATEGORIES) {
+		const entries = mem.filter((m) => m.category === cat && (m.title?.trim() || m.content?.trim())).slice(0, MEMORY_MAX_PER_CAT);
+		if (!entries.length) continue;
+		const lines = entries.map((m) => {
+			const title = (m.title ?? '').trim();
+			const content = (m.content ?? '').trim().slice(0, MEMORY_CONTENT_MAX);
+			if (title && content) return `- ${title}: ${content}`;
+			return '- ' + (title || content);
+		});
+		parts.push(MEMORY_HEADINGS[cat] + '\n' + lines.join('\n'));
+	}
+	return parts.join('\n\n');
+}
+
+// Baut den System-Kontext eines Agenten (Persona + Rolle + Firma + strukturierte Memory + allg. Wissen).
 function agentContext(c: Company, agent: Agent): string {
 	const persona = getPersona(agent.personaId);
 	return [
 		`Du bist ${agent.name}, ${agent.role}${c.name ? ' bei ' + c.name : ''}.`,
 		persona?.systemPrompt ?? '',
 		c.mission ? 'Mission der Firma: ' + c.mission : '',
-		c.knowledge ? 'Wissen über die Firma (berücksichtige es):\n' + c.knowledge : ''
+		memoryBlock(c),
+		c.knowledge ? 'Allgemeines Wissen über die Firma (berücksichtige es):\n' + c.knowledge : ''
 	].filter(Boolean).join('\n\n');
 }
 
@@ -69,6 +106,23 @@ export async function POST({ request }) {
 	const action = b?.action;
 	if (action === 'save') return json({ company: saveCompany({ name: b.name, industry: b.industry, mission: b.mission }) });
 	if (action === 'set-knowledge') return json({ company: saveCompany({ knowledge: (b.knowledge ?? '').toString() }) });
+
+	// ---------- Memory (strukturiertes Firmen-Wissen) ----------
+	if (action === 'add-memory') {
+		const title = (b.title ?? '').toString().trim();
+		const content = (b.content ?? '').toString().trim();
+		if (!title && !content) return json({ company: getCompany() });
+		const category = MEMORY_CATEGORIES.includes(b.category as MemoryCategory) ? (b.category as MemoryCategory) : 'firma';
+		return json({ company: addMemory({ category, title, content }) });
+	}
+	if (action === 'update-memory') {
+		const patch: Record<string, unknown> = {};
+		if ('title' in b) patch.title = (b.title ?? '').toString();
+		if ('content' in b) patch.content = (b.content ?? '').toString();
+		if ('category' in b && MEMORY_CATEGORIES.includes(b.category as MemoryCategory)) patch.category = b.category as MemoryCategory;
+		return json({ company: updateMemory((b.id ?? '').toString(), patch) });
+	}
+	if (action === 'remove-memory') return json({ company: removeMemory((b.id ?? '').toString()) });
 	if (action === 'add-role') return json({ company: addRole((b.title ?? '').toString(), (b.description ?? '').toString()) });
 	if (action === 'remove-role') return json({ company: removeRole((b.id ?? '').toString()) });
 	if (action === 'add-agent') return json({ company: addAgent((b.name ?? '').toString(), (b.role ?? '').toString(), (b.personaId ?? '').toString()) });

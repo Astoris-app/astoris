@@ -25,6 +25,14 @@ export type Goal = {
 	agentIds: string[];
 	createdAt: string;
 };
+export type MemoryCategory = 'firma' | 'produkt' | 'kunde' | 'marke' | 'entscheidung' | 'nicht-tun' | 'experiment';
+export type MemoryEntry = {
+	id: string;
+	category: MemoryCategory;
+	title: string;
+	content: string;
+	at: string;
+};
 export type FeedType = 'agent-task' | 'company-run' | 'goal' | 'system';
 export type FeedEntry = {
 	id: string;
@@ -40,15 +48,18 @@ export type Company = {
 	industry: string;
 	mission: string;
 	knowledge?: string;
+	memory?: MemoryEntry[];
 	roles: Role[];
 	agents: Agent[];
 	goals?: Goal[];
 	feed?: FeedEntry[];
 };
 
+export const MEMORY_CATEGORIES: MemoryCategory[] = ['firma', 'produkt', 'kunde', 'marke', 'entscheidung', 'nicht-tun', 'experiment'];
+
 const FEED_MAX = 100;
 
-const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [], feed: [] };
+const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [], feed: [], memory: [] };
 
 // Branchen-Vorlagen → vorgeschlagene Rollen (das "coole" Auto-Setup)
 export const INDUSTRY_TEMPLATES: Record<string, { label: string; roles: { title: string; description: string }[] }> = {
@@ -237,6 +248,55 @@ export function updateGoalMetric(id: string, metric: GoalMetric | null): Company
 	const c = load();
 	const g = goalsOf(c).find((x) => x.id === id);
 	if (g) g.metric = metric || undefined;
+	save(c);
+	return c;
+}
+
+// ---------- Memory (strukturiertes Firmen-Wissen) ----------
+// Kategorisierte Wissens-Einträge, die die Agenten aktiv nutzen.
+
+function memoryOf(c: Company): MemoryEntry[] {
+	if (!Array.isArray(c.memory)) c.memory = [];
+	return c.memory;
+}
+
+function validCategory(v: unknown): MemoryCategory {
+	return MEMORY_CATEGORIES.includes(v as MemoryCategory) ? (v as MemoryCategory) : 'firma';
+}
+
+export function addMemory(input: { category?: MemoryCategory; title: string; content: string }): Company {
+	const c = load();
+	const mem = memoryOf(c);
+	const title = (input.title ?? '').toString().trim();
+	const content = (input.content ?? '').toString().trim();
+	mem.push({
+		id: randomUUID(),
+		category: validCategory(input.category),
+		title,
+		content,
+		at: new Date().toISOString()
+	});
+	save(c);
+	// Feed-Eintrag (skip-on-fail, darf den Haupt-Flow nie brechen).
+	try { addFeedEntry({ type: 'system', title: 'Wissen ergänzt: ' + (title || content).slice(0, 80) }); } catch { /* feed write must never break the main flow */ }
+	return c;
+}
+
+export function updateMemory(id: string, patch: Partial<Pick<MemoryEntry, 'category' | 'title' | 'content'>>): Company {
+	const c = load();
+	const m = memoryOf(c).find((x) => x.id === id);
+	if (m) {
+		if (typeof patch.title === 'string') m.title = patch.title.trim();
+		if (typeof patch.content === 'string') m.content = patch.content.trim();
+		if (patch.category) m.category = validCategory(patch.category);
+	}
+	save(c);
+	return c;
+}
+
+export function removeMemory(id: string): Company {
+	const c = load();
+	c.memory = memoryOf(c).filter((m) => m.id !== id);
 	save(c);
 	return c;
 }

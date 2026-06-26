@@ -39,6 +39,8 @@
 		agentIds: string[];
 		createdAt: string;
 	};
+	type MemoryCategory = 'firma' | 'produkt' | 'kunde' | 'marke' | 'entscheidung' | 'nicht-tun' | 'experiment';
+	type MemoryEntry = { id: string; category: MemoryCategory; title: string; content: string; at: string };
 	type Company = {
 		name: string;
 		industry: string;
@@ -46,6 +48,7 @@
 		roles: Role[];
 		agents: SubAgent[];
 		knowledge?: string;
+		memory?: MemoryEntry[];
 		goals?: Goal[];
 	};
 	type Template = { label: string; roles: { title: string; description: string }[] };
@@ -56,7 +59,7 @@
 	let tab = $state<'personas' | 'company'>('personas');
 
 	let personas = $state<Persona[]>([]);
-	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', goals: [] });
+	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', memory: [], goals: [] });
 	let templates = $state<Record<string, Template>>({});
 	let modelOpts = $state<{ id: string; label: string; source: string; model: string }[]>([]);
 	let loading = $state(true);
@@ -139,6 +142,7 @@
 				roles: Array.isArray(c.roles) ? c.roles : [],
 				agents: Array.isArray(c.agents) ? c.agents : [],
 				knowledge: c.knowledge ?? '',
+				memory: Array.isArray(c.memory) ? c.memory : [],
 				goals: Array.isArray(c.goals) ? c.goals : []
 			};
 			templates = data?.templates && typeof data.templates === 'object' ? data.templates : {};
@@ -148,7 +152,7 @@
 			cMission = company.mission;
 			cKnowledge = company.knowledge ?? '';
 		} catch {
-			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', goals: [] };
+			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', memory: [], goals: [] };
 			templates = {};
 		}
 	}
@@ -341,6 +345,55 @@
 		savingKnowledge = true;
 		await postCompany({ action: 'set-knowledge', knowledge: cKnowledge });
 		savingKnowledge = false;
+	}
+
+	// ---------- Structured memory (Firmen-Memory) ----------
+	const MEMORY_CATEGORIES: MemoryCategory[] = ['firma', 'produkt', 'kunde', 'marke', 'entscheidung', 'nicht-tun', 'experiment'];
+	function catLabel(c: MemoryCategory): string {
+		const map: Record<MemoryCategory, string> = {
+			firma: 'catFirma', produkt: 'catProdukt', kunde: 'catKunde', marke: 'catMarke',
+			entscheidung: 'catEntscheidung', 'nicht-tun': 'catNichtTun', experiment: 'catExperiment'
+		};
+		return i18n.t('agents.' + map[c]);
+	}
+	function memoryOf(cat: MemoryCategory): MemoryEntry[] {
+		return (company.memory ?? []).filter((m) => m.category === cat);
+	}
+
+	let memoryEditor = $state<{
+		open: boolean;
+		id: string | null;
+		category: MemoryCategory;
+		title: string;
+		content: string;
+		busy: boolean;
+	}>({ open: false, id: null, category: 'firma', title: '', content: '', busy: false });
+	let memoryRowBusy = $state<string | null>(null);
+
+	function openMemoryCreate(category: MemoryCategory = 'firma') {
+		memoryEditor = { open: true, id: null, category, title: '', content: '', busy: false };
+	}
+	function openMemoryEdit(m: MemoryEntry) {
+		memoryEditor = { open: true, id: m.id, category: m.category, title: m.title ?? '', content: m.content ?? '', busy: false };
+	}
+	function closeMemoryEditor() { memoryEditor = { ...memoryEditor, open: false }; }
+	async function saveMemory() {
+		if (memoryEditor.busy) return;
+		if (!memoryEditor.title.trim() && !memoryEditor.content.trim()) return;
+		memoryEditor.busy = true;
+		const payload = { category: memoryEditor.category, title: memoryEditor.title.trim(), content: memoryEditor.content.trim() };
+		try {
+			const ok = memoryEditor.id
+				? await postCompany({ action: 'update-memory', id: memoryEditor.id, ...payload })
+				: await postCompany({ action: 'add-memory', ...payload });
+			if (ok) closeMemoryEditor();
+		} finally { memoryEditor.busy = false; }
+	}
+	async function removeMemoryUI(id: string) {
+		if (memoryRowBusy) return;
+		if (!confirm(i18n.t('agents.removeMemoryConfirm'))) return;
+		memoryRowBusy = id;
+		try { await postCompany({ action: 'remove-memory', id }); } finally { memoryRowBusy = null; }
 	}
 
 	// ---------- Per-agent tools ----------
@@ -695,7 +748,7 @@
 					<textarea id="c-mission" rows="3" placeholder={i18n.t('agents.missionPlaceholder')} bind:value={cMission}></textarea>
 				</div>
 				<div class="field full knowledge-field">
-					<label for="c-knowledge">{i18n.t('agents.knowledge')}</label>
+					<label for="c-knowledge">{i18n.t('agents.knowledgeGeneral')}</label>
 					<textarea id="c-knowledge" rows="4" placeholder={i18n.t('agents.knowledgePlaceholder')} bind:value={cKnowledge}></textarea>
 					<div class="kn-row">
 						<p class="hint">{i18n.t('agents.knowledgeHint')}</p>
@@ -722,6 +775,55 @@
 					<p class="hint mono">{i18n.t('agents.templateSuggests').replace('{label}', activeTemplate.label).replace('{count}', String(activeTemplate.roles.length))}</p>
 				{/if}
 			</div>
+		</section>
+
+		<!-- Structured company memory -->
+		<section class="block">
+			<div class="goals-head">
+				<h2 class="cat">{i18n.t('agents.memorySection')}</h2>
+				<button class="btn primary" onclick={() => openMemoryCreate('firma')}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					{i18n.t('agents.newMemory')}
+				</button>
+			</div>
+			<p class="lead goals-lead">{i18n.t('agents.memoryLead')}</p>
+
+			{#if (company.memory ?? []).length === 0}
+				<div class="empty small">
+					<span class="big">🧠</span>
+					<p>{i18n.t('agents.memoryEmpty')}</p>
+				</div>
+			{:else}
+				<div class="mem-groups">
+					{#each MEMORY_CATEGORIES as cat (cat)}
+						{@const entries = memoryOf(cat)}
+						{#if entries.length}
+							<div class="mem-group">
+								<div class="mem-group-head">
+									<span class="mem-cat-label cat-{cat}">{catLabel(cat)}</span>
+									<button class="mini-btn" onclick={() => openMemoryCreate(cat)}>+ {i18n.t('agents.newMemory')}</button>
+								</div>
+								<div class="mem-list">
+									{#each entries as m (m.id)}
+										<article class="mem-card">
+											<div class="mem-card-main">
+												{#if m.title}<strong class="mem-title">{m.title}</strong>{/if}
+												{#if m.content}<p class="mem-content">{m.content}</p>{/if}
+											</div>
+											<div class="mem-card-actions">
+												<button class="mini-btn" onclick={() => openMemoryEdit(m)}>{i18n.t('agents.editMemory')}</button>
+												<button class="mini-btn danger" onclick={() => removeMemoryUI(m.id)} disabled={memoryRowBusy === m.id}>{i18n.t('agents.removeMemory')}</button>
+											</div>
+										</article>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
 		</section>
 
 		<!-- Roles -->
@@ -1085,6 +1187,45 @@
 	</div>
 {/if}
 
+<!-- =================== MEMORY EDITOR DIALOG =================== -->
+{#if memoryEditor.open}
+	<div class="overlay" role="button" tabindex="0" onclick={closeMemoryEditor} onkeydown={(e) => e.key === 'Escape' && closeMemoryEditor()}>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label={i18n.t('agents.memoryEditorEdit')} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+			<div class="dhead">
+				<span class="emoji big">🧠</span>
+				<div>
+					<h3>{memoryEditor.id ? i18n.t('agents.memoryEditorEdit') : i18n.t('agents.memoryEditorNew')}</h3>
+					<span class="eyebrow">{i18n.t('agents.memorySection')}</span>
+				</div>
+			</div>
+
+			<div class="fields">
+				<label>
+					<span>{i18n.t('agents.memoryCategory')}</span>
+					<select bind:value={memoryEditor.category}>
+						{#each MEMORY_CATEGORIES as cat (cat)}<option value={cat}>{catLabel(cat)}</option>{/each}
+					</select>
+				</label>
+				<label>
+					<span>{i18n.t('agents.memoryTitle')}</span>
+					<input type="text" placeholder={i18n.t('agents.memoryTitlePlaceholder')} bind:value={memoryEditor.title} autocomplete="off" />
+				</label>
+				<label>
+					<span>{i18n.t('agents.memoryContent')}</span>
+					<textarea rows="4" placeholder={i18n.t('agents.memoryContentPlaceholder')} bind:value={memoryEditor.content}></textarea>
+				</label>
+			</div>
+
+			<div class="dactions">
+				<button class="btn ghost" onclick={closeMemoryEditor}>{i18n.t('agents.cancel')}</button>
+				<button class="btn primary" onclick={saveMemory} disabled={memoryEditor.busy || (!memoryEditor.title.trim() && !memoryEditor.content.trim())}>
+					{memoryEditor.busy ? i18n.t('agents.saving') : i18n.t('agents.memorySave')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.task-btn { font-size: 12px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 10px; transition: all 0.14s; }
 	.task-btn:hover { color: var(--ember-bright); border-color: var(--ember-line); }
@@ -1320,8 +1461,28 @@
 	.metric-edit-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); }
 	.agent-checks { display: flex; flex-wrap: wrap; gap: 7px; }
 
+	/* Structured memory */
+	.mem-groups { display: flex; flex-direction: column; gap: 18px; }
+	.mem-group { display: flex; flex-direction: column; gap: 9px; }
+	.mem-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+	.mem-cat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; font-family: var(--font-mono); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 3px 11px; }
+	.mem-cat-label.cat-firma { color: var(--ember-bright); border-color: var(--ember-line); }
+	.mem-cat-label.cat-produkt { color: var(--sage); border-color: var(--sage); }
+	.mem-cat-label.cat-marke { color: var(--ember-bright); border-color: var(--ember-line); }
+	.mem-cat-label.cat-nicht-tun { color: var(--danger); border-color: var(--danger-soft); }
+	.mem-list { display: flex; flex-direction: column; gap: 8px; }
+	.mem-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 12px 14px; transition: border-color 0.18s; }
+	.mem-card:hover { border-color: var(--border); }
+	.mem-card-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+	.mem-title { font-size: 14px; font-weight: 600; word-break: break-word; }
+	.mem-content { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; word-break: break-word; }
+	.mem-card-actions { display: flex; gap: 7px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+
 	@media (max-width: 640px) {
 		.company-head { grid-template-columns: 1fr; }
+		.mem-card { flex-direction: column; }
+		.mem-card-actions { justify-content: flex-start; }
+		.mem-group-head { flex-wrap: wrap; }
 		.section-head { flex-direction: column; }
 		.goals-head { flex-direction: column; align-items: flex-start; }
 		.goal-top { flex-direction: column; }
