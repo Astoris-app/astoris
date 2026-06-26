@@ -42,6 +42,18 @@
 	};
 	type MemoryCategory = 'firma' | 'produkt' | 'kunde' | 'marke' | 'entscheidung' | 'nicht-tun' | 'experiment';
 	type MemoryEntry = { id: string; category: MemoryCategory; title: string; content: string; at: string };
+	type TaskStatus = 'offen' | 'in-arbeit' | 'wartet-freigabe' | 'erledigt' | 'abgelehnt';
+	type Task = {
+		id: string;
+		title: string;
+		description?: string;
+		agentId?: string;
+		agentName?: string;
+		goalId?: string;
+		status: TaskStatus;
+		result?: string;
+		createdAt: string;
+	};
 	type Company = {
 		name: string;
 		industry: string;
@@ -51,6 +63,7 @@
 		knowledge?: string;
 		memory?: MemoryEntry[];
 		goals?: Goal[];
+		tasks?: Task[];
 	};
 	type Template = { label: string; roles: { title: string; description: string }[] };
 	type Tool = { name: string; label: string };
@@ -60,7 +73,7 @@
 	let tab = $state<'personas' | 'company'>('personas');
 
 	let personas = $state<Persona[]>([]);
-	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', memory: [], goals: [] });
+	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', memory: [], goals: [], tasks: [] });
 	let templates = $state<Record<string, Template>>({});
 	let modelOpts = $state<{ id: string; label: string; source: string; model: string }[]>([]);
 	let loading = $state(true);
@@ -153,7 +166,8 @@
 				agents: Array.isArray(c.agents) ? c.agents : [],
 				knowledge: c.knowledge ?? '',
 				memory: Array.isArray(c.memory) ? c.memory : [],
-				goals: Array.isArray(c.goals) ? c.goals : []
+				goals: Array.isArray(c.goals) ? c.goals : [],
+				tasks: Array.isArray(c.tasks) ? c.tasks : []
 			};
 			templates = data?.templates && typeof data.templates === 'object' ? data.templates : {};
 			// sync head form
@@ -162,7 +176,7 @@
 			cMission = company.mission;
 			cKnowledge = company.knowledge ?? '';
 		} catch {
-			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', memory: [], goals: [] };
+			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '', memory: [], goals: [], tasks: [] };
 			templates = {};
 		}
 	}
@@ -267,7 +281,9 @@
 			roles: Array.isArray(c.roles) ? c.roles : [],
 			agents: Array.isArray(c.agents) ? c.agents : [],
 			knowledge: c.knowledge ?? '',
-			goals: Array.isArray(c.goals) ? c.goals : []
+			memory: Array.isArray(c.memory) ? c.memory : [],
+			goals: Array.isArray(c.goals) ? c.goals : [],
+			tasks: Array.isArray(c.tasks) ? c.tasks : []
 		};
 	}
 
@@ -588,6 +604,94 @@
 		if (isNaN(d.getTime())) return at;
 		return d.toLocaleString(i18n.lang === 'en' ? 'en-GB' : 'de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 	}
+
+	// ---------- Tasks (Aufgaben) ----------
+	const TASK_STATUSES: TaskStatus[] = ['offen', 'in-arbeit', 'wartet-freigabe', 'erledigt', 'abgelehnt'];
+	const TASK_STATUS_KEY: Record<TaskStatus, string> = {
+		'offen': 'taskStatusOffen', 'in-arbeit': 'taskStatusInArbeit', 'wartet-freigabe': 'taskStatusWartetFreigabe',
+		'erledigt': 'taskStatusErledigt', 'abgelehnt': 'taskStatusAbgelehnt'
+	};
+	function taskStatusLabel(s: TaskStatus): string {
+		return i18n.t('agents.' + (TASK_STATUS_KEY[s] ?? 'taskStatusOffen'));
+	}
+	// Allowed next transitions per status (drives the workflow buttons).
+	const TASK_NEXT: Record<TaskStatus, TaskStatus[]> = {
+		'offen': ['in-arbeit'],
+		'in-arbeit': ['wartet-freigabe'],
+		'wartet-freigabe': ['erledigt', 'abgelehnt'],
+		'erledigt': ['offen'],
+		'abgelehnt': ['offen']
+	};
+	const TASK_ACTION_KEY: Record<TaskStatus, string> = {
+		'offen': 'taskReopen', 'in-arbeit': 'taskStart', 'wartet-freigabe': 'taskToReview',
+		'erledigt': 'taskApprove', 'abgelehnt': 'taskReject'
+	};
+	let tasksByStatus = $derived.by<Record<TaskStatus, Task[]>>(() => {
+		const map: Record<TaskStatus, Task[]> = { 'offen': [], 'in-arbeit': [], 'wartet-freigabe': [], 'erledigt': [], 'abgelehnt': [] };
+		for (const t of company.tasks ?? []) (map[t.status] ?? map.offen).push(t);
+		return map;
+	});
+	function goalTitleFor(id?: string): string {
+		if (!id) return '';
+		return (company.goals ?? []).find((g) => g.id === id)?.title ?? '';
+	}
+
+	// task editor dialog (create + edit)
+	let taskEditor = $state<{
+		open: boolean;
+		id: string | null;
+		title: string;
+		description: string;
+		agentId: string;
+		goalId: string;
+		busy: boolean;
+	}>({ open: false, id: null, title: '', description: '', agentId: '', goalId: '', busy: false });
+	let taskRowBusy = $state<string | null>(null);
+	// Per-task result drafts (inline editing); falls back to the stored result.
+	let resultDrafts = $state<Record<string, string>>({});
+	function resultValue(t: Task): string {
+		return t.id in resultDrafts ? resultDrafts[t.id] : (t.result ?? '');
+	}
+
+	function openTaskCreate() {
+		taskEditor = { open: true, id: null, title: '', description: '', agentId: '', goalId: '', busy: false };
+	}
+	function openTaskEdit(t: Task) {
+		taskEditor = { open: true, id: t.id, title: t.title ?? '', description: t.description ?? '', agentId: t.agentId ?? '', goalId: t.goalId ?? '', busy: false };
+	}
+	function closeTaskEditor() { taskEditor = { ...taskEditor, open: false }; }
+	async function saveTask() {
+		if (taskEditor.busy || !taskEditor.title.trim()) return;
+		taskEditor.busy = true;
+		const payload: Record<string, unknown> = {
+			title: taskEditor.title.trim(),
+			description: taskEditor.description,
+			agentId: taskEditor.agentId,
+			goalId: taskEditor.goalId
+		};
+		try {
+			const ok = taskEditor.id
+				? await postCompany({ action: 'update-task', id: taskEditor.id, ...payload })
+				: await postCompany({ action: 'add-task', ...payload });
+			if (ok) closeTaskEditor();
+		} finally { taskEditor.busy = false; }
+	}
+	async function removeTaskUI(id: string) {
+		if (taskRowBusy) return;
+		if (!confirm(i18n.t('agents.removeTaskConfirm'))) return;
+		taskRowBusy = id;
+		try { await postCompany({ action: 'remove-task', id }); } finally { taskRowBusy = null; }
+	}
+	async function setTaskStatusUI(id: string, status: TaskStatus) {
+		if (taskRowBusy) return;
+		taskRowBusy = id;
+		try { await postCompany({ action: 'set-task-status', id, status }); } finally { taskRowBusy = null; }
+	}
+	async function saveTaskResult(t: Task) {
+		if (taskRowBusy) return;
+		taskRowBusy = t.id;
+		try { await postCompany({ action: 'update-task', id: t.id, result: resultValue(t) }); } finally { taskRowBusy = null; }
+	}
 </script>
 
 <AppHeader title={i18n.t('agents.title')} eyebrow={i18n.t('agents.eyebrow')} />
@@ -739,6 +843,78 @@
 								</div>
 							{/if}
 						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+
+		<!-- Tasks (Aufgaben) -->
+		<section class="block">
+			<div class="goals-head">
+				<h2 class="cat">{i18n.t('agents.tasksSection')}</h2>
+				<button class="btn primary" onclick={openTaskCreate}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					{i18n.t('agents.newTask')}
+				</button>
+			</div>
+			<p class="lead goals-lead">{i18n.t('agents.tasksLead')}</p>
+
+			{#if (company.tasks ?? []).length === 0}
+				<div class="empty small">
+					<span class="big">🗂️</span>
+					<p>{i18n.t('agents.tasksEmpty')}</p>
+				</div>
+			{:else}
+				<div class="task-groups">
+					{#each TASK_STATUSES as st (st)}
+						{@const items = tasksByStatus[st]}
+						{#if items.length}
+							<div class="task-group">
+								<span class="task-group-label tstatus-{st}">{taskStatusLabel(st)} · {items.length}</span>
+								<div class="task-list">
+									{#each items as t (t.id)}
+										<article class="task-card tstatus-{t.status}">
+											<div class="task-top">
+												<strong class="task-title">{t.title}</strong>
+												<span class="task-badge tstatus-{t.status}">{taskStatusLabel(t.status)}</span>
+											</div>
+											{#if t.description}<p class="task-desc">{t.description}</p>{/if}
+											<div class="task-meta">
+												{#if t.agentName}<span class="meta-chip agent">{t.agentName}</span>{/if}
+												{#if goalTitleFor(t.goalId)}<span class="meta-chip">🎯 {goalTitleFor(t.goalId)}</span>{/if}
+											</div>
+
+											<div class="task-result-edit">
+												<span class="task-result-label">{i18n.t('agents.taskResult')}</span>
+												<textarea
+													rows="2"
+													placeholder={i18n.t('agents.taskResultPlaceholder')}
+													value={resultValue(t)}
+													oninput={(e) => (resultDrafts[t.id] = e.currentTarget.value)}
+												></textarea>
+												<button class="mini-btn" onclick={() => saveTaskResult(t)} disabled={taskRowBusy === t.id}>{i18n.t('agents.taskResultSave')}</button>
+											</div>
+
+											<div class="task-actions">
+												{#each TASK_NEXT[t.status] as ns (ns)}
+													<button
+														class="mini-btn"
+														class:approve={ns === 'erledigt'}
+														class:reject={ns === 'abgelehnt'}
+														onclick={() => setTaskStatusUI(t.id, ns)}
+														disabled={taskRowBusy === t.id}
+													>{i18n.t('agents.' + TASK_ACTION_KEY[ns])}</button>
+												{/each}
+												<button class="mini-btn" onclick={() => openTaskEdit(t)} disabled={taskRowBusy === t.id}>{i18n.t('agents.editTask')}</button>
+												<button class="mini-btn danger" onclick={() => removeTaskUI(t.id)} disabled={taskRowBusy === t.id}>{i18n.t('agents.removeTask')}</button>
+											</div>
+										</article>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{/each}
 				</div>
 			{/if}
@@ -1257,6 +1433,55 @@
 	</div>
 {/if}
 
+<!-- =================== TASK EDITOR DIALOG =================== -->
+{#if taskEditor.open}
+	<div class="overlay" role="button" tabindex="0" onclick={closeTaskEditor} onkeydown={(e) => e.key === 'Escape' && closeTaskEditor()}>
+		<div class="dialog" role="dialog" aria-modal="true" aria-label={i18n.t('agents.taskEditorEdit')} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+			<div class="dhead">
+				<span class="emoji big">🗂️</span>
+				<div>
+					<h3>{taskEditor.id ? i18n.t('agents.taskEditorEdit') : i18n.t('agents.taskEditorNew')}</h3>
+					<span class="eyebrow">{i18n.t('agents.tasksSection')}</span>
+				</div>
+			</div>
+
+			<div class="fields">
+				<label>
+					<span>{i18n.t('agents.taskTitleLabel')}</span>
+					<input type="text" placeholder={i18n.t('agents.taskTitlePlaceholder')} bind:value={taskEditor.title} autocomplete="off" />
+				</label>
+				<label>
+					<span>{i18n.t('agents.taskDesc')}</span>
+					<textarea rows="2" placeholder={i18n.t('agents.taskDescPlaceholder')} bind:value={taskEditor.description}></textarea>
+				</label>
+				<div class="two">
+					<label class="grow">
+						<span>{i18n.t('agents.taskAgent')}</span>
+						<select bind:value={taskEditor.agentId}>
+							<option value="">{i18n.t('agents.taskNoAgent')}</option>
+							{#each company.agents as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
+						</select>
+					</label>
+					<label class="grow">
+						<span>{i18n.t('agents.taskGoal')}</span>
+						<select bind:value={taskEditor.goalId}>
+							<option value="">{i18n.t('agents.taskNoGoal')}</option>
+							{#each (company.goals ?? []) as g (g.id)}<option value={g.id}>{g.title}</option>{/each}
+						</select>
+					</label>
+				</div>
+			</div>
+
+			<div class="dactions">
+				<button class="btn ghost" onclick={closeTaskEditor}>{i18n.t('agents.cancel')}</button>
+				<button class="btn primary" onclick={saveTask} disabled={taskEditor.busy || !taskEditor.title.trim()}>
+					{taskEditor.busy ? i18n.t('agents.saving') : i18n.t('agents.taskSave')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.task-btn { font-size: 12px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 10px; transition: all 0.14s; }
 	.task-btn:hover { color: var(--ember-bright); border-color: var(--ember-line); }
@@ -1523,8 +1748,44 @@
 	.mem-content { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; word-break: break-word; }
 	.mem-card-actions { display: flex; gap: 7px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
 
+	/* Tasks (Aufgaben) */
+	.task-groups { display: flex; flex-direction: column; gap: 18px; }
+	.task-group { display: flex; flex-direction: column; gap: 9px; }
+	.task-group-label { align-self: flex-start; font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; font-family: var(--font-mono); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 3px 11px; }
+	.task-group-label.tstatus-in-arbeit { color: var(--ember-bright); border-color: var(--ember-line); }
+	.task-group-label.tstatus-wartet-freigabe { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
+	.task-group-label.tstatus-erledigt { color: var(--sage); border-color: var(--sage); }
+	.task-group-label.tstatus-abgelehnt { color: var(--danger); border-color: var(--danger-soft); }
+	.task-list { display: flex; flex-direction: column; gap: 8px; }
+	.task-card { background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.18s; }
+	.task-card:hover { border-color: var(--border); }
+	.task-card.tstatus-wartet-freigabe { box-shadow: inset 3px 0 0 var(--ember); }
+	.task-card.tstatus-erledigt { opacity: 0.72; }
+	.task-card.tstatus-erledigt .task-title { text-decoration: line-through; }
+	.task-card.tstatus-abgelehnt { opacity: 0.6; }
+	.task-card.tstatus-abgelehnt .task-title { text-decoration: line-through; }
+	.task-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+	.task-title { font-size: 14.5px; font-weight: 600; word-break: break-word; min-width: 0; flex: 1; }
+	.task-badge { flex: none; font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border-soft); color: var(--text-muted); background: var(--surface-2); white-space: nowrap; }
+	.task-badge.tstatus-in-arbeit { color: var(--ember-bright); border-color: var(--ember-line); }
+	.task-badge.tstatus-wartet-freigabe { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
+	.task-badge.tstatus-erledigt { color: var(--sage); border-color: var(--sage); }
+	.task-badge.tstatus-abgelehnt { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+	.task-desc { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; word-break: break-word; }
+	.task-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+	.task-result-edit { display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 10px; }
+	.task-result-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); }
+	.task-result-edit textarea { font-size: 13px; }
+	.task-result-edit .mini-btn { align-self: flex-start; }
+	.task-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+	.task-actions .mini-btn.approve { color: var(--sage); border-color: var(--sage); }
+	.task-actions .mini-btn.approve:hover { background: var(--surface-2); }
+	.task-actions .mini-btn.reject:hover { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+
 	@media (max-width: 640px) {
 		.company-head { grid-template-columns: 1fr; }
+		.task-top { flex-direction: column; }
+		.task-badge { align-self: flex-start; }
 		.mem-card { flex-direction: column; }
 		.mem-card-actions { justify-content: flex-start; }
 		.mem-group-head { flex-wrap: wrap; }

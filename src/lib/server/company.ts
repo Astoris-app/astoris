@@ -34,6 +34,18 @@ export type MemoryEntry = {
 	content: string;
 	at: string;
 };
+export type TaskStatus = 'offen' | 'in-arbeit' | 'wartet-freigabe' | 'erledigt' | 'abgelehnt';
+export type Task = {
+	id: string;
+	title: string;
+	description?: string;
+	agentId?: string;
+	agentName?: string;
+	goalId?: string;
+	status: TaskStatus;
+	result?: string;
+	createdAt: string;
+};
 export type FeedType = 'agent-task' | 'company-run' | 'goal' | 'system';
 export type FeedEntry = {
 	id: string;
@@ -53,6 +65,7 @@ export type Company = {
 	roles: Role[];
 	agents: Agent[];
 	goals?: Goal[];
+	tasks?: Task[];
 	feed?: FeedEntry[];
 };
 
@@ -79,7 +92,7 @@ export function clampAutonomy(level: unknown): number {
 
 const FEED_MAX = 100;
 
-const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [], feed: [], memory: [] };
+const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [], tasks: [], feed: [], memory: [] };
 
 // Branchen-Vorlagen → vorgeschlagene Rollen (das "coole" Auto-Setup)
 export const INDUSTRY_TEMPLATES: Record<string, { label: string; roles: { title: string; description: string }[] }> = {
@@ -324,6 +337,103 @@ export function updateMemory(id: string, patch: Partial<Pick<MemoryEntry, 'categ
 export function removeMemory(id: string): Company {
 	const c = load();
 	c.memory = memoryOf(c).filter((m) => m.id !== id);
+	save(c);
+	return c;
+}
+
+// ---------- Tasks (Aufgaben) ----------
+// Strukturierte Aufgaben mit Status-Workflow, optionaler Agent-/Ziel-Zuordnung und Ergebnis.
+
+const VALID_TASK_STATUS: TaskStatus[] = ['offen', 'in-arbeit', 'wartet-freigabe', 'erledigt', 'abgelehnt'];
+
+function tasksOf(c: Company): Task[] {
+	if (!Array.isArray(c.tasks)) c.tasks = [];
+	return c.tasks;
+}
+
+export function addTask(input: {
+	title: string;
+	description?: string;
+	agentId?: string;
+	goalId?: string;
+	status?: TaskStatus;
+}): Company {
+	const c = load();
+	const tasks = tasksOf(c);
+	// Resolve & snapshot the assigned agent (name kept for read-only views).
+	let agentId: string | undefined;
+	let agentName: string | undefined;
+	if (input.agentId) {
+		const a = c.agents.find((x) => x.id === input.agentId);
+		if (a) { agentId = a.id; agentName = a.name; }
+	}
+	let goalId: string | undefined;
+	if (input.goalId) {
+		const g = (c.goals ?? []).find((x) => x.id === input.goalId);
+		if (g) goalId = g.id;
+	}
+	tasks.push({
+		id: randomUUID(),
+		title: (input.title ?? '').toString().trim(),
+		description: input.description?.trim() || undefined,
+		agentId,
+		agentName,
+		goalId,
+		status: VALID_TASK_STATUS.includes(input.status as TaskStatus) ? (input.status as TaskStatus) : 'offen',
+		createdAt: new Date().toISOString()
+	});
+	save(c);
+	return c;
+}
+
+export function updateTask(id: string, patch: Partial<Omit<Task, 'id' | 'createdAt'>>): Company {
+	const c = load();
+	const t = tasksOf(c).find((x) => x.id === id);
+	if (t) {
+		if (typeof patch.title === 'string' && patch.title.trim()) t.title = patch.title.trim();
+		if (typeof patch.description === 'string') t.description = patch.description.trim() || undefined;
+		if (patch.status && VALID_TASK_STATUS.includes(patch.status)) t.status = patch.status;
+		if (typeof patch.result === 'string') t.result = patch.result.trim() || undefined;
+		if ('agentId' in patch) {
+			const a = patch.agentId ? c.agents.find((x) => x.id === patch.agentId) : undefined;
+			t.agentId = a ? a.id : undefined;
+			t.agentName = a ? a.name : undefined;
+		}
+		if ('goalId' in patch) {
+			const g = patch.goalId ? (c.goals ?? []).find((x) => x.id === patch.goalId) : undefined;
+			t.goalId = g ? g.id : undefined;
+		}
+	}
+	save(c);
+	return c;
+}
+
+export function removeTask(id: string): Company {
+	const c = load();
+	c.tasks = tasksOf(c).filter((t) => t.id !== id);
+	save(c);
+	return c;
+}
+
+export function setTaskStatus(id: string, status: TaskStatus): Company {
+	const c = load();
+	const t = tasksOf(c).find((x) => x.id === id);
+	if (t && VALID_TASK_STATUS.includes(status)) {
+		t.status = status;
+		save(c);
+		// On finalization, drop a feed entry (skip-on-fail, must never break the main flow).
+		if (status === 'erledigt' || status === 'abgelehnt') {
+			try {
+				addFeedEntry({
+					type: 'system',
+					agentId: t.agentId,
+					agentName: t.agentName,
+					title: (status === 'erledigt' ? 'Aufgabe erledigt: ' : 'Aufgabe abgelehnt: ') + (t.title || '').slice(0, 80)
+				});
+			} catch { /* feed write must never break the main flow */ }
+		}
+		return c;
+	}
 	save(c);
 	return c;
 }

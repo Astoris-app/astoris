@@ -35,11 +35,25 @@
 		detail?: string;
 		at: string;
 	};
-	type Company = { name: string; industry: string; mission: string; agents: Agent[]; goals?: Goal[]; feed?: FeedEntry[] };
+	type TaskStatus = 'offen' | 'in-arbeit' | 'wartet-freigabe' | 'erledigt' | 'abgelehnt';
+	type Task = {
+		id: string;
+		title: string;
+		description?: string;
+		agentId?: string;
+		agentName?: string;
+		goalId?: string;
+		status: TaskStatus;
+		result?: string;
+		createdAt: string;
+	};
+	type Company = { name: string; industry: string; mission: string; agents: Agent[]; goals?: Goal[]; tasks?: Task[]; feed?: FeedEntry[] };
 
 	// ---------- State ----------
-	let company = $state<Company>({ name: '', industry: '', mission: '', agents: [], goals: [], feed: [] });
+	let company = $state<Company>({ name: '', industry: '', mission: '', agents: [], goals: [], tasks: [], feed: [] });
 	let loading = $state(true);
+	// Guard against double-clicks on the cockpit approve/reject buttons.
+	let taskRowBusy = $state<string | null>(null);
 
 	// ---------- Loader (read-only via /api/company) ----------
 	async function loadCompany() {
@@ -53,10 +67,43 @@
 				mission: c.mission ?? '',
 				agents: Array.isArray(c.agents) ? c.agents : [],
 				goals: Array.isArray(c.goals) ? c.goals : [],
+				tasks: Array.isArray(c.tasks) ? c.tasks : [],
 				feed: Array.isArray(c.feed) ? c.feed : []
 			};
 		} catch {
-			company = { name: '', industry: '', mission: '', agents: [], goals: [], feed: [] };
+			company = { name: '', industry: '', mission: '', agents: [], goals: [], tasks: [], feed: [] };
+		}
+	}
+
+	// Cockpit is read-only except for these two task transitions (approve/reject).
+	async function setTaskStatus(id: string, status: TaskStatus) {
+		if (taskRowBusy) return;
+		taskRowBusy = id;
+		try {
+			const res = await fetch('/api/company', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'set-task-status', id, status })
+			});
+			if (res.ok) {
+				const data = await res.json();
+				if (data?.company) {
+					const c = data.company;
+					company = {
+						name: c.name ?? '',
+						industry: c.industry ?? '',
+						mission: c.mission ?? '',
+						agents: Array.isArray(c.agents) ? c.agents : [],
+						goals: Array.isArray(c.goals) ? c.goals : [],
+						tasks: Array.isArray(c.tasks) ? c.tasks : [],
+						feed: Array.isArray(c.feed) ? c.feed : []
+					};
+				}
+			}
+		} catch {
+			/* offline ok */
+		} finally {
+			taskRowBusy = null;
 		}
 	}
 	onMount(async () => {
@@ -142,7 +189,7 @@
 	// ---------- Derived: data presence + KPIs ----------
 	let allGoals = $derived(company.goals ?? []);
 	let mainGoals = $derived(allGoals.filter((g) => !g.parentId));
-	let hasData = $derived(allGoals.length > 0 || company.agents.length > 0);
+	let hasData = $derived(allGoals.length > 0 || company.agents.length > 0 || (company.tasks ?? []).length > 0);
 
 	let totalGoals = $derived(allGoals.length);
 	let activeGoals = $derived(allGoals.filter((g) => g.status === 'aktiv').length);
@@ -152,6 +199,11 @@
 		withMetric.length ? Math.round(withMetric.reduce((s, g) => s + progressPct(g.metric), 0) / withMetric.length) : 0
 	);
 	let agentCount = $derived(company.agents.length);
+
+	// Tasks: open counter (KPI) + approval queue (Was ist wichtig).
+	let allTasks = $derived(company.tasks ?? []);
+	let openTaskCount = $derived(allTasks.filter((t) => t.status === 'offen' || t.status === 'in-arbeit').length);
+	let approvalTasks = $derived(allTasks.filter((t) => t.status === 'wartet-freigabe'));
 
 	// Feed: newest first (server already prepends), show last ~20.
 	let feedItems = $derived((company.feed ?? []).slice(0, 20));
@@ -219,12 +271,16 @@
 				<span class="kpi-val">{agentCount}</span>
 				<span class="kpi-label">{i18n.t('firma.kpiAgents')}</span>
 			</div>
+			<div class="kpi">
+				<span class="kpi-val" class:ember={openTaskCount > 0}>{openTaskCount}</span>
+				<span class="kpi-label">{i18n.t('firma.kpiOpenTasks')}</span>
+			</div>
 		</div>
 
 		<!-- =============== Was ist wichtig =============== -->
 		<section class="block">
 			<h2 class="cat">{i18n.t('firma.importantTitle')}</h2>
-			{#if actions.length === 0}
+			{#if actions.length === 0 && approvalTasks.length === 0}
 				<div class="ok-note">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M20 6 9 17l-5-5" />
@@ -233,6 +289,17 @@
 				</div>
 			{:else}
 				<div class="action-list">
+					{#each approvalTasks as t (t.id)}
+						<div class="action-row kind-approval">
+							<span class="action-chip kind-approval">{i18n.t('firma.catApproval')}</span>
+							<span class="action-title">{t.title}</span>
+							{#if t.agentName}<span class="action-detail">{t.agentName}</span>{/if}
+							<div class="approve-btns">
+								<button class="apv-btn approve" onclick={() => setTaskStatus(t.id, 'erledigt')} disabled={taskRowBusy === t.id}>{i18n.t('firma.approve')}</button>
+								<button class="apv-btn reject" onclick={() => setTaskStatus(t.id, 'abgelehnt')} disabled={taskRowBusy === t.id}>{i18n.t('firma.reject')}</button>
+							</div>
+						</div>
+					{/each}
 					{#each actions as a, i (a.kind + a.goal.id + i)}
 						<div class="action-row kind-{a.kind}">
 							<span class="action-chip kind-{a.kind}">{actionLabel(a.kind)}</span>
@@ -413,8 +480,16 @@
 	.action-chip { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 999px; flex: none; border: 1px solid var(--border-soft); color: var(--text-muted); background: var(--surface-2); }
 	.action-chip.kind-blocked { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
 	.action-chip.kind-due { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
+	.action-row.kind-approval { border-left-color: var(--ember); }
+	.action-chip.kind-approval { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
 	.action-title { font-size: 13.5px; font-weight: 600; flex: 1; min-width: 0; word-break: break-word; }
 	.action-detail { font-size: 11.5px; color: var(--text-faint); font-family: var(--font-mono); flex: none; }
+	.approve-btns { display: flex; gap: 7px; flex: none; }
+	.apv-btn { font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border-soft); background: var(--surface-2); color: var(--text-muted); transition: all 0.14s; }
+	.apv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+	.apv-btn.approve { color: var(--sage); border-color: var(--sage); }
+	.apv-btn.approve:not(:disabled):hover { background: var(--surface-3); }
+	.apv-btn.reject:not(:disabled):hover { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
 
 	/* Goals */
 	.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
@@ -480,5 +555,7 @@
 		.kpi.wide { grid-column: span 2; }
 		.goal-top { flex-direction: column; }
 		.sbadge { align-self: flex-start; }
+		.action-row { flex-wrap: wrap; }
+		.approve-btns { width: 100%; }
 	}
 </style>

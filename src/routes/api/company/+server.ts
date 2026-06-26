@@ -4,9 +4,10 @@ import {
 	setAgentModel, setAgentTools, setAgentAutonomy, addAgentHistory, clearAgentHistory,
 	addGoal, updateGoal, removeGoal, setGoalStatus, updateGoalMetric,
 	addMemory, updateMemory, removeMemory,
+	addTask, updateTask, removeTask, setTaskStatus,
 	addFeedEntry, clearFeed,
 	INDUSTRY_TEMPLATES, MEMORY_CATEGORIES, AUTONOMY_LEVELS, AUTONOMY_DEFAULT, clampAutonomy,
-	type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric, type FeedEntry, type MemoryCategory
+	type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric, type FeedEntry, type MemoryCategory, type TaskStatus
 } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
 import { engineChat } from '$lib/server/engine';
@@ -197,6 +198,36 @@ export async function POST({ request }) {
 		return json({ company: getCompany() });
 	}
 	if (action === 'update-goal-metric') return json({ company: updateGoalMetric((b.id ?? '').toString(), parseMetric(b.metric) ?? null) });
+
+	// ---------- Tasks (Aufgaben) ----------
+	if (action === 'add-task') {
+		const title = (b.title ?? '').toString().trim();
+		if (!title) return json({ company: getCompany() });
+		addTask({
+			title,
+			description: (b.description ?? '').toString(),
+			agentId: b.agentId ? b.agentId.toString() : undefined,
+			goalId: b.goalId ? b.goalId.toString() : undefined,
+			status: b.status as TaskStatus
+		});
+		feed({ type: 'system', title: 'Neue Aufgabe: ' + shorten(title, 80) });
+		return json({ company: getCompany() });
+	}
+	if (action === 'update-task') {
+		const patch: Record<string, unknown> = {};
+		if ('title' in b) patch.title = (b.title ?? '').toString();
+		if ('description' in b) patch.description = (b.description ?? '').toString();
+		if ('status' in b) patch.status = b.status as TaskStatus;
+		if ('result' in b) patch.result = (b.result ?? '').toString();
+		if ('agentId' in b) patch.agentId = b.agentId ? b.agentId.toString() : '';
+		if ('goalId' in b) patch.goalId = b.goalId ? b.goalId.toString() : '';
+		return json({ company: updateTask((b.id ?? '').toString(), patch) });
+	}
+	if (action === 'remove-task') return json({ company: removeTask((b.id ?? '').toString()) });
+	if (action === 'set-task-status') {
+		setTaskStatus((b.id ?? '').toString(), b.status as TaskStatus);
+		return json({ company: getCompany() });
+	}
 
 	// Einzelner Agent bearbeitet eine Aufgabe.
 	if (action === 'run-agent') {
