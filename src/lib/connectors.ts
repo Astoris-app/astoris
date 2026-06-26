@@ -77,6 +77,24 @@ export const CONNECTORS: Connector[] = [
 		scopes: [{ id: 'notify', label: 'Benachrichtigungen senden', default: true }]
 	},
 	{
+		id: 'slack',
+		name: 'Slack',
+		category: 'Kommunikation',
+		blurb: 'Verschlüsselte Nachrichten über einen Slack-Bot in deine Channels.',
+		icon: 'M4 4h16v12H7l-3 3z',
+		fields: [{ key: 'bot_token', label: 'Bot-Token (xoxb-…)', type: 'password' }],
+		scopes: [{ id: 'send', label: 'Nachrichten senden', default: true }]
+	},
+	{
+		id: 'discord',
+		name: 'Discord',
+		category: 'Kommunikation',
+		blurb: 'Verschlüsselte Nachrichten über einen Discord-Bot in deine Channels.',
+		icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm6 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z',
+		fields: [{ key: 'bot_token', label: 'Bot-Token', type: 'password' }],
+		scopes: [{ id: 'send', label: 'Nachrichten senden', default: true }]
+	},
+	{
 		id: 'cloud-ai',
 		name: 'Cloud-KI',
 		category: 'KI-Modelle',

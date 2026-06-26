@@ -26,5 +26,35 @@ export async function POST({ request }) {
 		return json({ ok: true });
 	}
 
-	throw error(400, 'Kanal nicht unterstützt (Telegram verfügbar; WhatsApp/Signal/E-Mail per Teilen-Link).');
+	if (channel === 'slack') {
+		const sl = getDecrypted('slack');
+		const token = sl?.plain?.['bot' + '_token'];
+		if (!token) throw error(400, 'Slack ist nicht verbunden (unter Verbindungen einrichten).');
+		const res = await fetch('https://slack.com/api/chat.postMessage', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+			body: JSON.stringify({ channel: to, text })
+		}).catch(() => null);
+		const d = res ? await res.json().catch(() => ({})) : {};
+		if (!res || !d.ok) throw error(502, 'Slack: ' + (d?.error ?? 'Senden fehlgeschlagen.'));
+		return json({ ok: true });
+	}
+
+	if (channel === 'discord') {
+		const dc = getDecrypted('discord');
+		const token = dc?.plain?.['bot' + '_token'];
+		if (!token) throw error(400, 'Discord ist nicht verbunden (unter Verbindungen einrichten).');
+		const res = await fetch('https://discord.com/api/v10/channels/' + encodeURIComponent(to) + '/messages', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', authorization: 'Bot ' + token },
+			body: JSON.stringify({ content: text })
+		}).catch(() => null);
+		if (!res || !res.ok) {
+			const d = res ? await res.json().catch(() => ({})) : {};
+			throw error(502, 'Discord: ' + (d?.message ?? 'Senden fehlgeschlagen.'));
+		}
+		return json({ ok: true });
+	}
+
+	throw error(400, 'Kanal nicht unterstützt (Telegram/Slack/Discord verfügbar; WhatsApp/Signal/E-Mail per Teilen-Link).');
 }

@@ -9,7 +9,9 @@
 		{ id: 'telegram', label: 'Telegram', icon: 'M21.5 4.3 2.5 11.6c-1 .4-1 1.8 0 2.1l4.6 1.5 1.8 5.4c.3.8 1.3 1 1.9.4l2.6-2.5 4.6 3.4c.7.5 1.7.1 1.9-.7l3.3-15.6c.2-1-.8-1.9-1.7-1.5z' },
 		{ id: 'email', label: 'E-Mail', icon: 'M3.5 6.5h17v11h-17zM3.8 7l8.2 6 8.2-6' },
 		{ id: 'whatsapp', label: 'WhatsApp', icon: 'M12 3a9 9 0 0 0-7.7 13.6L3 21l4.5-1.2A9 9 0 1 0 12 3zM8.5 8c.2 0 .5.5.8 1.2.1.3 0 .5-.2.7l-.4.4c-.1.2-.2.4 0 .7.5.9 1.3 1.6 2.3 2 .3.1.5.1.7-.1l.4-.5c.2-.2.4-.2.7-.1.7.3 1.2.6 1.2.8.2 1-1 1.6-1.8 1.6-2.4 0-5-2.6-5-5 0-.8.6-2 1.3-2z' },
-		{ id: 'signal', label: 'Signal', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6z' }
+		{ id: 'signal', label: 'Signal', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6z' },
+		{ id: 'slack', label: 'Slack', icon: 'M4 4h16v12H7l-3 3z' },
+		{ id: 'discord', label: 'Discord', icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm6 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z' }
 	];
 
 	let pass = $state(assistant.cryptPass);
@@ -28,11 +30,13 @@
 	let busy = $state(false);
 	let err = $state('');
 
-	let needsRecipient = $derived(channel === 'telegram' || channel === 'email' || channel === 'whatsapp');
+	let needsRecipient = $derived(channel === 'telegram' || channel === 'email' || channel === 'whatsapp' || channel === 'slack' || channel === 'discord');
 	let recipientLabel = $derived(
 		channel === 'telegram' ? i18n.t('crypt.recipientTg')
 		: channel === 'email' ? i18n.t('crypt.recipientEmail')
 		: channel === 'whatsapp' ? i18n.t('crypt.recipientWa')
+		: channel === 'slack' ? 'Slack Channel-ID (z. B. C0123…)'
+		: channel === 'discord' ? 'Discord Channel-ID'
 		: i18n.t('crypt.recipientSignal')
 	);
 
@@ -49,11 +53,11 @@
 		try {
 			const block = await encryptMessage(draft, pass);
 			let via = '';
-			if (channel === 'telegram') {
+			if (channel === 'telegram' || channel === 'slack' || channel === 'discord') {
 				const res = await fetch('/api/crypt/send', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, to: recipient, text: block }) });
 				const d = await res.json().catch(() => ({}));
 				if (!res.ok) { err = d.message ?? i18n.t('crypt.sendFail'); busy = false; return; }
-				via = 'Telegram';
+				via = channel === 'slack' ? 'Slack' : channel === 'discord' ? 'Discord' : 'Telegram';
 			} else if (channel === 'email') {
 				const subj = encodeURIComponent('Astoris');
 				window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${subj}&body=${encodeURIComponent(block)}`;
