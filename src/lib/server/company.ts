@@ -25,6 +25,16 @@ export type Goal = {
 	agentIds: string[];
 	createdAt: string;
 };
+export type FeedType = 'agent-task' | 'company-run' | 'goal' | 'system';
+export type FeedEntry = {
+	id: string;
+	type: FeedType;
+	agentId?: string;
+	agentName?: string;
+	title: string;
+	detail?: string;
+	at: string;
+};
 export type Company = {
 	name: string;
 	industry: string;
@@ -33,9 +43,12 @@ export type Company = {
 	roles: Role[];
 	agents: Agent[];
 	goals?: Goal[];
+	feed?: FeedEntry[];
 };
 
-const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [] };
+const FEED_MAX = 100;
+
+const EMPTY: Company = { name: '', industry: '', mission: '', roles: [], agents: [], goals: [], feed: [] };
 
 // Branchen-Vorlagen → vorgeschlagene Rollen (das "coole" Auto-Setup)
 export const INDUSTRY_TEMPLATES: Record<string, { label: string; roles: { title: string; description: string }[] }> = {
@@ -224,6 +237,25 @@ export function updateGoalMetric(id: string, metric: GoalMetric | null): Company
 	const c = load();
 	const g = goalsOf(c).find((x) => x.id === id);
 	if (g) g.metric = metric || undefined;
+	save(c);
+	return c;
+}
+
+// ---------- Feed (Aktivitätsstrom) ----------
+// Newest entry first, hard-capped at FEED_MAX (oldest dropped).
+
+export function addFeedEntry(entry: Omit<FeedEntry, 'id' | 'at'>): Company {
+	const c = load();
+	if (!Array.isArray(c.feed)) c.feed = [];
+	const full: FeedEntry = { ...entry, id: randomUUID(), at: new Date().toISOString() };
+	c.feed = [full, ...c.feed].slice(0, FEED_MAX);
+	save(c);
+	return c;
+}
+
+export function clearFeed(): Company {
+	const c = load();
+	c.feed = [];
 	save(c);
 	return c;
 }

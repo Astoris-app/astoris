@@ -26,10 +26,19 @@
 		agentIds: string[];
 		createdAt: string;
 	};
-	type Company = { name: string; industry: string; mission: string; agents: Agent[]; goals?: Goal[] };
+	type FeedEntry = {
+		id: string;
+		type: 'agent-task' | 'company-run' | 'goal' | 'system';
+		agentId?: string;
+		agentName?: string;
+		title: string;
+		detail?: string;
+		at: string;
+	};
+	type Company = { name: string; industry: string; mission: string; agents: Agent[]; goals?: Goal[]; feed?: FeedEntry[] };
 
 	// ---------- State ----------
-	let company = $state<Company>({ name: '', industry: '', mission: '', agents: [], goals: [] });
+	let company = $state<Company>({ name: '', industry: '', mission: '', agents: [], goals: [], feed: [] });
 	let loading = $state(true);
 
 	// ---------- Loader (read-only via /api/company) ----------
@@ -43,10 +52,11 @@
 				industry: c.industry ?? '',
 				mission: c.mission ?? '',
 				agents: Array.isArray(c.agents) ? c.agents : [],
-				goals: Array.isArray(c.goals) ? c.goals : []
+				goals: Array.isArray(c.goals) ? c.goals : [],
+				feed: Array.isArray(c.feed) ? c.feed : []
 			};
 		} catch {
-			company = { name: '', industry: '', mission: '', agents: [], goals: [] };
+			company = { name: '', industry: '', mission: '', agents: [], goals: [], feed: [] };
 		}
 	}
 	onMount(async () => {
@@ -73,6 +83,31 @@
 		const d = new Date(at);
 		if (isNaN(d.getTime())) return at;
 		return d.toLocaleString(i18n.lang === 'en' ? 'en-GB' : 'de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+	}
+	// Relative time ("vor 3 Min"), falls back to date/time for older entries.
+	function relTime(at?: string): string {
+		if (!at) return '';
+		const d = new Date(at);
+		if (isNaN(d.getTime())) return at;
+		const diff = Date.now() - d.getTime();
+		const sec = Math.round(diff / 1000);
+		if (sec < 45) return i18n.t('firma.feedNow');
+		const min = Math.round(sec / 60);
+		if (min < 60) return i18n.t('firma.feedMinAgo').replace('{n}', String(min));
+		const hr = Math.round(min / 60);
+		if (hr < 24) return i18n.t('firma.feedHrAgo').replace('{n}', String(hr));
+		const day = Math.round(hr / 24);
+		if (day <= 7) return i18n.t('firma.feedDayAgo').replace('{n}', String(day));
+		return fmtTime(at);
+	}
+	// SVG path data per feed type (Maschinenraum stroke icons).
+	function feedIconPath(type: FeedEntry['type']): string {
+		switch (type) {
+			case 'agent-task': return 'M12 8V4H8 M4 8h16v12H4z M2 14h2 M20 14h2 M9 13v2 M15 13v2'; // robot
+			case 'company-run': return 'M3 21h18 M5 21V7l8-4v18 M19 21V11l-6-3 M9 9v.01 M9 12v.01 M9 15v.01'; // building
+			case 'goal': return 'M22 12A10 10 0 1 1 12 2 M22 2 12 12 M16 8h-4v4'; // target/arrow
+			default: return 'M12 9v4 M12 17h.01 M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'; // system/alert
+		}
 	}
 	function daysUntil(d?: string): number | null {
 		if (!d) return null;
@@ -117,6 +152,9 @@
 		withMetric.length ? Math.round(withMetric.reduce((s, g) => s + progressPct(g.metric), 0) / withMetric.length) : 0
 	);
 	let agentCount = $derived(company.agents.length);
+
+	// Feed: newest first (server already prepends), show last ~20.
+	let feedItems = $derived((company.feed ?? []).slice(0, 20));
 
 	function subCount(id: string): number {
 		return allGoals.filter((g) => g.parentId === id).length;
@@ -296,6 +334,34 @@
 				</div>
 			{/if}
 		</section>
+
+		<!-- =============== Aktivität (Feed) =============== -->
+		<section class="block">
+			<h2 class="cat">{i18n.t('firma.feedTitle')}</h2>
+			{#if feedItems.length === 0}
+				<div class="empty small">
+					<span class="big">📡</span>
+					<p>{i18n.t('firma.feedEmpty')}</p>
+				</div>
+			{:else}
+				<div class="feed-list">
+					{#each feedItems as f (f.id)}
+						<div class="feed-row type-{f.type}">
+							<span class="feed-icon type-{f.type}">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+									<path d={feedIconPath(f.type)} />
+								</svg>
+							</span>
+							<div class="feed-main">
+								<span class="feed-title">{f.title}</span>
+								{#if f.detail}<span class="feed-detail">{f.detail}</span>{/if}
+							</div>
+							<span class="feed-time" title={fmtTime(f.at)}>{relTime(f.at)}</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
 	{/if}
 </div>
 
@@ -395,6 +461,19 @@
 	.agent-task { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.agent-task.faint { color: var(--text-faint); font-style: italic; }
 	.agent-time { font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); flex: none; }
+
+	/* Feed (Aktivität) */
+	.feed-list { display: flex; flex-direction: column; gap: 8px; }
+	.feed-row { display: flex; align-items: flex-start; gap: 12px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 12px 14px; }
+	.feed-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; flex: none; background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--text-muted); }
+	.feed-icon svg { width: 16px; height: 16px; }
+	.feed-icon.type-agent-task { color: var(--ember-bright); border-color: var(--ember-line); background: var(--ember-soft); }
+	.feed-icon.type-company-run { color: var(--text); }
+	.feed-icon.type-goal { color: var(--sage); border-color: var(--sage); }
+	.feed-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+	.feed-title { font-size: 13.5px; font-weight: 600; word-break: break-word; }
+	.feed-detail { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.feed-time { font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); flex: none; white-space: nowrap; padding-top: 2px; }
 
 	@media (max-width: 640px) {
 		.scroll { padding: 20px 16px 40px; }

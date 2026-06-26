@@ -3,7 +3,8 @@ import {
 	getCompany, saveCompany, addRole, removeRole, addAgent, removeAgent,
 	setAgentModel, setAgentTools, addAgentHistory, clearAgentHistory,
 	addGoal, updateGoal, removeGoal, setGoalStatus, updateGoalMetric,
-	INDUSTRY_TEMPLATES, type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric
+	addFeedEntry, clearFeed,
+	INDUSTRY_TEMPLATES, type Company, type Agent, type GoalStatus, type GoalPriority, type GoalMetric, type FeedEntry
 } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
 import { engineChat } from '$lib/server/engine';
@@ -23,6 +24,17 @@ function parseMetric(m: unknown): GoalMetric | undefined {
 		target: Number.isFinite(target) ? target : 0,
 		current: Number.isFinite(current) ? current : 0
 	};
+}
+
+// Kürzt einen Text für die Feed-Anzeige (eine Zeile, knapp).
+function shorten(s: string, max = 120): string {
+	const t = (s ?? '').toString().replace(/\s+/g, ' ').trim();
+	return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t;
+}
+
+// Schreibt einen Feed-Eintrag, ohne den Haupt-Flow zu brechen (skip-on-fail).
+function feed(entry: Omit<FeedEntry, 'id' | 'at'>) {
+	try { addFeedEntry(entry); } catch { /* feed write must never break the main flow */ }
 }
 
 // Baut den System-Kontext eines Agenten (Persona + Rolle + Firma + Wissensbasis).
@@ -67,8 +79,9 @@ export async function POST({ request }) {
 
 	// ---------- Goals ----------
 	if (action === 'add-goal') {
-		return json({ company: addGoal({
-			title: (b.title ?? '').toString().trim(),
+		const title = (b.title ?? '').toString().trim();
+		addGoal({
+			title,
 			description: (b.description ?? '').toString(),
 			parentId: b.parentId ? b.parentId.toString() : null,
 			status: b.status as GoalStatus,
@@ -76,7 +89,9 @@ export async function POST({ request }) {
 			deadline: (b.deadline ?? '').toString(),
 			priority: b.priority as GoalPriority,
 			agentIds: Array.isArray(b.agentIds) ? b.agentIds.map(String) : []
-		}) });
+		});
+		if (title) feed({ type: 'goal', title: 'Neues Ziel: ' + shorten(title, 80) });
+		return json({ company: getCompany() });
 	}
 	if (action === 'update-goal') {
 		const patch: Record<string, unknown> = {};
@@ -91,7 +106,14 @@ export async function POST({ request }) {
 		return json({ company: updateGoal((b.id ?? '').toString(), patch) });
 	}
 	if (action === 'remove-goal') return json({ company: removeGoal((b.id ?? '').toString()) });
-	if (action === 'set-goal-status') return json({ company: setGoalStatus((b.id ?? '').toString(), b.status as GoalStatus) });
+	if (action === 'set-goal-status') {
+		const id = (b.id ?? '').toString();
+		const status = b.status as GoalStatus;
+		const company = setGoalStatus(id, status);
+		const g = (company.goals ?? []).find((x) => x.id === id);
+		if (g) feed({ type: 'goal', title: `Ziel „${shorten(g.title, 60)}" → ${g.status}` });
+		return json({ company: getCompany() });
+	}
 	if (action === 'update-goal-metric') return json({ company: updateGoalMetric((b.id ?? '').toString(), parseMetric(b.metric) ?? null) });
 
 	// Einzelner Agent bearbeitet eine Aufgabe.
@@ -102,6 +124,7 @@ export async function POST({ request }) {
 		const task = (b.task ?? '').toString().trim();
 		if (!task) return json({ error: 'Aufgabe fehlt.' }, { status: 400 });
 		const result = await runAgentTask(c, agent, task);
+		feed({ type: 'agent-task', agentId: agent.id, agentName: agent.name, title: `${agent.name} bearbeitete eine Aufgabe`, detail: shorten(task) });
 		return json({ result: result.reply, source: result.source, company: getCompany() });
 	}
 
@@ -136,8 +159,11 @@ export async function POST({ request }) {
 		}
 		const summaryPrompt = `Gesamtaufgabe: ${task}\n\nTeilergebnisse des Teams:\n\n${breakdown.map((r) => `### ${r.agent} (${r.role})\n${r.ergebnis}`).join('\n\n')}\n\nFasse die Teilergebnisse zu einem stimmigen, vollständigen Gesamtergebnis zusammen.`;
 		const summary = await engineChat([{ role: 'user', content: summaryPrompt }]);
+		feed({ type: 'company-run', title: 'Firma bearbeitete: ' + shorten(task, 90), detail: `${breakdown.length} Agenten beteiligt` });
 		return json({ result: summary.reply, breakdown, source: summary.source, company: getCompany() });
 	}
+
+	if (action === 'clear-feed') return json({ company: clearFeed() });
 
 	if (action === 'apply-template') {
 		const tpl = INDUSTRY_TEMPLATES[(b.industry ?? '').toString()];
