@@ -42,14 +42,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Vor abgeschlossener Auth-Einrichtung sind NUR die Onboarding-nötigen APIs offen
 	// (Auth/Setup/Engine/Connections) — alles andere (inkl. /api/plugins = Code-Ausführung,
 	// Docs, Company, Mail, Kalender …) bleibt gesperrt, auch während des Erst-Setups.
-	const onboardingApi =
-		p.startsWith('/api/auth') ||
-		p.startsWith('/api/setup') ||
-		p.startsWith('/api/engine') ||
-		p.startsWith('/api/connections');
+	// Login + Setup-Status MÜSSEN immer erreichbar sein — die Login-Seite fragt /api/auth ab
+	// (Nutzer ist da per Definition noch nicht eingeloggt). Engine/Connections nur während
+	// des Erst-Onboardings (vor Auth-Konfiguration), danach session-pflichtig.
+	const alwaysOpen = p.startsWith('/api/auth') || p.startsWith('/api/setup');
+	const onboardingOnly = p.startsWith('/api/engine') || p.startsWith('/api/connections');
 	if (isApi && !user) {
-		const allowPreSetup = !authConfigured() && onboardingApi;
-		if (!allowPreSetup) return json({ error: 'Nicht angemeldet.' }, { status: 401 });
+		const allowed = alwaysOpen || (!authConfigured() && onboardingOnly);
+		if (!allowed) return json({ error: 'Nicht angemeldet.' }, { status: 401 });
 	}
 
 	// 1) Erst-Einrichtung (Onboarding)
