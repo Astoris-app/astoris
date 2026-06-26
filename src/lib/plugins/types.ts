@@ -20,11 +20,14 @@ export type PluginManifest = {
 export type PluginField = { key: string; label: string; type: 'text' | 'password' | 'url'; placeholder?: string; optional?: boolean; hint?: string };
 export type PluginScope = { id: string; label: string; default: boolean; sensitive?: boolean };
 export type ConnectorTest = { kind: 'http' | 'none'; path?: string; okStatus?: number; auth?: 'bearer' | 'basic' | 'none' };
+// One-click setup: clicking a preset pre-fills the named fields (e.g. base_url).
+export type PluginPreset = { label: string; values: Record<string, string>; hint?: string };
 export type ConnectorManifest = PluginManifest & {
 	type: 'connector';
 	fields: PluginField[];
 	scopes: PluginScope[];
 	test?: ConnectorTest;
+	presets?: PluginPreset[];
 };
 
 // --- Code-Add-ons (ausführbarer Code, in-App editierbar) ---

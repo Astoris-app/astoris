@@ -23,6 +23,10 @@ und deine Alltags-Konten bedient — E-Mail, Kalender, Dokumente, Recherche und 
 Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-Anbieter), und
 **du** entscheidest pro Verbindung, was die KI darf.
 
+**Astoris selbst kostet nichts** — quelloffen, ohne Lizenzkosten, mit dem vollen Funktionsumfang.
+Einige optionale Premium-Add-ons binden kostenpflichtige Dritt-Dienste an (meist mit Gratis-Tier);
+diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nicht an Astoris.
+
 ## Einblick
 
 **Assistent** — Chat mit Verläufen, wählbaren Persönlichkeiten & Streaming
@@ -86,7 +90,8 @@ WebDAV/Nextcloud, Google Kalender (OAuth).
 
 <img src="docs/screenshot-erweiterungen.webp" width="100%" alt="Astoris Erweiterungen — Add-on-Verwaltung & Code-Editor" />
 
-Der Kern ist gratis — neue Fähigkeiten kommen als Add-ons:
+Astoris selbst ist vollständig kostenlos — der komplette Workspace mit allen Apps. Add-ons
+sind kein Bezahl-Schalter für Grundfunktionen, sondern **zusätzliche** Fähigkeiten obendrauf:
 
 - **Connector-Add-ons** (daten-getriebenes JSON) per **Upload** installieren — sicher, kein Code, kein Neustart.
 - **Code-Add-ons** mit eigenem JavaScript, direkt im **In-App-Code-Editor** schreiben, bearbeiten und testen. Der Code läuft in einer **Sandbox** (`node:vm` — kein `process`/`require`/Dateisystem, mit Timeout).
@@ -103,9 +108,29 @@ Konzept & Erweiterungspunkte: **[docs/PLUGINS-KONZEPT.md](docs/PLUGINS-KONZEPT.m
 - **HTTPS** integriert (Tresor-Verschlüsselung, Mikrofon & sichere Cookies brauchen einen Secure Context).
 - **Seiten und APIs** sind nach dem Login geschützt (401 ohne gültige Sitzung).
 
-## Lokale Modelle — Performance
+## Läuft überall — deine KI, deine Wahl
 
-Real gemessen auf einer **NVIDIA DGX Spark (GB10, 128 GB Unified Memory)**, vLLM (FP8):
+Astoris schreibt dir kein Modell und keine Hardware vor. Es spricht jede OpenAI-kompatible
+KI an — such dir den Weg aus, der zu deinem Rechner und Budget passt:
+
+- **Cloud (kein GPU nötig)** — trag in „Verbindungen → Cloud-KI" einen API-Key ein, fertig.
+  Anbieter wie **Groq** (Gratis-Tier), **Cerebras** (Gratis-Tier), **OpenRouter**,
+  **DeepSeek** oder **Claude/OpenAI** rechnen für dich. Läuft auf jedem Rechner — auch auf
+  einem alten Laptop oder einem kleinen VPS, ganz ohne eigene Grafikkarte.
+- **Lokal (gratis & privat)** — installiere **Ollama** auf deinem Mac (M1–M4) oder Gaming-PC
+  und fahre kleinere Modelle wie **Llama 3.2**, **Qwen 2.5 7B**, **Gemma** oder **Phi** mit
+  16–32 GB RAM. Kein Cloud-Konto, keine laufenden Kosten, nichts verlässt deinen Rechner.
+- **High-End (optional)** — für große Modelle mit voller Geschwindigkeit: **DGX Spark**,
+  eine **RTX-GPU** oder ein **Mac Studio**. Hier liegt der Benchmark unten — als ein Beispiel
+  für das obere Ende, nicht als Voraussetzung.
+
+Egal welcher Weg: die KI-Quelle ist pro Chat und pro Team-Agent umschaltbar (auto/lokal/Cloud).
+
+## Performance — ein Beispiel für das obere Ende
+
+Die folgenden Zahlen sind der **Power-User-Fall** — real gemessen auf einer **NVIDIA DGX Spark
+(GB10, 128 GB Unified Memory)**, vLLM (FP8). Für flüssiges Arbeiten brauchst du diese Hardware
+**nicht**: ein Cloud-Anbieter mit Gratis-Tier oder Ollama auf dem Mac reichen vollkommen.
 
 | Modell | Rolle | Durchsatz / Latenz |
 |---|---|---|
@@ -129,6 +154,23 @@ pnpm run build && node build
 
 Das **Setup-Script** richtet HTTPS ein (Tailscale-Zertifikat, selbstsigniert oder Reverse-Proxy)
 und erklärt jeden Schritt. Beim ersten Aufruf legst du im Browser deinen Zugang an.
+
+### Ohne GPU in 2 Minuten
+
+Du brauchst keine Grafikkarte, um loszulegen — wähle einen der beiden Wege:
+
+- **Cloud mit Gratis-Tier:** Hol dir einen kostenlosen API-Key (z. B. bei **Groq** oder
+  **Cerebras**) und trag ihn unter „Verbindungen → Cloud-KI" ein. Die KI antwortet sofort,
+  auf jedem Rechner.
+- **Lokal auf dem Mac:** Installiere **Ollama** und lade ein kleines Modell, dann verbinde es
+  in Astoris:
+
+  ```bash
+  # auf dem Mac (oder Linux/Windows): https://ollama.com
+  ollama pull llama3.2          # ~2 GB, läuft auf 16 GB RAM
+  ollama serve                  # OpenAI-kompatibel auf :11434
+  # in Astoris: Verbindungen → lokales Modell → http://localhost:11434
+  ```
 
 ### Docker (empfohlen für Self-Hosting)
 

@@ -56,6 +56,13 @@
 		result = null;
 	}
 
+	// Preset-Buttons: pre-fill the named fields (e.g. base_url/provider). The
+	// user still enters the API key. Reassign for Svelte reactivity.
+	function applyPreset(values: Record<string, string>) {
+		fieldVals = { ...fieldVals, ...values };
+		result = null;
+	}
+
 	async function submit(testOnly: boolean) {
 		if (!active || testing) return;
 		testing = true;
@@ -186,6 +193,20 @@
 				</div>
 			</div>
 
+			{#if active.presets?.length}
+				<div class="presets">
+					<span class="eyebrow">{i18n.t('connections.quickStart')}</span>
+					<div class="chips">
+						{#each active.presets as p (p.label)}
+							<button type="button" class="chip" onclick={() => applyPreset(p.values)} title={p.hint ?? ''}>
+								{p.label}
+								{#if p.hint}<em>{p.hint}</em>{/if}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
 			<div class="fields">
 				{#each active.fields as f (f.key)}
 					<label>
@@ -293,6 +314,12 @@
 	.dialog { width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow); }
 	.dhead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 	.dhead h3 { font-size: 16px; }
+	.presets { margin-bottom: 18px; }
+	.presets .eyebrow { display: block; margin-bottom: 8px; }
+	.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+	.chip { display: inline-flex; align-items: baseline; gap: 6px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px; color: var(--text); padding: 6px 12px; font-size: 12.5px; font-weight: 500; transition: all 0.14s; }
+	.chip:hover { border-color: var(--ember-line); color: var(--ember-bright); }
+	.chip em { font-style: normal; font-size: 10px; color: var(--text-faint); }
 	.fields { display: flex; flex-direction: column; gap: 12px; }
 	label span { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 5px; }
 	label small { display: block; font-size: 11px; color: var(--text-faint); margin-top: 5px; }

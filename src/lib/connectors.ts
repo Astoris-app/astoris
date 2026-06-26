@@ -10,6 +10,9 @@ export type Field = {
 	optional?: boolean;
 	hint?: string;
 };
+// One-click setup for known providers: clicking a preset pre-fills the listed
+// fields (e.g. base_url/provider). The user still enters their own API key.
+export type Preset = { label: string; values: Record<string, string>; hint?: string };
 
 export type Connector = {
 	id: string;
@@ -19,6 +22,7 @@ export type Connector = {
 	icon: string; // SVG path
 	fields: Field[];
 	scopes: Scope[];
+	presets?: Preset[];
 };
 
 export const CONNECTORS: Connector[] = [
@@ -104,13 +108,17 @@ export const CONNECTORS: Connector[] = [
 			{ key: 'provider', label: 'Anbieter', type: 'text', placeholder: 'anthropic / openai' },
 			{ key: 'api_key', label: 'API-Schlüssel', type: 'password' }
 		],
+		presets: [
+			{ label: 'Anthropic (Claude)', values: { provider: 'anthropic' } },
+			{ label: 'OpenAI', values: { provider: 'openai' } }
+		],
 		scopes: [{ id: 'use', label: 'Als Modell verwenden', default: true }]
 	},
 	{
 		id: 'local-models',
-		name: 'Lokale Modelle',
+		name: 'KI-Modelle',
 		category: 'KI-Modelle',
-		blurb: 'Eigene vLLM-/Ollama-Modelle auf deiner Hardware — volle Souveränität.',
+		blurb: 'Lokale Modelle (Ollama/vLLM) oder OpenAI-kompatible Cloud-Anbieter (Groq, OpenRouter, DeepSeek, Cerebras).',
 		icon: 'M5 5h14v6H5zM5 13h14v6H5zM8 8h.01M8 16h.01',
 		fields: [
 			{ key: 'base_url', label: 'Endpoint', type: 'url', placeholder: 'http://localhost:8000' },
@@ -121,6 +129,15 @@ export const CONNECTORS: Connector[] = [
 				optional: true,
 				hint: 'Nur falls dein Server einen Schlüssel verlangt (vLLM/Ollama meist ohne).'
 			}
+		],
+		// base_url WITHOUT /v1 — engine.ts appends /v1/chat/completions itself.
+		presets: [
+			{ label: 'Ollama (lokal)', values: { base_url: 'http://localhost:11434', api_key: '' }, hint: 'kein Schlüssel nötig' },
+			{ label: 'vLLM (lokal)', values: { base_url: 'http://localhost:8000', api_key: '' }, hint: 'kein Schlüssel nötig' },
+			{ label: 'Groq', values: { base_url: 'https://api.groq.com/openai' }, hint: 'Gratis-Tier' },
+			{ label: 'OpenRouter', values: { base_url: 'https://openrouter.ai/api' } },
+			{ label: 'DeepSeek', values: { base_url: 'https://api.deepseek.com' } },
+			{ label: 'Cerebras', values: { base_url: 'https://api.cerebras.ai' }, hint: 'Gratis-Tier' }
 		],
 		scopes: [{ id: 'use', label: 'Als Modell verwenden', default: true }]
 	},
