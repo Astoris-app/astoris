@@ -12,6 +12,11 @@
 	let dragging = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
 
+	// Deepfake check (plugin: deepfake-check)
+	let dfResult = $state<any>(null);
+	let dfBusy = $state(false);
+	let dfError = $state('');
+
 	function readFile(file: File) {
 		if (!file.type.startsWith('image/')) {
 			errMsg = i18n.t('studio.pickImage');
@@ -19,6 +24,8 @@
 		}
 		errMsg = '';
 		result = '';
+		dfResult = null;
+		dfError = '';
 		fileName = file.name;
 		const reader = new FileReader();
 		reader.onload = () => {
@@ -47,6 +54,8 @@
 		fileName = '';
 		result = '';
 		errMsg = '';
+		dfResult = null;
+		dfError = '';
 		if (fileInput) fileInput.value = '';
 	}
 
@@ -71,6 +80,36 @@
 			errMsg = i18n.t('studio.connectionFailed');
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function checkDeepfake() {
+		if (!imageData || dfBusy) return;
+		dfBusy = true;
+		dfError = '';
+		dfResult = null;
+		try {
+			const res = await fetch('/api/plugins', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'run-tool', id: 'deepfake-check', input: { imageData } })
+			});
+			if (res.status === 404 || res.status === 400 || res.status === 403 || !res.ok) {
+				dfError = i18n.t('studio.deepfakeUnavailable');
+			} else {
+				const d = await res.json();
+				if (d.ok === false) {
+					dfError = d.error;
+				} else if (d.output?.fehler) {
+					dfError = d.output.fehler;
+				} else {
+					dfResult = d.output;
+				}
+			}
+		} catch {
+			dfError = i18n.t('studio.deepfakeUnavailable');
+		} finally {
+			dfBusy = false;
 		}
 	}
 </script>
@@ -129,6 +168,32 @@
 			<button class="run" onclick={analyze} disabled={loading}>
 				{loading ? i18n.t('studio.analyzing') : i18n.t('studio.analyze')}
 			</button>
+
+			<button class="run df" onclick={checkDeepfake} disabled={dfBusy}>
+				{dfBusy ? i18n.t('studio.deepfakeChecking') : `🛡️ ${i18n.t('studio.deepfakeCheck')}`}
+			</button>
+
+			{#if dfBusy}
+				<div class="msg live">{i18n.t('studio.deepfakeChecking')}</div>
+			{/if}
+			{#if dfError}
+				<div class="msg bad">{dfError}</div>
+			{/if}
+			{#if dfResult}
+				<div class="dfcard">
+					<div class="dfverdict">{dfResult.bewertung}</div>
+					{#if dfResult.prozent != null}
+						<div class="dfpct">{dfResult.prozent}</div>
+					{/if}
+					<div class="dfsignals">
+						<span class="dfsig">Deepfake-Gesicht: <b>{dfResult.signale?.deepfakeGesicht ?? '–'}</b></span>
+						<span class="dfsig">KI-generiert: <b>{dfResult.signale?.kiGeneriert ?? '–'}</b></span>
+					</div>
+					{#if dfResult.hinweis}
+						<p class="dfhint">{dfResult.hinweis}</p>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 
 		{#if errMsg}<div class="msg bad">{errMsg}</div>{/if}
@@ -272,6 +337,16 @@
 	.run:not(:disabled):hover {
 		background: var(--ember-bright);
 	}
+	.run.df {
+		margin-top: 10px;
+		background: var(--surface-2);
+		color: var(--text);
+		border: 1px solid var(--border);
+	}
+	.run.df:not(:disabled):hover {
+		background: var(--surface-3);
+		border-color: var(--ember-line);
+	}
 	.mini {
 		font-size: 12px;
 		color: var(--text-muted);
@@ -298,6 +373,51 @@
 		background: var(--surface-2);
 		border: 1px solid var(--border-soft);
 		color: var(--danger);
+	}
+	.msg.live {
+		background: var(--bg-veil);
+		border: 1px solid var(--border-soft);
+		color: var(--ember-bright);
+	}
+
+	/* Deepfake result card */
+	.dfcard {
+		margin-top: 18px;
+		padding: 16px;
+		background: var(--bg-veil);
+		border: 1px solid var(--border-soft);
+		border-radius: 12px;
+	}
+	.dfverdict {
+		font-size: 20px;
+		font-weight: 600;
+		color: var(--text);
+	}
+	.dfpct {
+		font-family: var(--font-mono);
+		font-size: 14px;
+		color: var(--ember-bright);
+		margin-top: 2px;
+	}
+	.dfsignals {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 18px;
+		margin-top: 12px;
+	}
+	.dfsig {
+		font-size: 13px;
+		color: var(--text-muted);
+	}
+	.dfsig b {
+		color: var(--text);
+		font-weight: 500;
+	}
+	.dfhint {
+		margin: 12px 0 0;
+		font-size: 12px;
+		color: var(--text-faint);
+		line-height: 1.5;
 	}
 	.result {
 		margin-top: 22px;

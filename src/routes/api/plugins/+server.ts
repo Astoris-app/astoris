@@ -4,7 +4,7 @@ import {
 	installConnectorPlugin, installCodePlugin, saveCodePlugin, getPlugin
 } from '$lib/server/plugins';
 import { runCodeAddon } from '$lib/server/sandbox';
-import { getPluginConfigKeys, setPluginConfig } from '$lib/server/pluginConfig';
+import { getPluginConfigKeys, setPluginConfig, getPluginConfig } from '$lib/server/pluginConfig';
 
 export async function GET({ url }) {
 	const id = url.searchParams.get('id');
@@ -69,6 +69,19 @@ export async function POST({ request }) {
 			code = p.code;
 		}
 		const res = await runCodeAddon(code, b.input, 5000);
+		return json(res);
+	}
+
+	// Installiertes Add-on direkt ausführen (mit gespeicherter Config) — für Studio/Chat-Buttons.
+	if (action === 'run-tool') {
+		const id = (b.id ?? '').toString();
+		const p = getPlugin(id) as { type?: string; code?: string; enabled?: boolean; premium?: boolean; licensed?: boolean } | null;
+		if (!p || p.type !== 'agent-tool' || typeof p.code !== 'string') throw error(404, 'Add-on nicht gefunden.');
+		if (!p.enabled) throw error(400, 'Add-on ist nicht aktiviert.');
+		if (p.premium && !p.licensed) throw error(403, 'Premium-Add-on nicht freigeschaltet.');
+		const config = getPluginConfig(id);
+		const input = (b.input && typeof b.input === 'object') ? b.input : {};
+		const res = await runCodeAddon(p.code, { ...config, ...input }, 8000);
 		return json(res);
 	}
 

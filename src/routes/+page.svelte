@@ -43,6 +43,57 @@
 	let msgSending = $state(false);
 	let showMsgKey = $state(false);
 
+	// Deepfake-Check: Bild-Upload separat von der normalen Chat-Nachricht.
+	let attachedImage = $state<string | null>(null);
+	let dfBusy = $state(false);
+	let dfResult = $state<any>(null);
+	let dfError = $state('');
+	let imgInput = $state<HTMLInputElement>();
+
+	function onPickImage(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file || !file.type.startsWith('image/')) return;
+		dfResult = null;
+		dfError = '';
+		const reader = new FileReader();
+		reader.onload = () => { attachedImage = reader.result as string; };
+		reader.readAsDataURL(file);
+		input.value = '';
+	}
+
+	function clearAttachedImage() {
+		attachedImage = null;
+		dfResult = null;
+		dfError = '';
+	}
+
+	async function checkDeepfake() {
+		if (!attachedImage || dfBusy) return;
+		dfBusy = true;
+		dfResult = null;
+		dfError = '';
+		try {
+			const res = await fetch('/api/plugins', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'run-tool', id: 'deepfake-check', input: { imageData: attachedImage } })
+			});
+			if (res.status === 404 || res.status === 400 || res.status === 403 || !res.ok) {
+				dfError = i18n.t('chat.deepfakeUnavailable');
+				return;
+			}
+			const d = await res.json();
+			if (d.ok === false) dfError = d.error || i18n.t('chat.deepfakeUnavailable');
+			else if (d.output?.fehler) dfError = d.output.fehler;
+			else dfResult = d.output;
+		} catch {
+			dfError = i18n.t('chat.deepfakeUnavailable');
+		} finally {
+			dfBusy = false;
+		}
+	}
+
 	let copiedIdx = $state(-1);
 	let speakingIdx = $state(-1);
 	let micSupported = $state(false);
@@ -648,7 +699,44 @@
 		<div class="mailcard mc-flash">{msgStatus}</div>
 	{/if}
 
+	{#if dfError}
+		<div class="dfcard dferr">
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+			<span>{dfError}</span>
+		</div>
+	{:else if dfResult}
+		<div class="dfcard">
+			<div class="df-head">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4.4 3 7.4 7 9 4-1.6 7-4.6 7-9V6z"/></svg>
+				<strong>{dfResult.bewertung}</strong>
+				<span class="df-pct">{dfResult.prozent}</span>
+			</div>
+			{#if dfResult.signale}
+				<div class="df-signals">
+					<span>Deepfake: <b>{dfResult.signale.deepfakeGesicht}</b></span>
+					<span>KI-generiert: <b>{dfResult.signale.kiGeneriert}</b></span>
+				</div>
+			{/if}
+			{#if dfResult.hinweis}<div class="df-hint">{dfResult.hinweis}</div>{/if}
+		</div>
+	{/if}
+
+	{#if attachedImage}
+		<div class="dfbar">
+			<img src={attachedImage} alt="" class="df-thumb" />
+			<span class="df-name">{i18n.t('chat.attachImage')}</span>
+			<button class="df-go" onclick={checkDeepfake} disabled={dfBusy}>
+				🛡️ {dfBusy ? i18n.t('chat.deepfakeChecking') : i18n.t('chat.deepfakeCheck')}
+			</button>
+			<button class="df-x" onclick={clearAttachedImage} aria-label="Entfernen" title="Entfernen">✕</button>
+		</div>
+	{/if}
+
 	<div class="composer">
+		<input type="file" accept="image/*" bind:this={imgInput} onchange={onPickImage} hidden />
+		<button class="attach" onclick={() => imgInput?.click()} title={i18n.t('chat.attachImage')} aria-label={i18n.t('chat.attachImage')}>
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.67 3.67 0 0 1 5.18 5.18l-9.2 9.19a1.83 1.83 0 0 1-2.6-2.59l8.5-8.5"/></svg>
+		</button>
 		{#if voice.enabled}
 			<button
 				class="mic"
@@ -770,6 +858,29 @@
 	.send:disabled { opacity: 0.4; cursor: not-allowed; }
 	.send:not(:disabled):hover { transform: translateY(-1px); }
 	.send.stop { background: var(--surface-3); color: var(--text); }
+
+	.attach { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 13px; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.16s; }
+	.attach:hover { color: var(--text); border-color: var(--ember-line); }
+
+	.dfbar { flex: none; max-width: 838px; width: 100%; margin: 0 auto; padding: 9px 12px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 10px; }
+	.df-thumb { width: 40px; height: 40px; flex: none; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft); }
+	.df-name { font-size: 12.5px; color: var(--text-muted); margin-right: auto; }
+	.df-go { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 500; color: #1a1206; background: var(--ember); border: none; border-radius: 9px; padding: 8px 14px; transition: all 0.16s; }
+	.df-go:not(:disabled):hover { transform: translateY(-1px); }
+	.df-go:disabled { opacity: 0.6; cursor: not-allowed; }
+	.df-x { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 7px; color: var(--text-faint); background: transparent; border: none; font-size: 14px; transition: all 0.14s; }
+	.df-x:hover { color: var(--text); background: var(--surface-3); }
+
+	.dfcard { flex: none; max-width: 838px; width: 100%; margin: 0 auto; padding: 14px 16px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; gap: 8px; }
+	.df-head { display: flex; align-items: center; gap: 8px; color: var(--text); }
+	.df-head svg { color: var(--ember-bright); flex: none; }
+	.df-head strong { font-size: 14px; font-weight: 600; text-transform: capitalize; }
+	.df-pct { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--ember-bright); font-family: var(--font-mono); }
+	.df-signals { display: flex; gap: 18px; font-size: 12.5px; color: var(--text-muted); }
+	.df-signals b { color: var(--text); font-weight: 600; }
+	.df-hint { font-size: 11.5px; color: var(--text-faint); }
+	.dfcard.dferr { flex-direction: row; align-items: center; gap: 9px; border-color: var(--danger-soft); color: var(--danger, #e8703c); font-size: 12.5px; }
+	.dfcard.dferr svg { flex: none; }
 
 	.mailcard { flex: none; max-width: 838px; width: 100%; margin: 0 auto; padding: 16px 18px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; gap: 10px; }
 	.mc-head { display: flex; align-items: center; gap: 8px; color: var(--text); }
