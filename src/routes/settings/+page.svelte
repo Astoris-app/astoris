@@ -192,6 +192,15 @@
 		{#if pwMsg}<div class="msg" class:ok={pwOk}>{pwMsg}</div>{/if}
 	</section>
 
+	<!-- Erste Schritte -->
+	<section class="card">
+		<h2>{i18n.t('settings.onboarding')}</h2>
+		<div class="row">
+			<div><strong>{i18n.t('settings.replayTour')}</strong><small>{i18n.t('settings.replayTourHint')}</small></div>
+			<button class="btn ghost" onclick={() => goto('/welcome?replay=1')}>{i18n.t('settings.replayTour')}</button>
+		</div>
+	</section>
+
 	<!-- Über -->
 	<section class="card about">
 		<h2>{i18n.t('settings.about')}</h2>

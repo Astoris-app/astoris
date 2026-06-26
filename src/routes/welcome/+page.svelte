@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Brand from '$lib/components/Brand.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { APPS } from '$lib/apps';
 
 	let step = $state(0);
 	let profile = $state<'personal' | 'business'>('personal');
@@ -11,12 +13,25 @@
 	let engineModel = $state('');
 	let finishing = $state(false);
 
+	// Replay-Modus: Tour wird erneut angesehen — keine Daten schreiben, kein Setup-Reset.
+	const replay = $derived(page.url.searchParams.get('replay') === '1');
+
 	const steps = $derived([
 		i18n.t('welcome.stepWelcome'),
+		i18n.t('welcome.stepFeatures'),
 		i18n.t('welcome.stepProfile'),
 		i18n.t('welcome.stepEngine'),
 		i18n.t('welcome.stepConnections')
 	]);
+
+	// Feature-Überblick: Icons aus der App-Registry, Namen + Kurzsätze aus i18n.
+	const featureIds = ['chat', 'calendar', 'mail', 'docs', 'research', 'studio', 'tresor', 'agents', 'erweiterungen'];
+	const features = $derived(
+		featureIds.map((id) => {
+			const app = APPS.find((a) => a.id === id);
+			return { id, icon: app?.icon ?? '', name: i18n.t(`apps.${id}`), desc: i18n.t(`welcome.feat_${id}`) };
+		})
+	);
 
 	onMount(async () => {
 		try {
@@ -38,14 +53,17 @@
 
 	async function finish(toConnections: boolean) {
 		finishing = true;
-		try {
-			await fetch('/api/setup', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ profile })
-			});
-		} catch {
-			/* weiter trotzdem */
+		// Im Replay-Modus nichts speichern (kein markSetupDone, kein Profil-Überschreiben).
+		if (!replay) {
+			try {
+				await fetch('/api/setup', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ profile })
+				});
+			} catch {
+				/* weiter trotzdem */
+			}
 		}
 		goto(toConnections ? '/connections' : '/');
 	}
@@ -70,6 +88,23 @@
 				<button class="btn primary" onclick={next}>{i18n.t('welcome.start')}</button>
 			</div>
 		{:else if step === 1}
+			<h2>{i18n.t('welcome.featuresTitle')}</h2>
+			<p class="sub">{i18n.t('welcome.featuresSub')}</p>
+			<div class="features">
+				{#each features as f (f.id)}
+					<div class="fcard">
+						<Icon path={f.icon} size={20} />
+						<strong>{f.name}</strong>
+						<small>{f.desc}</small>
+					</div>
+				{/each}
+			</div>
+			<p class="more">{i18n.t('welcome.featuresMore')}</p>
+			<div class="nav">
+				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
+				<button class="btn primary" onclick={next}>{i18n.t('welcome.next')}</button>
+			</div>
+		{:else if step === 2}
 			<h2>{i18n.t('welcome.profileTitle')}</h2>
 			<p class="sub">{i18n.t('welcome.profileSub')}</p>
 			<div class="choices">
@@ -86,7 +121,7 @@
 				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
 				<button class="btn primary" onclick={next}>{i18n.t('welcome.next')}</button>
 			</div>
-		{:else if step === 2}
+		{:else if step === 3}
 			<h2>{i18n.t('welcome.engineTitle')}</h2>
 			<p class="sub">{i18n.t('welcome.engineSub')}</p>
 			<div class="engine-card" data-on={engineOnline}>
@@ -157,6 +192,12 @@
 	.teaser { display: flex; gap: 10px; margin: 22px 0; }
 	.tcard { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 8px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius); color: var(--ember-bright); font-size: 12.5px; }
 	.tcard span { color: var(--text-muted); }
+	.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0 14px; }
+	.fcard { display: flex; flex-direction: column; gap: 6px; padding: 14px 12px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius); color: var(--ember-bright); }
+	.fcard strong { font-size: 13px; color: var(--text); }
+	.fcard small { font-size: 11.5px; line-height: 1.45; color: var(--text-muted); }
+	.more { text-align: center; font-size: 12.5px; color: var(--text-faint); margin: 0; }
+	@media (max-width: 460px) { .features { grid-template-columns: repeat(2, 1fr); } }
 	.nav { display: flex; justify-content: space-between; align-items: center; margin-top: 28px; }
 	.right { display: flex; gap: 10px; }
 	.btn { border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 500; border: 1px solid transparent; transition: all 0.16s; }
