@@ -38,12 +38,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const onWelcome = p.startsWith('/welcome');
 	const onLogin = p.startsWith('/login');
 
-	// API-Schutz: sobald Auth konfiguriert ist, brauchen geschützte API-Routen eine Sitzung.
-	// Ausnahmen: Auth + Setup (vor dem Login nötig). Während des Onboardings (noch keine
-	// Auth konfiguriert) bleiben die APIs offen, damit die Einrichtung funktioniert.
-	const apiPublic = p.startsWith('/api/auth') || p.startsWith('/api/setup');
-	if (isApi && !apiPublic && isSetupDone() && authConfigured() && !user) {
-		return json({ error: 'Nicht angemeldet.' }, { status: 401 });
+	// API-Schutz: Geschützte API-Routen brauchen IMMER eine Sitzung.
+	// Vor abgeschlossener Auth-Einrichtung sind NUR die Onboarding-nötigen APIs offen
+	// (Auth/Setup/Engine/Connections) — alles andere (inkl. /api/plugins = Code-Ausführung,
+	// Docs, Company, Mail, Kalender …) bleibt gesperrt, auch während des Erst-Setups.
+	const onboardingApi =
+		p.startsWith('/api/auth') ||
+		p.startsWith('/api/setup') ||
+		p.startsWith('/api/engine') ||
+		p.startsWith('/api/connections');
+	if (isApi && !user) {
+		const allowPreSetup = !authConfigured() && onboardingApi;
+		if (!allowPreSetup) return json({ error: 'Nicht angemeldet.' }, { status: 401 });
 	}
 
 	// 1) Erst-Einrichtung (Onboarding)

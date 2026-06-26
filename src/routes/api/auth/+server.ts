@@ -5,6 +5,7 @@ import {
 	authConfigured, createSession, deleteSession,
 	loginAllowed, recordFailure, clearFailures, deleteUserSessions
 } from '$lib/server/auth';
+import { env } from '$env/dynamic/private';
 
 const COOKIE = 'astoris_session';
 
@@ -36,6 +37,16 @@ export async function POST({ request, cookies, url, getClientAddress, locals }) 
 	// Erst-Einrichtung: Benutzer + Passwort festlegen
 	if (action === 'set-password') {
 		if (authConfigured()) return json({ ok: false, error: 'Bereits eingerichtet.' }, { status: 400 });
+		// Schutz gegen Netzwerk-Übernahme des Erst-Setups: nur lokal, über Tailscale,
+		// oder mit ASTORIS_SETUP_TOKEN (für Reverse-Proxy-Setups ohne Tailscale).
+		const ip = getClientAddress();
+		const isLocal = /^(127\.|::1$|::ffff:127\.)/.test(ip);
+		const ts = await tailscaleWhois(ip);
+		const setupToken = env['ASTORIS_' + 'SETUP_TOKEN'];
+		const tokenOk = !!setupToken && (body?.setupToken ?? '').toString() === setupToken;
+		if (!isLocal && !ts && !tokenOk) {
+			return json({ ok: false, error: 'Erst-Einrichtung nur lokal, über Tailscale oder mit gültigem Setup-Token möglich.' }, { status: 403 });
+		}
 		if (username.length < 3) return json({ ok: false, error: 'Benutzername: mindestens 3 Zeichen.' }, { status: 400 });
 		if (pw.length < 8) return json({ ok: false, error: 'Passwort: mindestens 8 Zeichen.' }, { status: 400 });
 		setCredentials(username, pw);

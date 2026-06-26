@@ -109,7 +109,8 @@ export function upsert(input: {
 	if (idx >= 0) list[idx] = rec;
 	else list.push(rec);
 	persist(list);
-	syncToEnv(input.connectorId, input.fields);
+	// Optionale Klartext-Spiegelung in .env (Standard AUS; per ASTORIS_MIRROR_ENV=true aktivierbar).
+	if (env.ASTORIS_MIRROR_ENV === 'true' || env.ASTORIS_MIRROR_ENV === '1') syncToEnv(input.connectorId, input.fields);
 	const { fields, ...rest } = rec;
 	return { ...rest, fieldKeys: Object.keys(fields) };
 }
