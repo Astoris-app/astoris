@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo.png" width="320" alt="Astoris" />
+<img src="docs/hero.png" width="720" alt="Astoris — dein eigener KI-Maschinenraum" />
 
 ### Dein eigener KI-Maschinenraum.
 
