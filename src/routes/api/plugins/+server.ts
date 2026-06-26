@@ -4,13 +4,14 @@ import {
 	installConnectorPlugin, installCodePlugin, saveCodePlugin, getPlugin
 } from '$lib/server/plugins';
 import { runCodeAddon } from '$lib/server/sandbox';
+import { getPluginConfigKeys, setPluginConfig } from '$lib/server/pluginConfig';
 
 export async function GET({ url }) {
 	const id = url.searchParams.get('id');
 	if (id) {
 		const p = getPlugin(id);
 		if (!p) throw error(404, 'Add-on nicht gefunden.');
-		return json({ plugin: p });
+		return json({ plugin: p, configKeys: getPluginConfigKeys(id) });
 	}
 	return json({ plugins: listPlugins() });
 }
@@ -28,6 +29,14 @@ export async function POST({ request }) {
 	// Premium freischalten/sperren (Betreiber-Lizenz).
 	if (action === 'license') {
 		setPluginLicensed((b.id ?? '').toString(), Boolean(b.licensed));
+		return json({ ok: true });
+	}
+
+	// Add-on-Config speichern (API-Keys etc.). secretKeys -> zusaetzlich in .env.
+	if (action === 'set-config') {
+		const cfg = (b.config && typeof b.config === 'object') ? b.config as Record<string, string> : {};
+		const secretKeys = Array.isArray(b.secretKeys) ? b.secretKeys.map(String) : [];
+		setPluginConfig((b.id ?? '').toString(), cfg, secretKeys);
 		return json({ ok: true });
 	}
 

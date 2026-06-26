@@ -4,6 +4,7 @@
 
 import { listPlugins, getPlugin } from './plugins';
 import { runCodeAddon } from './sandbox';
+import { getPluginConfig } from './pluginConfig';
 import type { CodeManifest } from '$lib/plugins/types';
 
 export type AddonTool = { type: 'function'; function: { name: string; description: string; parameters: unknown } };
@@ -48,7 +49,10 @@ export function buildAddonTools(): { tools: AddonTool[]; byName: Map<string, Cod
 export async function runAddonTool(byName: Map<string, CodeManifest>, name: string, args: unknown): Promise<unknown> {
 	const addon = byName.get(name);
 	if (!addon) return { error: 'Unbekanntes Werkzeug: ' + name };
-	const res = await runCodeAddon(addon.code, args, 5000);
+	// Gespeicherte Add-on-Config (API-Keys) in den Input mischen — Args der KI haben Vorrang.
+	const config = getPluginConfig(addon.id);
+	const merged = { ...config, ...(args && typeof args === 'object' ? (args as Record<string, unknown>) : {}) };
+	const res = await runCodeAddon(addon.code, merged, 5000);
 	return res.ok ? res.output : { error: res.error };
 }
 

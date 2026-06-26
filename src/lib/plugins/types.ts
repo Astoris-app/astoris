@@ -34,4 +34,6 @@ export type CodeManifest = PluginManifest & {
 	code: string;
 	/** Hinweis für die KI/den Nutzer, was als Eingabe erwartet wird. */
 	inputHint?: string;
+	/** Optionale Einstellungs-Felder (z. B. API-Keys), im Editor pflegbar; password-Felder werden in die .env gespiegelt. */
+	configFields?: PluginField[];
 };

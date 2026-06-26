@@ -13,10 +13,13 @@
 	let fileInput = $state<HTMLInputElement>();
 
 	// Editor-State
-	let editor = $state<{ isNew: boolean; id: string; name: string; code: string } | null>(null);
+	type ConfigField = { key: string; label: string; type: 'text' | 'password' | 'url'; placeholder?: string; optional?: boolean; hint?: string };
+	let editor = $state<{ isNew: boolean; id: string; name: string; code: string; configFields?: ConfigField[]; configKeys?: string[] } | null>(null);
 	let testInput = $state('');
 	let testRes = $state('');
 	let notice = $state('');
+	let cfgValues = $state<Record<string, string>>({});
+	let cfgNotice = $state('');
 
 	async function load() {
 		try { const d = await (await fetch('/api/plugins')).json(); plugins = d.plugins ?? []; } catch { /* ignore */ }
@@ -53,10 +56,10 @@
 		editor = { isNew: true, id: '', name: '', code: i18n.t('erweiterungen.codePlaceholder') };
 	}
 	async function editCode(p: any) {
-		notice = ''; testRes = ''; testInput = '';
+		notice = ''; testRes = ''; testInput = ''; cfgNotice = ''; cfgValues = {};
 		try {
 			const d = await (await fetch('/api/plugins?id=' + encodeURIComponent(p.id))).json();
-			editor = { isNew: false, id: d.plugin.id, name: d.plugin.name, code: d.plugin.code ?? '' };
+			editor = { isNew: false, id: d.plugin.id, name: d.plugin.name, code: d.plugin.code ?? '', configFields: d.plugin.configFields ?? [], configKeys: d.configKeys ?? [] };
 		} catch { err = i18n.t('erweiterungen.invalid'); }
 	}
 	function closeEditor() { editor = null; }
@@ -84,6 +87,21 @@
 		notice = i18n.t('erweiterungen.saved');
 		await load();
 		if (editor.isNew) editor = { ...editor, isNew: false };
+	}
+	async function saveConfig() {
+		if (!editor || !editor.configFields?.length) return;
+		cfgNotice = '';
+		const config: Record<string, string> = {};
+		for (const f of editor.configFields) {
+			const v = cfgValues[f.key];
+			if (v != null && v.trim() !== '') config[f.key] = v;
+		}
+		const secretKeys = editor.configFields.filter((f) => f.type === 'password').map((f) => f.key);
+		const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'set-config', id: editor.id, config, secretKeys }) });
+		const d = await res.json().catch(() => ({}));
+		if (!res.ok) { cfgNotice = '⚠ ' + (d.message ?? i18n.t('erweiterungen.invalid')); return; }
+		await editCode({ id: editor.id }); // reload configKeys + clear fields
+		cfgNotice = i18n.t('erweiterungen.configSaved');
 	}
 </script>
 
@@ -163,6 +181,27 @@
 				<input class="mono" bind:value={testInput} placeholder={'{ "name": "Welt" }'} />
 			</label>
 			{#if testRes}<pre class="out">{testRes}</pre>{/if}
+			{#if editor.configFields?.length}
+				<div class="cfg">
+					<h3>{i18n.t('erweiterungen.configTitle')}</h3>
+					<p class="cfghint">{i18n.t('erweiterungen.configHint')}</p>
+					{#each editor.configFields as field (field.key)}
+						<label class="full">
+							{field.label}
+							{#if field.hint}<InfoHint text={field.hint} />{/if}
+							<input
+								type={field.type === 'password' ? 'password' : 'text'}
+								bind:value={cfgValues[field.key]}
+								placeholder={editor.configKeys?.includes(field.key) ? '•••••• (gespeichert)' : (field.placeholder ?? '')}
+							/>
+						</label>
+					{/each}
+					<div class="cfgfoot">
+						{#if cfgNotice}<span class="notice">{cfgNotice}</span>{/if}
+						<button class="btn primary" onclick={saveConfig}>{i18n.t('erweiterungen.configSave')}</button>
+					</div>
+				</div>
+			{/if}
 		</div>
 		<footer>
 			{#if notice}<span class="notice">{notice}</span>{/if}
@@ -217,6 +256,11 @@
 	input { background: var(--surface-1); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; color: var(--text); font-size: 13px; }
 	input:focus { outline: none; border-color: var(--ember-line); }
 	.out { background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 12px 14px; font-size: 12px; color: var(--text); overflow-x: auto; max-height: 200px; white-space: pre-wrap; word-break: break-word; }
+	.cfg { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+	.cfg h3 { font-size: 14px; color: var(--text); }
+	.cfghint { margin: 0; font-size: 12px; color: var(--text-muted); }
+	.cfgfoot { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+	.cfgfoot .btn.primary { margin-left: auto; }
 	.slide footer { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border-soft); }
 	.slide footer .btn { margin-left: 0; }
 	.slide footer .btn.primary { margin-left: auto; }

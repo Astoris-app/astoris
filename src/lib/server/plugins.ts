@@ -159,7 +159,7 @@ export function installCodePlugin(raw: unknown): CodeManifest {
 	const clean: CodeManifest = {
 		id: m.id, name: m.name, version: m.version, type: 'agent-tool',
 		author: m.author, premium: Boolean(m.premium), description: m.description, icon: m.icon,
-		code: m.code, inputHint: m.inputHint
+		code: m.code, inputHint: m.inputHint, configFields: Array.isArray(m.configFields) ? m.configFields : undefined
 	};
 	const dir = join(DIR, clean.id);
 	mkdirSync(dir, { recursive: true });
