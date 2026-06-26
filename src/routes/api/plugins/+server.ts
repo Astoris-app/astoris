@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import {
-	listPlugins, setPluginEnabled, removePlugin,
+	listPlugins, setPluginEnabled, setPluginLicensed, removePlugin,
 	installConnectorPlugin, installCodePlugin, saveCodePlugin, getPlugin
 } from '$lib/server/plugins';
 import { runCodeAddon } from '$lib/server/sandbox';
@@ -22,6 +22,12 @@ export async function POST({ request }) {
 	if (action === 'toggle') {
 		const ok = setPluginEnabled((b.id ?? '').toString(), Boolean(b.enabled));
 		if (!ok) throw error(400, 'Add-on nicht gefunden oder Premium-Lizenz fehlt.');
+		return json({ ok: true });
+	}
+
+	// Premium freischalten/sperren (Betreiber-Lizenz).
+	if (action === 'license') {
+		setPluginLicensed((b.id ?? '').toString(), Boolean(b.licensed));
 		return json({ ok: true });
 	}
 

@@ -8,7 +8,7 @@ import type { PluginManifest, PluginType } from '$lib/plugins/types';
 const DIR = 'data/plugins';
 const REGISTRY = join(DIR, 'registry.json');
 
-type RegEntry = { enabled: boolean };
+type RegEntry = { enabled?: boolean; licensed?: boolean };
 function loadRegistry(): Record<string, RegEntry> {
 	if (!existsSync(REGISTRY)) return {};
 	try { return JSON.parse(readFileSync(REGISTRY, 'utf8')); } catch { return {}; }
@@ -39,7 +39,7 @@ export function listPlugins(): PluginManifest[] {
 			const m = JSON.parse(readFileSync(file, 'utf8'));
 			if (!validate(m)) continue;
 			m.enabled = reg[m.id]?.enabled ?? false;
-			m.licensed = m.premium ? false : true; // Premium erst nach Freischaltung (Phase 5)
+			m.licensed = m.premium ? Boolean(reg[m.id]?.licensed) : true; // Premium: Freischaltung über Registry (Betreiber)
 			out.push(m);
 		} catch { /* ungültiges Manifest überspringen */ }
 	}
@@ -52,7 +52,15 @@ export function setPluginEnabled(id: string, enabled: boolean): boolean {
 	if (!found) return false;
 	if (found.premium && !found.licensed && enabled) return false; // Premium ohne Lizenz
 	const reg = loadRegistry();
-	reg[id] = { enabled };
+	reg[id] = { ...reg[id], enabled };
+	saveRegistry(reg);
+	return true;
+}
+
+/** Premium-Add-on freischalten/sperren (Betreiber-Lizenz). Danach ist es aktivierbar. */
+export function setPluginLicensed(id: string, licensed: boolean): boolean {
+	const reg = loadRegistry();
+	reg[id] = { ...reg[id], licensed };
 	saveRegistry(reg);
 	return true;
 }

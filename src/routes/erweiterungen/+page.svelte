@@ -39,6 +39,10 @@
 		await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'toggle', id: p.id, enabled: !p.enabled }) });
 		await load();
 	}
+	async function license(p: any) {
+		await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'license', id: p.id, licensed: true }) });
+		await load();
+	}
 	async function removeAddon(id: string) {
 		await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'remove', id }) });
 		await load();
@@ -123,8 +127,13 @@
 					<h3>{p.name}</h3>
 					{#if p.description}<p class="desc">{p.description}</p>{/if}
 					<div class="meta mono">{p.type} · v{p.version}</div>
+					{#if p.premium && !p.licensed}<div class="premlock">🔒 {i18n.t('erweiterungen.premiumLocked')}</div>{/if}
 					<div class="acts">
-						<button class="btn" class:primary={!p.enabled} onclick={() => toggle(p)}>{p.enabled ? i18n.t('erweiterungen.deactivate') : i18n.t('erweiterungen.activate')}</button>
+						{#if p.premium && !p.licensed}
+							<button class="btn primary" onclick={() => license(p)}>{i18n.t('erweiterungen.unlock')}</button>
+						{:else}
+							<button class="btn" class:primary={!p.enabled} onclick={() => toggle(p)}>{p.enabled ? i18n.t('erweiterungen.deactivate') : i18n.t('erweiterungen.activate')}</button>
+						{/if}
 						{#if p.type === 'agent-tool'}<button class="btn" onclick={() => editCode(p)}>{i18n.t('erweiterungen.edit')}</button>{/if}
 						<button class="btn ghost" onclick={() => removeAddon(p.id)}>{i18n.t('erweiterungen.remove')}</button>
 					</div>
@@ -187,6 +196,7 @@
 	.desc { margin: 0; font-size: 13px; color: var(--text-muted); flex: 1; }
 	.meta { font-size: 10.5px; color: var(--text-faint); }
 	.acts { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+	.premlock { font-size: 12px; color: var(--text); background: var(--ember-soft); border: 1px solid var(--ember-line); border-radius: 8px; padding: 6px 10px; margin: 4px 0; }
 	.btn { border-radius: 9px; padding: 7px 13px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.16s; }
 	.btn.primary { background: var(--ember); color: #1a1206; border-color: transparent; }
 	.btn.ghost:hover { color: var(--danger); border-color: var(--danger-soft); }
