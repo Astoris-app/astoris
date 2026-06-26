@@ -16,6 +16,16 @@ export type AppDef = {
 
 export const APPS: AppDef[] = [
 	{
+		id: 'firma',
+		label: 'Cockpit',
+		href: '/firma',
+		group: 'work',
+		ready: true,
+		capability: 'agents',
+		blurb: 'Wo steht deine Firma? Ziele, Fortschritt, Agenten-Aktivität und Handlungsbedarf auf einen Blick.',
+		icon: 'M4 4h7v7H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 13h7v7H4z'
+	},
+	{
 		id: 'chat',
 		label: 'Assistent',
 		href: '/',
