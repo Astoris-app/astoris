@@ -1,0 +1,11 @@
+{
+  "id": "text-statistik",
+  "name": "Text-Statistik",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Liefert Zeichen-, Wort-, Satz- und Absatzzahlen sowie geschaetzte Lesezeit eines Textes.",
+  "inputHint": "{ \"text\": \"Dein Text hier. Noch ein Satz!\" }",
+  "code": "async function run(input) {\n  var text = String((input && input.text) || '');\n  var zeichen = text.length;\n  var zeichenOhneLeer = text.replace(/\\s/g, '').length;\n  var woerterArr = text.split(/\\s+/).filter(function (w) { return w.length > 0; });\n  var woerter = woerterArr.length;\n  var saetzeArr = text.split(/[.!?]+/).filter(function (s) { return s.trim().length > 0; });\n  var saetze = saetzeArr.length;\n  var absaetzeArr = text.split(/\\n\\s*\\n/).filter(function (p) { return p.trim().length > 0; });\n  var absaetze = absaetzeArr.length;\n  var lesezeitMinuten = woerter > 0 ? Math.ceil(woerter / 200) : 0;\n  var letterCount = woerterArr.reduce(function (sum, w) { return sum + w.replace(/[^\\p{L}\\p{N}]/gu, '').length; }, 0);\n  var durchschnWortlaenge = woerter > 0 ? Math.round((letterCount / woerter) * 100) / 100 : 0;\n  return {\n    zeichen: zeichen,\n    zeichenOhneLeer: zeichenOhneLeer,\n    woerter: woerter,\n    saetze: saetze,\n    absaetze: absaetze,\n    lesezeitMinuten: lesezeitMinuten,\n    durchschnWortlaenge: durchschnWortlaenge\n  };\n}"
+}

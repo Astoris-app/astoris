@@ -1,0 +1,11 @@
+{
+  "id": "mwst-rechner",
+  "name": "MwSt-Rechner",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Berechnet MwSt sowie Brutto/Netto-Betraege fuer einen waehlbaren Steuersatz.",
+  "inputHint": "{ \"betrag\": 100, \"satz\": 19, \"modus\": \"netto2brutto\" }",
+  "code": "async function run(input) {\n  var betrag = Number((input && input.betrag) || 0);\n  var satz = (input && input.satz != null) ? Number(input.satz) : 19;\n  var modus = String((input && input.modus) || 'netto2brutto').toLowerCase();\n  function r2(x) { return Math.round((x + Number.EPSILON) * 100) / 100; }\n  var f = satz / 100;\n  var netto, brutto, mwstBetrag;\n  if (modus === 'brutto2netto') {\n    brutto = betrag;\n    netto = brutto / (1 + f);\n    mwstBetrag = brutto - netto;\n  } else {\n    // netto2brutto and mwst both treat betrag as netto\n    netto = betrag;\n    mwstBetrag = netto * f;\n    brutto = netto + mwstBetrag;\n  }\n  return { netto: r2(netto), brutto: r2(brutto), mwstBetrag: r2(mwstBetrag), satz: satz, modus: modus };\n}"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "zahlen-basis",
+  "name": "Zahlen-Basis-Konverter",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Konvertiert Zahlen zwischen beliebigen Basen (2-36) und zeigt Binaer, Oktal, Dezimal und Hex.",
+  "inputHint": "{ \"wert\": \"FF\", \"vonBasis\": 16 }",
+  "code": "async function run(input) {\n  var wert = String((input && input.wert != null) ? input.wert : '').trim();\n  var vonBasis = (input && input.vonBasis != null) ? Number(input.vonBasis) : 10;\n  if (!wert) return { fehler: 'Kein Wert angegeben.' };\n  if (!(vonBasis >= 2 && vonBasis <= 36)) return { fehler: 'vonBasis muss zwischen 2 und 36 liegen.' };\n  var neg = false;\n  var w = wert;\n  if (w[0] === '-') { neg = true; w = w.slice(1); }\n  w = w.toLowerCase();\n  var digits = '0123456789abcdefghijklmnopqrstuvwxyz'.slice(0, vonBasis);\n  if (w.length === 0) return { fehler: 'Ungueltiger Wert.' };\n  var dezimal = 0;\n  for (var i = 0; i < w.length; i++) {\n    var d = digits.indexOf(w[i]);\n    if (d < 0) return { fehler: 'Ziffer \"' + w[i] + '\" ist in Basis ' + vonBasis + ' ungueltig.' };\n    dezimal = dezimal * vonBasis + d;\n  }\n  if (neg) dezimal = -dezimal;\n  var abs = Math.abs(dezimal);\n  var sign = neg ? '-' : '';\n  return {\n    binaer: sign + abs.toString(2),\n    oktal: sign + abs.toString(8),\n    dezimal: dezimal,\n    hexadezimal: sign + abs.toString(16).toUpperCase(),\n    basis32: sign + abs.toString(32).toUpperCase(),\n    bitlaenge: abs.toString(2).length\n  };\n}"
+}

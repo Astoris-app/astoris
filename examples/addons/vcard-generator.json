@@ -1,0 +1,11 @@
+{
+  "id": "vcard-generator",
+  "name": "vCard-Generator",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Erzeugt eine vCard 3.0 (.vcf) aus Kontaktdaten zum Speichern oder Teilen.",
+  "inputHint": "{ \"name\": \"Mustermann\", \"vorname\": \"Max\", \"telefon\": \"+49 170 1234567\", \"email\": \"max@example.de\" }",
+  "code": "async function run(input) {\n  function esc(s) { return String(s || '').replace(/\\\\/g, '\\\\\\\\').replace(/;/g, '\\\\;').replace(/,/g, '\\\\,').replace(/\\n/g, '\\\\n'); }\n  var name = String((input && input.name) || '').trim();\n  var vorname = String((input && input.vorname) || '').trim();\n  var telefon = String((input && input.telefon) || '').trim();\n  var email = String((input && input.email) || '').trim();\n  var firma = String((input && input.firma) || '').trim();\n  var titel = String((input && input.titel) || '').trim();\n  var adresse = String((input && input.adresse) || '').trim();\n  var website = String((input && input.website) || '').trim();\n  if (!name && !vorname && !firma) return { fehler: 'Mindestens name, vorname oder firma noetig.' };\n  var fn = (vorname + ' ' + name).trim();\n  if (!fn) fn = firma;\n  var lines = ['BEGIN:VCARD', 'VERSION:3.0'];\n  lines.push('N:' + esc(name) + ';' + esc(vorname) + ';;;');\n  lines.push('FN:' + esc(fn));\n  if (firma) lines.push('ORG:' + esc(firma));\n  if (titel) lines.push('TITLE:' + esc(titel));\n  if (telefon) lines.push('TEL;TYPE=CELL:' + esc(telefon));\n  if (email) lines.push('EMAIL;TYPE=INTERNET:' + esc(email));\n  if (adresse) lines.push('ADR;TYPE=HOME:;;' + esc(adresse) + ';;;;');\n  if (website) lines.push('URL:' + esc(website));\n  lines.push('END:VCARD');\n  var vcard = lines.join('\\r\\n');\n  var base = (fn || 'kontakt').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'kontakt';\n  return { vcard: vcard, dateiname: base + '.vcf' };\n}"
+}

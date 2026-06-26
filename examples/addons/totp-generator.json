@@ -1,0 +1,11 @@
+{
+  "id": "totp-generator",
+  "name": "TOTP/2FA-Generator",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Erzeugt einen zeitbasierten 2FA-Code (TOTP, RFC 6238) aus einem Base32-Secret.",
+  "inputHint": "{ \"secret\": \"JBSWY3DPEHPK3PXP\", \"digits\": 6, \"period\": 30 }",
+  "code": "async function run(input) {\n  var secret = String((input && input.secret) || '').replace(/\\s+/g, '').toUpperCase();\n  var digits = (input && input.digits != null) ? Number(input.digits) : 6;\n  var period = (input && input.period != null) ? Number(input.period) : 30;\n  if (!secret) return { fehler: 'Kein Secret angegeben.' };\n  var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';\n  // Base32 decode (RFC 4648)\n  var clean = secret.replace(/=+$/, '');\n  var bits = 0, value = 0;\n  var bytes = [];\n  for (var i = 0; i < clean.length; i++) {\n    var idx = alphabet.indexOf(clean[i]);\n    if (idx < 0) return { fehler: 'Ungueltiges Base32-Zeichen im Secret.' };\n    value = (value << 5) | idx;\n    bits += 5;\n    if (bits >= 8) {\n      bits -= 8;\n      bytes.push((value >>> bits) & 0xff);\n    }\n  }\n  var keyBytes = new Uint8Array(bytes);\n  var time = Math.floor(Date.now() / 1000);\n  var counter = Math.floor(time / period);\n  // 8-byte big-endian counter\n  var counterBytes = new Uint8Array(8);\n  var tmp = counter;\n  for (var j = 7; j >= 0; j--) {\n    counterBytes[j] = tmp & 0xff;\n    tmp = Math.floor(tmp / 256);\n  }\n  var key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);\n  var sig = await crypto.subtle.sign('HMAC', key, counterBytes);\n  var hmac = new Uint8Array(sig);\n  var offset = hmac[hmac.length - 1] & 0x0f;\n  var bin = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff);\n  var mod = Math.pow(10, digits);\n  var code = (bin % mod).toString().padStart(digits, '0');\n  var restSekunden = period - (time % period);\n  return { code: code, restSekunden: restSekunden, period: period };\n}"
+}
