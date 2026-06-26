@@ -17,7 +17,7 @@
 	// Seitentitel je Route (vermeidet „untitled page").
 	const PAGE_TITLES: Record<string, string> = {
 		'/': 'Assistent', '/mail': 'Posteingang', '/docs': 'Dokumente', '/research': 'Recherche',
-		'/studio': 'Studio', '/calendar': 'Kalender', '/agents': 'Team', '/firma': 'Cockpit', '/crm': 'CRM', '/metrics': 'Kennzahlen', '/marketing': 'Marketing', '/tresor': 'Tresor',
+		'/studio': 'Studio', '/calendar': 'Kalender', '/agents': 'Team', '/firma': 'Cockpit', '/crm': 'CRM', '/metrics': 'Kennzahlen', '/optimierung': 'Optimierung', '/marketing': 'Marketing', '/tresor': 'Tresor',
 		'/connections': 'Verbindungen', '/erweiterungen': 'Erweiterungen', '/settings': 'Einstellungen',
 		'/welcome': 'Willkommen', '/login': 'Anmelden'
 	};

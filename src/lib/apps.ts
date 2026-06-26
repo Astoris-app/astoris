@@ -46,6 +46,16 @@ export const APPS: AppDef[] = [
 		icon: 'M4 19V5M4 19h16M8 16l3.5-4 3 2.5L20 8'
 	},
 	{
+		id: 'optimierung',
+		label: 'Optimierung',
+		href: '/optimierung',
+		group: 'work',
+		ready: true,
+		capability: 'optimization',
+		blurb: 'Maßnahme → messen → KI bewertet → Learning. Experimente an deinen Kennzahlen testen und systematisch dazulernen.',
+		icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z'
+	},
+	{
 		id: 'marketing',
 		label: 'Marketing',
 		href: '/marketing',
