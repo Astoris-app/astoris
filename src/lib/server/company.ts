@@ -8,11 +8,13 @@ const FILE = 'data/company.json';
 
 export type Role = { id: string; title: string; description: string };
 export type AgentModel = { source: 'local' | 'cloud'; model: string };
-export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active'; model?: AgentModel | null };
+export type TaskEntry = { task: string; result: string; at: string };
+export type Agent = { id: string; name: string; role: string; personaId: string; status: 'idle' | 'active'; model?: AgentModel | null; tools?: string[]; history?: TaskEntry[] };
 export type Company = {
 	name: string;
 	industry: string;
 	mission: string;
+	knowledge?: string;
 	roles: Role[];
 	agents: Agent[];
 };
@@ -84,6 +86,27 @@ export function setAgentModel(id: string, model: AgentModel | null): Company {
 	const c = load();
 	const a = c.agents.find((x) => x.id === id);
 	if (a) a.model = model;
+	save(c);
+	return c;
+}
+export function setAgentTools(id: string, tools: string[]): Company {
+	const c = load();
+	const a = c.agents.find((x) => x.id === id);
+	if (a) a.tools = tools;
+	save(c);
+	return c;
+}
+export function addAgentHistory(id: string, entry: TaskEntry): Company {
+	const c = load();
+	const a = c.agents.find((x) => x.id === id);
+	if (a) a.history = [entry, ...(a.history ?? [])].slice(0, 20);
+	save(c);
+	return c;
+}
+export function clearAgentHistory(id: string): Company {
+	const c = load();
+	const a = c.agents.find((x) => x.id === id);
+	if (a) a.history = [];
 	save(c);
 	return c;
 }

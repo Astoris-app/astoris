@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import { renderMarkdown } from '$lib/markdown';
 	import { i18n } from '$lib/stores/i18n.svelte';
 
 	// ---------- Types ----------
@@ -14,6 +15,7 @@
 		createdAt?: string;
 	};
 	type Role = { id: string; title: string; description: string };
+	type HistoryEntry = { task: string; result: string; at: string };
 	type SubAgent = {
 		id: string;
 		name: string;
@@ -21,6 +23,8 @@
 		personaId: string;
 		status: string;
 		model?: { source: string; model: string } | null;
+		tools?: string[];
+		history?: HistoryEntry[];
 	};
 	type Company = {
 		name: string;
@@ -28,14 +32,17 @@
 		mission: string;
 		roles: Role[];
 		agents: SubAgent[];
+		knowledge?: string;
 	};
 	type Template = { label: string; roles: { title: string; description: string }[] };
+	type Tool = { name: string; label: string };
+	type BreakdownItem = { agent: string; role: string; auftrag: string; ergebnis: string };
 
 	// ---------- State ----------
 	let tab = $state<'personas' | 'company'>('personas');
 
 	let personas = $state<Persona[]>([]);
-	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [] });
+	let company = $state<Company>({ name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '' });
 	let templates = $state<Record<string, Template>>({});
 	let modelOpts = $state<{ id: string; label: string; source: string; model: string }[]>([]);
 	let loading = $state(true);
@@ -57,6 +64,21 @@
 	let cIndustry = $state('');
 	let cMission = $state('');
 	let savingCompany = $state(false);
+
+	// knowledge base
+	let cKnowledge = $state('');
+	let savingKnowledge = $state(false);
+
+	// available tools (built-in + add-ons)
+	let toolsBuiltin = $state<Tool[]>([]);
+	let toolsAddons = $state<Tool[]>([]);
+	let openTools = $state<string | null>(null); // agentId whose tools panel is open
+
+	// company orchestration
+	let coTask = $state('');
+	let coBusy = $state(false);
+	let coResult = $state('');
+	let coBreakdown = $state<BreakdownItem[]>([]);
 
 	// role form
 	let roleTitle = $state('');
@@ -96,16 +118,29 @@
 				industry: c.industry ?? '',
 				mission: c.mission ?? '',
 				roles: Array.isArray(c.roles) ? c.roles : [],
-				agents: Array.isArray(c.agents) ? c.agents : []
+				agents: Array.isArray(c.agents) ? c.agents : [],
+				knowledge: c.knowledge ?? ''
 			};
 			templates = data?.templates && typeof data.templates === 'object' ? data.templates : {};
 			// sync head form
 			cName = company.name;
 			cIndustry = company.industry;
 			cMission = company.mission;
+			cKnowledge = company.knowledge ?? '';
 		} catch {
-			company = { name: '', industry: '', mission: '', roles: [], agents: [] };
+			company = { name: '', industry: '', mission: '', roles: [], agents: [], knowledge: '' };
 			templates = {};
+		}
+	}
+
+	async function loadTools() {
+		try {
+			const r = await (await fetch('/api/tools')).json();
+			toolsBuiltin = Array.isArray(r?.builtin) ? r.builtin : [];
+			toolsAddons = Array.isArray(r?.addons) ? r.addons : [];
+		} catch {
+			toolsBuiltin = [];
+			toolsAddons = [];
 		}
 	}
 
@@ -119,7 +154,7 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([loadPersonas(), loadCompany(), loadModels()]);
+		await Promise.all([loadPersonas(), loadCompany(), loadModels(), loadTools()]);
 		loading = false;
 	});
 
@@ -190,6 +225,17 @@
 	}
 
 	// ---------- Company actions ----------
+	function applyCompany(c: any) {
+		company = {
+			name: c.name ?? '',
+			industry: c.industry ?? '',
+			mission: c.mission ?? '',
+			roles: Array.isArray(c.roles) ? c.roles : [],
+			agents: Array.isArray(c.agents) ? c.agents : [],
+			knowledge: c.knowledge ?? ''
+		};
+	}
+
 	async function postCompany(payload: Record<string, unknown>): Promise<boolean> {
 		try {
 			const res = await fetch('/api/company', {
@@ -200,14 +246,7 @@
 			if (!res.ok) return false;
 			const data = await res.json();
 			if (data?.company) {
-				const c = data.company;
-				company = {
-					name: c.name ?? '',
-					industry: c.industry ?? '',
-					mission: c.mission ?? '',
-					roles: Array.isArray(c.roles) ? c.roles : [],
-					agents: Array.isArray(c.agents) ? c.agents : []
-				};
+				applyCompany(data.company);
 			}
 			return true;
 		} catch {
@@ -263,11 +302,37 @@
 		await postCompany({ action: 'set-agent-model', agentId, model });
 	}
 
+	// ---------- Knowledge base ----------
+	async function saveKnowledge() {
+		if (savingKnowledge) return;
+		savingKnowledge = true;
+		await postCompany({ action: 'set-knowledge', knowledge: cKnowledge });
+		savingKnowledge = false;
+	}
+
+	// ---------- Per-agent tools ----------
+	function toggleToolsPanel(id: string) {
+		openTools = openTools === id ? null : id;
+	}
+	async function toggleAgentTool(a: SubAgent, toolName: string, checked: boolean) {
+		const current = Array.isArray(a.tools) ? [...a.tools] : [];
+		const next = checked ? [...new Set([...current, toolName])] : current.filter((t) => t !== toolName);
+		// optimistic
+		a.tools = next;
+		await postCompany({ action: 'set-agent-tools', agentId: a.id, tools: next });
+	}
+
+	// ---------- Task overlay (single agent) ----------
 	let taskAgent = $state<SubAgent | null>(null);
 	let taskInput = $state('');
 	let taskResult = $state('');
 	let taskBusy = $state(false);
 	function openTask(a: SubAgent) { taskAgent = a; taskInput = ''; taskResult = ''; }
+	function rebindTaskAgent() {
+		if (!taskAgent) return;
+		const fresh = company.agents.find((x) => x.id === taskAgent!.id);
+		if (fresh) taskAgent = fresh;
+	}
 	async function runTask() {
 		if (!taskAgent || !taskInput.trim() || taskBusy) return;
 		taskBusy = true; taskResult = '';
@@ -275,8 +340,35 @@
 			const r = await fetch('/api/company', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'run-agent', agentId: taskAgent.id, task: taskInput }) });
 			const d = await r.json();
 			taskResult = d.result ?? d.error ?? i18n.t('agents.noAnswer');
+			if (d.company) { applyCompany(d.company); rebindTaskAgent(); }
 		} catch { taskResult = i18n.t('agents.runError'); }
 		finally { taskBusy = false; }
+	}
+	async function clearAgentHistory() {
+		if (!taskAgent) return;
+		const ok = await postCompany({ action: 'clear-history', agentId: taskAgent.id });
+		if (ok) rebindTaskAgent();
+	}
+
+	// ---------- Company orchestration ----------
+	async function runCompany() {
+		if (!coTask.trim() || coBusy) return;
+		coBusy = true; coResult = ''; coBreakdown = [];
+		try {
+			const r = await fetch('/api/company', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'run-company', task: coTask }) });
+			const d = await r.json();
+			coResult = d.result ?? d.error ?? i18n.t('agents.noAnswer');
+			coBreakdown = Array.isArray(d.breakdown) ? d.breakdown : [];
+			if (d.company) applyCompany(d.company);
+		} catch { coResult = i18n.t('agents.runError'); }
+		finally { coBusy = false; }
+	}
+
+	function fmtTime(at?: string): string {
+		if (!at) return '';
+		const d = new Date(at);
+		if (isNaN(d.getTime())) return at;
+		return d.toLocaleString(i18n.lang === 'en' ? 'en-GB' : 'de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 	}
 </script>
 
@@ -369,6 +461,16 @@
 					<label for="c-mission">{i18n.t('agents.mission')}</label>
 					<textarea id="c-mission" rows="3" placeholder={i18n.t('agents.missionPlaceholder')} bind:value={cMission}></textarea>
 				</div>
+				<div class="field full knowledge-field">
+					<label for="c-knowledge">{i18n.t('agents.knowledge')}</label>
+					<textarea id="c-knowledge" rows="4" placeholder={i18n.t('agents.knowledgePlaceholder')} bind:value={cKnowledge}></textarea>
+					<div class="kn-row">
+						<p class="hint">{i18n.t('agents.knowledgeHint')}</p>
+						<button class="btn ghost" onclick={saveKnowledge} disabled={savingKnowledge}>
+							{savingKnowledge ? i18n.t('agents.saving') : i18n.t('agents.knowledgeSave')}
+						</button>
+					</div>
+				</div>
 				<div class="head-actions">
 					<button class="btn primary" onclick={saveCompany} disabled={savingCompany}>
 						{savingCompany ? i18n.t('agents.saving') : i18n.t('agents.save')}
@@ -420,6 +522,53 @@
 		<!-- Sub-agents -->
 		<section class="block">
 			<h2 class="cat">{i18n.t('agents.subagents')}</h2>
+
+			<!-- Commission the whole company -->
+			{#if company.agents.length > 0}
+				<div class="commission">
+					<div class="commission-head">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" />
+							<circle cx="12" cy="12" r="3" />
+						</svg>
+						<div>
+							<strong>{i18n.t('agents.commissionCompany')}</strong>
+							<span class="commission-hint">{i18n.t('agents.commissionHint')}</span>
+						</div>
+					</div>
+					<textarea rows="3" placeholder={i18n.t('agents.commissionPlaceholder')} bind:value={coTask}></textarea>
+					<div class="commission-actions">
+						{#if coBusy}<span class="working-note">{coResult ? i18n.t('agents.agentsWorking') : i18n.t('agents.coordinating')}</span>{/if}
+						<button class="btn primary" onclick={runCompany} disabled={coBusy || !coTask.trim()}>
+							{coBusy ? i18n.t('agents.working') : i18n.t('agents.commissionRun')}
+						</button>
+					</div>
+					{#if coResult}
+						<div class="overall">
+							<span class="overall-label">{i18n.t('agents.overallResult')}</span>
+							<div class="md result-md">{@html renderMarkdown(coResult)}</div>
+						</div>
+						{#if coBreakdown.length}
+							<details class="breakdown">
+								<summary>{i18n.t('agents.breakdown')} · {coBreakdown.length}</summary>
+								<div class="breakdown-body">
+									{#each coBreakdown as b, i (i)}
+										<div class="bd-item">
+											<div class="bd-head">
+												<strong>{b.agent}</strong>
+												{#if b.role}<span class="bd-role">{b.role}</span>{/if}
+											</div>
+											{#if b.auftrag}<p class="bd-task">{b.auftrag}</p>{/if}
+											<div class="md result-md small">{@html renderMarkdown(b.ergebnis ?? '')}</div>
+										</div>
+									{/each}
+								</div>
+							</details>
+						{/if}
+					{/if}
+				</div>
+			{/if}
+
 			{#if company.agents.length === 0}
 				<div class="empty small">
 					<span class="big">🤝</span>
@@ -429,32 +578,71 @@
 				<div class="list">
 					{#each company.agents as a (a.id)}
 						{@const persona = personaById(a.personaId)}
-						<div class="row agent">
-							<span class="status-dot" class:online={a.status === 'online' || a.status === 'active'}></span>
-							<div class="row-main">
-								<strong>{a.name}</strong>
-								{#if a.role}<span class="row-sub">{a.role}</span>{/if}
-							</div>
-							<div class="persona-chip">
-								{#if persona}
-									<span class="chip-emoji">{persona.emoji || '🙂'}</span>
-									<span>{persona.name}</span>
-								{:else}
-									<span class="muted">{i18n.t('agents.noPersona')}</span>
+						{@const sel = Array.isArray(a.tools) ? a.tools : []}
+						<div class="agent-wrap">
+							<div class="row agent">
+								<span class="status-dot" class:online={a.status === 'online' || a.status === 'active'}></span>
+								<div class="row-main">
+									<strong>{a.name}</strong>
+									{#if a.role}<span class="row-sub">{a.role}</span>{/if}
+								</div>
+								<div class="persona-chip">
+									{#if persona}
+										<span class="chip-emoji">{persona.emoji || '🙂'}</span>
+										<span>{persona.name}</span>
+									{:else}
+										<span class="muted">{i18n.t('agents.noPersona')}</span>
+									{/if}
+								</div>
+								{#if modelOpts.length}
+									<select
+										class="agent-model"
+										value={a.model ? a.model.source + ':' + a.model.model : ''}
+										onchange={(e) => setAgentModel(a.id, e.currentTarget.value)}
+									>
+										<option value="">{i18n.t('agents.modelDefault')}</option>
+										{#each modelOpts as m (m.id)}<option value={m.source + ':' + m.model}>{m.label}</option>{/each}
+									</select>
 								{/if}
+								{#if toolsBuiltin.length || toolsAddons.length}
+									<button class="task-btn tools-toggle" class:on={openTools === a.id} title={i18n.t('agents.tools')} onclick={() => toggleToolsPanel(a.id)}>
+										{i18n.t('agents.tools')}{#if sel.length} · {sel.length}{/if}
+									</button>
+								{/if}
+								<button class="task-btn" title={i18n.t('agents.taskTitle')} onclick={() => openTask(a)}>{i18n.t('agents.task')}</button>
+								<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)}>×</button>
 							</div>
-							{#if modelOpts.length}
-								<select
-									class="agent-model"
-									value={a.model ? a.model.source + ':' + a.model.model : ''}
-									onchange={(e) => setAgentModel(a.id, e.currentTarget.value)}
-								>
-									<option value="">{i18n.t('agents.modelDefault')}</option>
-									{#each modelOpts as m (m.id)}<option value={m.source + ':' + m.model}>{m.label}</option>{/each}
-								</select>
+							{#if openTools === a.id && (toolsBuiltin.length || toolsAddons.length)}
+								<div class="tools-panel">
+									<p class="tools-hint">{i18n.t('agents.toolsHint')} <em>{i18n.t('agents.toolsAll')}</em></p>
+									{#if toolsBuiltin.length}
+										<div class="tools-group">
+											<span class="tools-group-title">{i18n.t('agents.toolsBuiltin')}</span>
+											<div class="tools-checks">
+												{#each toolsBuiltin as t (t.name)}
+													<label class="tool-check">
+														<input type="checkbox" checked={sel.includes(t.name)} onchange={(e) => toggleAgentTool(a, t.name, e.currentTarget.checked)} />
+														<span>{t.label}</span>
+													</label>
+												{/each}
+											</div>
+										</div>
+									{/if}
+									{#if toolsAddons.length}
+										<div class="tools-group">
+											<span class="tools-group-title">{i18n.t('agents.toolsAddons')}</span>
+											<div class="tools-checks">
+												{#each toolsAddons as t (t.name)}
+													<label class="tool-check">
+														<input type="checkbox" checked={sel.includes(t.name)} onchange={(e) => toggleAgentTool(a, t.name, e.currentTarget.checked)} />
+														<span>{t.label}</span>
+													</label>
+												{/each}
+											</div>
+										</div>
+									{/if}
+								</div>
 							{/if}
-							<button class="task-btn" title={i18n.t('agents.taskTitle')} onclick={() => openTask(a)}>{i18n.t('agents.task')}</button>
-							<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)}>×</button>
 						</div>
 					{/each}
 				</div>
@@ -545,7 +733,30 @@
 				<button class="tbtn ghost" onclick={() => (taskAgent = null)}>{i18n.t('agents.close')}</button>
 				<button class="tbtn primary" onclick={runTask} disabled={taskBusy || !taskInput.trim()}>{taskBusy ? i18n.t('agents.running') : i18n.t('agents.run')}</button>
 			</div>
-			{#if taskResult}<div class="task-result">{taskResult}</div>{/if}
+			{#if taskBusy}<div class="task-working"><span class="dot"></span>{i18n.t('agents.working')}</div>{/if}
+			{#if taskResult}<div class="task-result md result-md">{@html renderMarkdown(taskResult)}</div>{/if}
+
+			<div class="hist-head">
+				<span class="hist-title">{i18n.t('agents.history')}</span>
+				{#if taskAgent.history?.length}
+					<button class="hist-clear" onclick={clearAgentHistory}>{i18n.t('agents.clearHistory')}</button>
+				{/if}
+			</div>
+			{#if taskAgent.history?.length}
+				<div class="hist-list">
+					{#each [...taskAgent.history].reverse() as h, i (i)}
+						<div class="hist-item">
+							<div class="hist-meta">
+								<span class="hist-task">{h.task}</span>
+								<span class="hist-time">{fmtTime(h.at)}</span>
+							</div>
+							<div class="md result-md small">{@html renderMarkdown(h.result ?? '')}</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="hist-empty">{i18n.t('agents.historyEmpty')}</p>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -564,7 +775,7 @@
 	.tbtn.primary { background: var(--ember); color: #1a1206; }
 	.tbtn.primary:disabled { opacity: 0.5; }
 	.tbtn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-	.task-result { margin-top: 16px; padding: 13px; background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 10px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+	.task-result { margin-top: 16px; padding: 13px; background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 10px; font-size: 13.5px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px 48px; }
 
 	/* Tabs */
@@ -667,6 +878,76 @@
 	.result.bad { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-soft); }
 	.result span { font-weight: 700; }
 	.dactions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+	/* Knowledge base */
+	.knowledge-field { gap: 6px; }
+	.kn-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+	.kn-row .hint { margin: 0; }
+
+	/* Commission whole company */
+	.commission { background: var(--surface-1); border: 1px solid var(--ember-line); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 12px; }
+	.commission-head { display: flex; align-items: flex-start; gap: 10px; }
+	.commission-head svg { width: 18px; height: 18px; color: var(--ember-bright); flex: none; margin-top: 1px; }
+	.commission-head strong { font-size: 14px; display: block; }
+	.commission-hint { font-size: 12px; color: var(--text-muted); }
+	.commission textarea { width: 100%; }
+	.commission-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+	.working-note { font-size: 12.5px; color: var(--ember-bright); }
+	.overall { background: var(--bg-veil); border: 1px solid var(--ember-line); border-radius: 10px; padding: 13px; }
+	.overall-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ember-bright); margin-bottom: 7px; }
+	.breakdown summary { cursor: pointer; font-size: 12.5px; color: var(--text-muted); font-family: var(--font-mono); list-style: none; user-select: none; }
+	.breakdown summary::before { content: '▸ '; }
+	.breakdown[open] summary::before { content: '▾ '; }
+	.breakdown-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+	.bd-item { background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 9px; padding: 11px 13px; }
+	.bd-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+	.bd-head strong { font-size: 13px; }
+	.bd-role { font-size: 11.5px; color: var(--text-faint); }
+	.bd-task { margin: 0 0 7px; font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+	/* Agent wrap + tools panel */
+	.agent-wrap { display: flex; flex-direction: column; }
+	.tools-toggle.on { color: var(--ember-bright); border-color: var(--ember-line); }
+	.tools-panel { background: var(--bg-veil); border: 1px solid var(--border-soft); border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm); padding: 12px 14px; margin: -2px 0 0; display: flex; flex-direction: column; gap: 12px; }
+	.tools-hint { margin: 0; font-size: 12px; color: var(--text-muted); }
+	.tools-hint em { color: var(--ember-bright); font-style: normal; }
+	.tools-group { display: flex; flex-direction: column; gap: 7px; }
+	.tools-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); }
+	.tools-checks { display: flex; flex-wrap: wrap; gap: 7px; }
+	.tool-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 5px 11px; cursor: pointer; transition: all 0.14s; }
+	.tool-check:hover { border-color: var(--border); color: var(--text); }
+	.tool-check input { width: auto; accent-color: var(--ember); }
+
+	/* Task overlay: working + history */
+	.task-working { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12.5px; color: var(--ember-bright); }
+	.task-working .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ember); animation: pulseDot 1.2s infinite; }
+	@keyframes pulseDot { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+	.hist-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 20px 0 8px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+	.hist-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); font-family: var(--font-mono); }
+	.hist-clear { font-size: 11.5px; color: var(--text-faint); background: transparent; border: 1px solid var(--border-soft); border-radius: 7px; padding: 4px 9px; transition: all 0.14s; }
+	.hist-clear:hover { color: var(--danger); border-color: var(--danger-soft); }
+	.hist-empty { margin: 0; font-size: 12.5px; color: var(--text-faint); }
+	.hist-list { display: flex; flex-direction: column; gap: 9px; max-height: 320px; overflow-y: auto; }
+	.hist-item { background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 9px; padding: 10px 12px; }
+	.hist-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+	.hist-task { font-size: 12.5px; font-weight: 600; color: var(--text); }
+	.hist-time { font-size: 11px; color: var(--text-faint); flex: none; }
+
+	/* Markdown rendering (scoped — mirror of chat .md) */
+	.result-md { font-size: 13.5px; line-height: 1.6; }
+	.result-md.small { font-size: 12.5px; }
+	.md :global(p) { margin: 0 0 8px; }
+	.md :global(p:last-child) { margin-bottom: 0; }
+	.md :global(pre) { background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 8px; padding: 11px; overflow-x: auto; font-family: var(--font-mono); font-size: 12px; }
+	.md :global(code) { font-family: var(--font-mono); font-size: 0.88em; background: var(--surface-3); padding: 1px 5px; border-radius: 4px; }
+	.md :global(pre code) { background: none; padding: 0; }
+	.md :global(a) { color: var(--ember-bright); text-decoration: underline; }
+	.md :global(ul), .md :global(ol) { margin: 0 0 8px; padding-left: 20px; }
+	.md :global(li) { margin-bottom: 3px; }
+	.md :global(h1), .md :global(h2), .md :global(h3) { font-size: 1.05em; margin: 10px 0 5px; }
+	.md :global(blockquote) { border-left: 2px solid var(--ember-line); margin: 0 0 8px; padding-left: 12px; color: var(--text-muted); }
+	.md :global(table) { border-collapse: collapse; font-size: 12.5px; margin-bottom: 8px; }
+	.md :global(th), .md :global(td) { border: 1px solid var(--border); padding: 4px 8px; }
 
 	@media (max-width: 640px) {
 		.company-head { grid-template-columns: 1fr; }

@@ -103,9 +103,10 @@ async function chatOpenAICompat(rawBase: string, apiKey: string, messages: ChatM
 /** Chat mit Werkzeugen: aktive Code-Add-ons werden der KI als Tools angeboten
  *  und in der Sandbox ausgeführt, wenn die KI sie aufruft. Fällt ohne Tools auf
  *  den normalen Chat zurück. */
-async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[]): Promise<ChatResult> {
+async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[], allowedTools?: string[]): Promise<ChatResult> {
 	const { tools: addonTools, byName } = buildAddonTools();
-	const tools = [...buildBuiltinTools(), ...addonTools];
+	const allTools = [...buildBuiltinTools(), ...addonTools];
+	const tools = allowedTools && allowedTools.length ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
 	const base = rawBase.replace(/\/$/, '');
 	const model = await resolveModel(base, apiKey);
 	const now = new Date();
@@ -173,9 +174,11 @@ function nowContext(): string {
 }
 
 /** Anthropic Claude — mit Tool-Calling (tool_use/tool_result), gleiches Werkzeug-Set wie lokal. */
-async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claude-sonnet-4-6'): Promise<ChatResult> {
+async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claude-sonnet-4-6', allowedTools?: string[]): Promise<ChatResult> {
 	const { tools: addonTools, byName } = buildAddonTools();
-	const anthropicTools = toAnthropicTools([...buildBuiltinTools(), ...addonTools]);
+	const allTools = [...buildBuiltinTools(), ...addonTools];
+	const filtered = allowedTools && allowedTools.length ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
+	const anthropicTools = toAnthropicTools(filtered);
 	const sysBase = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
 	const system = (sysBase ? sysBase + '\n\n' : '') + nowContext();
 	const msgs: unknown[] = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
@@ -255,7 +258,7 @@ export async function engineStatus(): Promise<EngineStatus> {
 
 /** Chat. Nutzt die konfigurierte Modell-Verbindung; bei deren Ausfall klare Meldung
  *  (KEIN Clawy-Fallback, der wäre irreführend). Clawy nur, wenn nichts konfiguriert ist. */
-export async function engineChat(messages: ChatMsg[], override?: SelectedModel | null): Promise<ChatResult> {
+export async function engineChat(messages: ChatMsg[], override?: SelectedModel | null, allowedTools?: string[]): Promise<ChatResult> {
 	// 0. Cloud zuerst? Modell-Override (z. B. pro Agent) > globale Wahl > KI-Quelle.
 	const sel = override ?? getSelectedModel();
 	if (sel ? sel.source === 'cloud' : getKiSource() === 'cloud') {
@@ -265,7 +268,7 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 			const g = applyAigate(messages, getAigateMode());
 			if (g.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(g.hits.map((h) => h.type))].join(', ')}).` };
 			try {
-				if (prov.includes('anthropic') || prov.includes('claude')) return await chatAnthropic(c.plain.api_key, g.messages, sel?.model || undefined);
+				if (prov.includes('anthropic') || prov.includes('claude')) return await chatAnthropic(c.plain.api_key, g.messages, sel?.model || undefined, allowedTools);
 				if (prov.includes('openai')) return await chatOpenAICompat('https://api.openai.com', c.plain.api_key, g.messages);
 			} catch { /* Cloud-Fehler → weiter zu Lokal */ }
 		}
@@ -277,7 +280,7 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 		// Kurze vLLM-Aussetzer / geteilte Last abfangen: bis zu 3 Versuche mit Backoff.
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
-				return await chatWithTools(lm.plain.base_url, lm.plain.api_key ?? '', messages);
+				return await chatWithTools(lm.plain.base_url, lm.plain.api_key ?? '', messages, allowedTools);
 			} catch {
 				if (attempt < 2) await new Promise((r) => setTimeout(r, (attempt + 1) * 1200));
 			}
@@ -293,7 +296,7 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 		if (guard.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(guard.hits.map((h) => h.type))].join(', ')}). Cloud-Versand blockiert.` };
 		if (provider.includes('anthropic') || provider.includes('claude')) {
 			try {
-				return await chatAnthropic(cloud.plain.api_key, guard.messages, sel?.model || undefined);
+				return await chatAnthropic(cloud.plain.api_key, guard.messages, sel?.model || undefined, allowedTools);
 			} catch {
 				return { source: 'demo', reply: 'Cloud-KI (Claude) ist gerade nicht erreichbar. Bitte erneut versuchen.' };
 			}
