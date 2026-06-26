@@ -89,6 +89,11 @@
 	let agentRole = $state('');
 	let agentPersona = $state('');
 
+	// double-click guards
+	let addingRole = $state(false);
+	let addingAgent = $state(false);
+	let rowBusy = $state<string | null>(null);
+
 	// ---------- Derived ----------
 	let templateKeys = $derived(Object.keys(templates));
 	let activeTemplate = $derived(templates[cIndustry] ?? null);
@@ -267,33 +272,45 @@
 	}
 
 	async function addRole() {
-		if (!roleTitle.trim()) return;
-		const ok = await postCompany({ action: 'add-role', title: roleTitle.trim(), description: roleDesc.trim() });
-		if (ok) {
-			roleTitle = '';
-			roleDesc = '';
-		}
+		if (!roleTitle.trim() || addingRole) return;
+		addingRole = true;
+		try {
+			const ok = await postCompany({ action: 'add-role', title: roleTitle.trim(), description: roleDesc.trim() });
+			if (ok) {
+				roleTitle = '';
+				roleDesc = '';
+			}
+		} finally { addingRole = false; }
 	}
 	async function removeRole(id: string) {
-		await postCompany({ action: 'remove-role', id });
+		if (rowBusy) return;
+		if (!confirm(i18n.t('agents.removeRoleConfirm'))) return;
+		rowBusy = id;
+		try { await postCompany({ action: 'remove-role', id }); } finally { rowBusy = null; }
 	}
 
 	async function addAgent() {
-		if (!agentName.trim()) return;
-		const ok = await postCompany({
-			action: 'add-agent',
-			name: agentName.trim(),
-			role: agentRole.trim(),
-			personaId: agentPersona
-		});
-		if (ok) {
-			agentName = '';
-			agentRole = '';
-			agentPersona = '';
-		}
+		if (!agentName.trim() || addingAgent) return;
+		addingAgent = true;
+		try {
+			const ok = await postCompany({
+				action: 'add-agent',
+				name: agentName.trim(),
+				role: agentRole.trim(),
+				personaId: agentPersona
+			});
+			if (ok) {
+				agentName = '';
+				agentRole = '';
+				agentPersona = '';
+			}
+		} finally { addingAgent = false; }
 	}
 	async function removeAgent(id: string) {
-		await postCompany({ action: 'remove-agent', id });
+		if (rowBusy) return;
+		if (!confirm(i18n.t('agents.removeAgentConfirm'))) return;
+		rowBusy = id;
+		try { await postCompany({ action: 'remove-agent', id }); } finally { rowBusy = null; }
 	}
 	async function setAgentModel(agentId: string, val: string) {
 		const model = val
@@ -507,7 +524,7 @@
 								<strong>{r.title}</strong>
 								{#if r.description}<span class="row-sub">{r.description}</span>{/if}
 							</div>
-							<button class="x" aria-label={i18n.t('agents.removeRole')} onclick={() => removeRole(r.id)}>×</button>
+							<button class="x" aria-label={i18n.t('agents.removeRole')} onclick={() => removeRole(r.id)} disabled={rowBusy === r.id}>×</button>
 						</div>
 					{/each}
 				</div>
@@ -515,7 +532,7 @@
 			<div class="add-form">
 				<input type="text" placeholder={i18n.t('agents.roleTitlePlaceholder')} bind:value={roleTitle} autocomplete="off" />
 				<input type="text" placeholder={i18n.t('agents.roleDescPlaceholder')} bind:value={roleDesc} autocomplete="off" />
-				<button class="btn ghost" onclick={addRole} disabled={!roleTitle.trim()}>{i18n.t('agents.add')}</button>
+				<button class="btn ghost" onclick={addRole} disabled={!roleTitle.trim() || addingRole}>{i18n.t('agents.add')}</button>
 			</div>
 		</section>
 
@@ -610,7 +627,7 @@
 									</button>
 								{/if}
 								<button class="task-btn" title={i18n.t('agents.taskTitle')} onclick={() => openTask(a)}>{i18n.t('agents.task')}</button>
-								<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)}>×</button>
+								<button class="x" aria-label={i18n.t('agents.removeAgent')} onclick={() => removeAgent(a.id)} disabled={rowBusy === a.id}>×</button>
 							</div>
 							{#if openTools === a.id && (toolsBuiltin.length || toolsAddons.length)}
 								<div class="tools-panel">
@@ -659,7 +676,7 @@
 						<option value={p.id}>{(p.emoji || '🙂') + ' ' + p.name}</option>
 					{/each}
 				</select>
-				<button class="btn ghost" onclick={addAgent} disabled={!agentName.trim()}>{i18n.t('agents.createAgent')}</button>
+				<button class="btn ghost" onclick={addAgent} disabled={!agentName.trim() || addingAgent}>{i18n.t('agents.createAgent')}</button>
 			</div>
 		</section>
 	{/if}

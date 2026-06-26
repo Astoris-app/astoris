@@ -264,21 +264,21 @@
 							{/if}
 						{/if}
 					</div>
+					{#if replyOpen}
+						<div class="reply">
+							<label><span>{i18n.t('mail.replyTo')}</span><input bind:value={replyTo} /></label>
+							<label><span>{i18n.t('mail.replySubject')}</span><input bind:value={replySubject} /></label>
+							<label><span>{i18n.t('mail.replyBody')}</span><textarea bind:value={replyBody} rows="6"></textarea></label>
+							{#if sendMsg}<div class="sendmsg" class:ok={sendOk}>{sendMsg}</div>{/if}
+							<div class="replyacts">
+								<button class="btn ghost" onclick={() => (replyOpen = false)}>{i18n.t('mail.cancel')}</button>
+								<button class="btn primary" onclick={sendReply} disabled={sending || !replyBody.trim() || !replyTo.trim()}>{sending ? i18n.t('mail.sending') : i18n.t('mail.sendReply')}</button>
+							</div>
+						</div>
+					{/if}
 				</aside>
 			{/if}
 		</div>
-							{#if replyOpen}
-								<div class="reply">
-									<label><span>{i18n.t('mail.replyTo')}</span><input bind:value={replyTo} /></label>
-									<label><span>{i18n.t('mail.replySubject')}</span><input bind:value={replySubject} /></label>
-									<label><span>{i18n.t('mail.replyBody')}</span><textarea bind:value={replyBody} rows="6"></textarea></label>
-									{#if sendMsg}<div class="sendmsg" class:ok={sendOk}>{sendMsg}</div>{/if}
-									<div class="replyacts">
-										<button class="btn ghost" onclick={() => (replyOpen = false)}>{i18n.t('mail.cancel')}</button>
-										<button class="btn primary" onclick={sendReply} disabled={sending}>{sending ? i18n.t('mail.sending') : i18n.t('mail.sendReply')}</button>
-									</div>
-								</div>
-							{/if}
 	{/if}
 </div>
 

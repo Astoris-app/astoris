@@ -7,10 +7,15 @@
 	import Brand from './Brand.svelte';
 	import EngineStatus from './EngineStatus.svelte';
 
+	// Auf Mobile wird die Rail zum Off-Canvas-Drawer (vom Layout gesteuert).
+	let { mobileOpen = false, onNavigate = () => {} }: { mobileOpen?: boolean; onNavigate?: () => void } = $props();
+
 	let work = $derived(APPS.filter((a) => a.group === 'work'));
 	let system = $derived(APPS.filter((a) => a.group === 'system'));
 	let path = $derived(page.url.pathname);
 	let expanded = $state(false);
+	// Im Mobile-Drawer immer mit Labels (volle Breite), sonst Desktop-Verhalten unverändert.
+	let showFull = $derived(expanded || mobileOpen);
 
 	onMount(() => {
 		try { expanded = localStorage.getItem('astoris-rail') === '1'; } catch { /* ignore */ }
@@ -24,21 +29,21 @@
 	}
 </script>
 
-<nav class="rail" class:expanded aria-label={i18n.t('common.areas')}>
+<nav class="rail" class:expanded={showFull} class:mobile-open={mobileOpen} aria-label={i18n.t('common.areas')}>
 	<button class="toggle" onclick={toggle} title={expanded ? i18n.t('common.collapseMenu') : i18n.t('common.expandMenu')} aria-label={i18n.t('common.menuToggle')}>
 		<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 	</button>
 
-	<a class="brand" href="/" title="Astoris">
+	<a class="brand" href="/" title="Astoris" onclick={onNavigate}>
 		<Brand size={30} />
-		{#if expanded}<span class="brand-name">Astoris</span>{/if}
+		{#if showFull}<span class="brand-name">Astoris</span>{/if}
 	</a>
 
 	<div class="group">
 		{#each work as app (app.id)}
-			<a class="item" class:active={isActive(app.href)} href={app.href} title={expanded ? '' : i18n.t('apps.' + app.id)}>
+			<a class="item" class:active={isActive(app.href)} href={app.href} title={showFull ? '' : i18n.t('apps.' + app.id)} onclick={onNavigate}>
 				<Icon path={app.icon} />
-				{#if expanded}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
+				{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
 				{#if !app.ready}<span class="soon" aria-hidden="true"></span>{/if}
 			</a>
 		{/each}
@@ -48,9 +53,9 @@
 
 	<div class="group">
 		{#each system as app (app.id)}
-			<a class="item" class:active={isActive(app.href)} href={app.href} title={expanded ? '' : i18n.t('apps.' + app.id)}>
+			<a class="item" class:active={isActive(app.href)} href={app.href} title={showFull ? '' : i18n.t('apps.' + app.id)} onclick={onNavigate}>
 				<Icon path={app.icon} />
-				{#if expanded}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
+				{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
 			</a>
 		{/each}
 	</div>
@@ -170,4 +175,22 @@
 	.rail.expanded .engine-wrap { place-items: stretch; }
 	.engine-wrap :global(.engine) { padding: 8px; border: none; background: transparent; }
 	.rail:not(.expanded) .engine-wrap :global(.meta) { display: none; }
+
+	/* --- Mobile: Off-Canvas-Drawer (≤ 760px). Desktop bleibt unverändert. --- */
+	@media (max-width: 760px) {
+		.rail {
+			position: fixed;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			z-index: 90;
+			transform: translateX(-100%);
+			transition: transform 0.24s var(--ease);
+			box-shadow: var(--shadow);
+		}
+		/* .mobile-open hat dieselbe Spezifität wie .rail.expanded, steht aber später → gewinnt die Breite. */
+		.rail.mobile-open { transform: translateX(0); width: 244px; max-width: 84vw; }
+		/* Einklapp-Toggle ergibt im Drawer keinen Sinn. */
+		.toggle { display: none; }
+	}
 </style>

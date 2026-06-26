@@ -22,8 +22,11 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Novora: lokale Daten (verschlüsselte Verbindungen, Master-Key) — NIEMALS committen
+# Astoris: lokale Daten (verschlüsselte Verbindungen, Master-Key) — NIEMALS committen
 /data
 
 # TLS-Zertifikate (privater Schlüssel!) — niemals committen
 /certs
+
+# Backups (können data/ oder .env enthalten) — niemals committen
+/backups

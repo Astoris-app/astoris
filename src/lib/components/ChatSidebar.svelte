@@ -4,6 +4,7 @@
 	let {
 		chats = [],
 		currentId = null,
+		mobileOpen = false,
 		onOpen,
 		onNew,
 		onRename,
@@ -11,6 +12,7 @@
 	}: {
 		chats: Summary[];
 		currentId: string | null;
+		mobileOpen?: boolean;
 		onOpen: (id: string) => void;
 		onNew: () => void;
 		onRename: (id: string, title: string) => void;
@@ -51,7 +53,7 @@
 	});
 </script>
 
-<aside class="sidebar">
+<aside class="sidebar" class:mobile-open={mobileOpen}>
 	<button class="new" onclick={onNew}>
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
 		{i18n.t('chat.newChat')}
@@ -108,4 +110,22 @@
 	.acts button:hover { color: var(--text); background: var(--surface-3); }
 	.rename { flex: 1; background: var(--bg); border: 1px solid var(--ember-line); border-radius: 7px; color: var(--text); padding: 7px 9px; font-size: 13px; font-family: var(--font-body); margin: 2px; }
 	.rename:focus { outline: none; }
+
+	/* --- Mobile: Chat-Liste als Off-Canvas-Drawer (≤ 760px). Desktop unverändert. --- */
+	@media (max-width: 760px) {
+		.sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			height: 100vh;
+			width: 270px;
+			max-width: 84vw;
+			z-index: 90;
+			transform: translateX(-100%);
+			transition: transform 0.24s var(--ease);
+			box-shadow: var(--shadow);
+		}
+		.sidebar.mobile-open { transform: translateX(0); }
+	}
 </style>

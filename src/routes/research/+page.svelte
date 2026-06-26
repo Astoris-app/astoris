@@ -12,12 +12,12 @@
 	let error = $state('');
 	let searched = $state(false);
 
-	const examples = [
-		'SvelteKit Server-Side Rendering',
-		'DuckDuckGo HTML Suche ohne API-Key',
-		'GB10 GPU Spezifikationen',
-		'Self-hosted KI Dashboard'
-	];
+	const examples = $derived([
+		i18n.t('research.example1'),
+		i18n.t('research.example2'),
+		i18n.t('research.example3'),
+		i18n.t('research.example4')
+	]);
 
 	async function search() {
 		const q = query.trim();

@@ -30,7 +30,7 @@ export const APPS: AppDef[] = [
 		label: 'Posteingang',
 		href: '/mail',
 		group: 'work',
-		ready: false,
+		ready: true,
 		capability: 'email',
 		blurb: 'E-Mails über alle Konten, KI-Triage und Antwort-Entwürfe — versendet wird nur auf Klick.',
 		icon: 'M3.5 6.5h17v11h-17zM3.8 7l8.2 6 8.2-6'
@@ -40,7 +40,7 @@ export const APPS: AppDef[] = [
 		label: 'Dokumente',
 		href: '/docs',
 		group: 'work',
-		ready: false,
+		ready: true,
 		capability: 'rag',
 		blurb: 'Dein Wissensspeicher: Dokumente hochladen, durchsuchen, von der KI auswerten lassen.',
 		icon: 'M6 3.5h7l5 5v12H6zM13 3.5V8.5h5M9 13h6M9 16.5h6'
@@ -50,7 +50,7 @@ export const APPS: AppDef[] = [
 		label: 'Recherche',
 		href: '/research',
 		group: 'work',
-		ready: false,
+		ready: true,
 		capability: 'web',
 		blurb: 'Mehrstufige Web-Recherche mit Quellenprüfung und Bericht.',
 		icon: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16 16l4 4'
@@ -60,7 +60,7 @@ export const APPS: AppDef[] = [
 		label: 'Studio',
 		href: '/studio',
 		group: 'work',
-		ready: false,
+		ready: true,
 		capability: 'image',
 		blurb: 'Bilder erzeugen und analysieren — lokal mit FLUX und Vision-Modellen.',
 		icon: 'M4 5.5h16v13H4zM4 15l4.5-4.5 4 4 3-3L20 15M9 9.5a1.2 1.2 0 1 0 0-.01'
@@ -70,7 +70,7 @@ export const APPS: AppDef[] = [
 		label: 'Kalender',
 		href: '/calendar',
 		group: 'work',
-		ready: false,
+		ready: true,
 		capability: 'calendar',
 		blurb: 'Termine über verbundene Kalender — die KI plant, erinnert, koordiniert.',
 		icon: 'M4.5 6h15v13.5h-15zM4.5 10h15M8 3.5v4M16 3.5v4'
@@ -80,7 +80,7 @@ export const APPS: AppDef[] = [
 		label: 'Team',
 		href: '/agents',
 		group: 'work',
-		ready: false,
+		ready: true,
 		capability: 'agents',
 		blurb: 'Mehrere KI-Agenten arbeiten an Aufgaben zusammen — du behältst die Kontrolle.',
 		icon: 'M12 3.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM5 20a4 4 0 0 1 14 0M5.5 11.5a2.2 2.2 0 1 0 0-.01M18.5 11.5a2.2 2.2 0 1 0 0-.01'

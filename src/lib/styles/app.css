@@ -58,7 +58,7 @@
 	--border-soft: #e7dfce;
 	--text: #2b2419;
 	--text-muted: #5f5545;
-	--text-faint: #756a57;
+	--text-faint: #6a5f4d;
 	--ember: #d9641f;
 	--ember-bright: #c4571a;
 	--ember-soft: rgba(217, 100, 31, 0.12);
@@ -160,4 +160,27 @@ button {
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
 	color: var(--text-faint);
+}
+
+/* ============================================================
+   Responsive — mobiler Off-Canvas-Modus (Breakpoint: ≤ 760px)
+   Additiv. Desktop (> 760px) bleibt unverändert.
+   Drawer-Mechanik liegt in den jeweiligen Komponenten (AppRail,
+   ChatSidebar). Hier nur der geteilte Backdrop.
+   ============================================================ */
+.app-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	border: none;
+	padding: 0;
+	margin: 0;
+	background: rgba(8, 6, 4, 0.55);
+	backdrop-filter: blur(1px);
+	cursor: pointer;
+	animation: app-backdrop-in 0.18s var(--ease);
+}
+@keyframes app-backdrop-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
 }

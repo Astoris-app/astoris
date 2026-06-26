@@ -35,8 +35,8 @@
 		channel === 'telegram' ? i18n.t('crypt.recipientTg')
 		: channel === 'email' ? i18n.t('crypt.recipientEmail')
 		: channel === 'whatsapp' ? i18n.t('crypt.recipientWa')
-		: channel === 'slack' ? 'Slack Channel-ID (z. B. C0123…)'
-		: channel === 'discord' ? 'Discord Channel-ID'
+		: channel === 'slack' ? i18n.t('crypt.recipientSlack')
+		: channel === 'discord' ? i18n.t('crypt.recipientDiscord')
 		: i18n.t('crypt.recipientSignal')
 	);
 
@@ -92,7 +92,11 @@
 		} catch { /* offline */ }
 	}
 	onMount(() => {
-		pollTimer = setInterval(() => { if (pass) { polling = true; receive(); } }, 6000);
+		pollTimer = setInterval(async () => {
+			if (!pass) { polling = false; return; }
+			polling = true;
+			try { await receive(); } finally { polling = false; }
+		}, 6000);
 	});
 	onDestroy(() => { if (pollTimer) clearInterval(pollTimer); });
 	function onKey(e: KeyboardEvent) {
@@ -202,7 +206,7 @@
 			<span>{i18n.t('crypt.key')}</span>
 			<div class="pwwrap">
 				<input type={showPass ? 'text' : 'password'} bind:value={pass} autocomplete="off" placeholder="••••••••" />
-				<button type="button" class="eye" onclick={() => (showPass = !showPass)} aria-label="toggle">
+				<button type="button" class="eye" onclick={() => (showPass = !showPass)} aria-label={showPass ? i18n.t('common.hidePassword') : i18n.t('common.showPassword')}>
 					{#if showPass}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6.5 0 10 7 10 7a18 18 0 0 1-3 3.8M6.5 6.5A18 18 0 0 0 2 11s3.5 7 10 7a10.9 10.9 0 0 0 3.5-.6M3 3l18 18"/></svg>
 					{:else}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>{/if}
 				</button>

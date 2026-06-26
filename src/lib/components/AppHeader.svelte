@@ -23,7 +23,9 @@
 		display: flex;
 		align-items: flex-end;
 		justify-content: space-between;
+		flex-wrap: wrap;
 		gap: 16px;
+		row-gap: 10px;
 		padding: 22px 28px 18px;
 		border-bottom: 1px solid var(--border-soft);
 		flex: none;

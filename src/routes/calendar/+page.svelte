@@ -235,6 +235,7 @@
 	}
 
 	async function deleteEvent(id: string) {
+		if (!confirm(i18n.t('calendar.deleteEventConfirm'))) return;
 		try {
 			const res = await fetch(`/api/calendar?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error();

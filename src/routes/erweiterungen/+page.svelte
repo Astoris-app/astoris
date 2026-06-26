@@ -20,6 +20,10 @@
 	let notice = $state('');
 	let cfgValues = $state<Record<string, string>>({});
 	let cfgNotice = $state('');
+	// Doppelklick-Guards: laufende Requests sperren die jeweilige Aktion.
+	let saving = $state(false);
+	let savingCfg = $state(false);
+	let cardBusy = $state<string | null>(null);
 
 	async function load() {
 		try { const d = await (await fetch('/api/plugins')).json(); plugins = d.plugins ?? []; } catch { /* ignore */ }
@@ -39,16 +43,29 @@
 		if (fileInput) fileInput.value = '';
 	}
 	async function toggle(p: any) {
-		await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'toggle', id: p.id, enabled: !p.enabled }) });
-		await load();
+		if (cardBusy) return;
+		cardBusy = p.id;
+		try {
+			await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'toggle', id: p.id, enabled: !p.enabled }) });
+			await load();
+		} finally { cardBusy = null; }
 	}
 	async function license(p: any) {
-		await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'license', id: p.id, licensed: true }) });
-		await load();
+		if (cardBusy) return;
+		cardBusy = p.id;
+		try {
+			await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'license', id: p.id, licensed: true }) });
+			await load();
+		} finally { cardBusy = null; }
 	}
 	async function removeAddon(id: string) {
-		await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'remove', id }) });
-		await load();
+		if (cardBusy) return;
+		if (!confirm(i18n.t('erweiterungen.removeConfirm'))) return;
+		cardBusy = id;
+		try {
+			await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'remove', id }) });
+			await load();
+		} finally { cardBusy = null; }
 	}
 
 	function newCode() {
@@ -76,32 +93,38 @@
 		} catch { testRes = '⚠ ' + i18n.t('erweiterungen.runFailed'); }
 	}
 	async function saveCode() {
-		if (!editor) return;
+		if (!editor || saving) return;
+		saving = true;
 		notice = '';
-		const body = editor.isNew
-			? { action: 'upload', manifest: { id: editor.id, name: editor.name || editor.id, version: '1.0.0', type: 'agent-tool', code: editor.code } }
-			: { action: 'save-code', id: editor.id, code: editor.code };
-		const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-		const d = await res.json().catch(() => ({}));
-		if (!res.ok) { notice = '⚠ ' + (d.message ?? i18n.t('erweiterungen.invalid')); return; }
-		notice = i18n.t('erweiterungen.saved');
-		await load();
-		if (editor.isNew) editor = { ...editor, isNew: false };
+		try {
+			const body = editor.isNew
+				? { action: 'upload', manifest: { id: editor.id, name: editor.name || editor.id, version: '1.0.0', type: 'agent-tool', code: editor.code } }
+				: { action: 'save-code', id: editor.id, code: editor.code };
+			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+			const d = await res.json().catch(() => ({}));
+			if (!res.ok) { notice = '⚠ ' + (d.message ?? i18n.t('erweiterungen.invalid')); return; }
+			notice = i18n.t('erweiterungen.saved');
+			await load();
+			if (editor.isNew) editor = { ...editor, isNew: false };
+		} finally { saving = false; }
 	}
 	async function saveConfig() {
-		if (!editor || !editor.configFields?.length) return;
+		if (!editor || !editor.configFields?.length || savingCfg) return;
+		savingCfg = true;
 		cfgNotice = '';
-		const config: Record<string, string> = {};
-		for (const f of editor.configFields) {
-			const v = cfgValues[f.key];
-			if (v != null && v.trim() !== '') config[f.key] = v;
-		}
-		const secretKeys = editor.configFields.filter((f) => f.type === 'password').map((f) => f.key);
-		const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'set-config', id: editor.id, config, secretKeys }) });
-		const d = await res.json().catch(() => ({}));
-		if (!res.ok) { cfgNotice = '⚠ ' + (d.message ?? i18n.t('erweiterungen.invalid')); return; }
-		await editCode({ id: editor.id }); // reload configKeys + clear fields
-		cfgNotice = i18n.t('erweiterungen.configSaved');
+		try {
+			const config: Record<string, string> = {};
+			for (const f of editor.configFields) {
+				const v = cfgValues[f.key];
+				if (v != null && v.trim() !== '') config[f.key] = v;
+			}
+			const secretKeys = editor.configFields.filter((f) => f.type === 'password').map((f) => f.key);
+			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'set-config', id: editor.id, config, secretKeys }) });
+			const d = await res.json().catch(() => ({}));
+			if (!res.ok) { cfgNotice = '⚠ ' + (d.message ?? i18n.t('erweiterungen.invalid')); return; }
+			await editCode({ id: editor.id }); // reload configKeys + clear fields
+			cfgNotice = i18n.t('erweiterungen.configSaved');
+		} finally { savingCfg = false; }
 	}
 </script>
 
@@ -148,12 +171,12 @@
 					{#if p.premium && !p.licensed}<div class="premlock">🔒 {i18n.t('erweiterungen.premiumLocked')}</div>{/if}
 					<div class="acts">
 						{#if p.premium && !p.licensed}
-							<button class="btn primary" onclick={() => license(p)}>{i18n.t('erweiterungen.unlock')}</button>
+							<button class="btn primary" onclick={() => license(p)} disabled={cardBusy === p.id}>{i18n.t('erweiterungen.unlock')}</button>
 						{:else}
-							<button class="btn" class:primary={!p.enabled} onclick={() => toggle(p)}>{p.enabled ? i18n.t('erweiterungen.deactivate') : i18n.t('erweiterungen.activate')}</button>
+							<button class="btn" class:primary={!p.enabled} onclick={() => toggle(p)} disabled={cardBusy === p.id}>{p.enabled ? i18n.t('erweiterungen.deactivate') : i18n.t('erweiterungen.activate')}</button>
 						{/if}
 						{#if p.type === 'agent-tool'}<button class="btn" onclick={() => editCode(p)}>{i18n.t('erweiterungen.edit')}</button>{/if}
-						<button class="btn ghost" onclick={() => removeAddon(p.id)}>{i18n.t('erweiterungen.remove')}</button>
+						<button class="btn ghost" onclick={() => removeAddon(p.id)} disabled={cardBusy === p.id}>{i18n.t('erweiterungen.remove')}</button>
 					</div>
 				</article>
 			{/each}
@@ -171,8 +194,8 @@
 		<div class="body">
 			<div class="warn">{i18n.t('erweiterungen.codeWarn')}</div>
 			<div class="row">
-				<label>{i18n.t('erweiterungen.nameLabel')} <InfoHint text={i18n.t('erweiterungen.nameHint')} /><input bind:value={editor.name} placeholder="Mein Add-on" /></label>
-				{#if editor.isNew}<label>{i18n.t('erweiterungen.idLabel')} <InfoHint text={i18n.t('erweiterungen.idHint')} /><input bind:value={editor.id} placeholder="mein-addon" /></label>{/if}
+				<label>{i18n.t('erweiterungen.nameLabel')} <InfoHint text={i18n.t('erweiterungen.nameHint')} /><input bind:value={editor.name} placeholder={i18n.t('erweiterungen.addonNamePlaceholder')} /></label>
+				{#if editor.isNew}<label>{i18n.t('erweiterungen.idLabel')} <InfoHint text={i18n.t('erweiterungen.idHint')} /><input bind:value={editor.id} placeholder={i18n.t('erweiterungen.addonIdPlaceholder')} /></label>{/if}
 			</div>
 			<label class="full">{i18n.t('erweiterungen.codeLabel')} <InfoHint text={i18n.t('erweiterungen.codeHint')} />
 				<CodeEditor bind:value={editor.code} placeholder={i18n.t('erweiterungen.codePlaceholder')} />
@@ -198,7 +221,7 @@
 					{/each}
 					<div class="cfgfoot">
 						{#if cfgNotice}<span class="notice">{cfgNotice}</span>{/if}
-						<button class="btn primary" onclick={saveConfig}>{i18n.t('erweiterungen.configSave')}</button>
+						<button class="btn primary" onclick={saveConfig} disabled={savingCfg}>{i18n.t('erweiterungen.configSave')}</button>
 					</div>
 				</div>
 			{/if}
@@ -206,7 +229,7 @@
 		<footer>
 			{#if notice}<span class="notice">{notice}</span>{/if}
 			<button class="btn" onclick={runTest}>{i18n.t('erweiterungen.run')}</button>
-			<button class="btn primary" onclick={saveCode}>{i18n.t('erweiterungen.save')}</button>
+			<button class="btn primary" onclick={saveCode} disabled={saving}>{i18n.t('erweiterungen.save')}</button>
 		</footer>
 	</aside>
 {/if}

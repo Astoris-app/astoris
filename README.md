@@ -58,7 +58,7 @@ Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-A
 | **Team** | ✅ | Persönlichkeiten/Charaktere + Firma mit Rollen & Unteragenten |
 | **Erweiterungen** | ✅ | Add-ons installieren — Connector-Add-ons (Upload) & Code-Add-ons mit In-App-Editor & Sandbox |
 | **Modell-Wahl** | ✅ | Lokal (vLLM) oder Cloud (Claude Sonnet/Opus/Haiku, OpenAI); KI-Quelle wählbar (auto/lokal/Cloud), global, pro Chat & pro Team-Agent |
-| **Verschlüsselter Messenger** | 🛠️ Phase 3 | Eigener E2E-Messenger mit Kontakten & Schlüsseltausch — Kontakte client-seitig, Tausch per `astoris-contact:`-Link |
+| **Verschlüsselter Messenger** | ✅ | Eigener E2E-Messenger mit Kontakten & Schlüsseltausch — Kontakte client-seitig, Tausch per `astoris-contact:`-Link, Versand via Telegram/E-Mail/Slack/Discord |
 | **KI-Aktionen** | ✅ | Die KI bedient Kalender, Mail & verschlüsselten Messenger per Tool-Calling — ausgehende Nachrichten mit Entwurf + Bestätigung |
 
 ### Was die KI selbst bedient
@@ -67,8 +67,8 @@ Aktive Werkzeuge ruft die KI im Chat automatisch auf (Tool-Calling) — beim lok
 
 - **Kalender** — Termine einsehen, anlegen, ändern, löschen.
 - **Mail** — die KI bereitet eine E-Mail vor; gesendet wird erst nach deiner **Bestätigung** (oder direkt, wenn in den Einstellungen erlaubt).
-- **Verschlüsselter Messenger** — Nachricht vorbereiten, **client-seitig** verschlüsseln und über Telegram/E-Mail senden (Zero-Knowledge — die KI sieht nie den Schlüssel).
-- **Add-ons** — Web-Suche, Wikipedia, Währungs- & Einheiten-Rechner, URL-Reader, Universal-HTTP, Hash & Encode, IBAN, Passwort-Generator, Wetter.
+- **Verschlüsselter Messenger** — Nachricht vorbereiten, **client-seitig** verschlüsseln und über Telegram/E-Mail/Slack/Discord senden (Zero-Knowledge — die KI sieht nie den Schlüssel).
+- **Add-ons** — über 25 im Katalog: Web-Suche, Wikipedia, Währungs- & Einheiten-Rechner, URL-Reader, Universal-HTTP, Hash & Encode, IBAN, Passwort-Generator, Wetter, plus Entwickler-Tools (JSON, JWT, Regex, Cron, UUID, Timestamp, Diff, Token-Zähler) und Office-Helfer (Markdown, MwSt, Farbe & Kontrast, TOTP, vCard, iCal).
 
 ### Tresor — verschlüsselt teilen
 
@@ -164,7 +164,7 @@ SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Setting
 
 ## Status & Roadmap
 
-MVP läuft: Chat, Tresor, Verbindungen, 5 Apps, Login (Passwort + Tailscale), HTTPS, Settings.
+MVP läuft: Chat, Tresor, Verbindungen, 8 Apps, Login (Passwort + Tailscale), HTTPS, Settings.
 Als Nächstes:
 
 1. **Erweiterungen**: ✅ Code-Add-ons als KI-Werkzeuge im Chat (Tool-Calling) — als Nächstes: Connector-Add-ons in „Verbindungen" verdrahten, Premium-Lizenz-Freischaltung

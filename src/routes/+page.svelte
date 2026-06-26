@@ -134,6 +134,10 @@
 
 	let chats = $state<{ id: string; title: string; updatedAt: string; count: number }[]>([]);
 	let currentChatId = $state<string | null>(assistant.currentChatId);
+	// Mobile: Chat-Liste als Off-Canvas-Drawer (Desktop: feste Sidebar, unverändert).
+	let chatNavOpen = $state(false);
+	function closeChatNav() { chatNavOpen = false; }
+	function onPageKeydown(e: KeyboardEvent) { if (e.key === 'Escape') chatNavOpen = false; }
 	// Zustand in den Store spiegeln, damit er Navigation überlebt.
 	$effect(() => { assistant.mode = mode; });
 	$effect(() => { assistant.draft = draft; });
@@ -154,6 +158,7 @@
 	}
 	async function openChat(id: string) {
 		if (busy) return;
+		closeChatNav();
 		try { const d = await (await fetch('/api/chats?id=' + id)).json(); messages = (d.chat.messages ?? []).map((m: any) => ({ ...m })); currentChatId = id; scrollDown(); } catch { /* ignore */ }
 	}
 	async function renameChatItem(id: string, title: string) {
@@ -362,6 +367,7 @@
 		if (busy) stop();
 		messages = [];
 		currentChatId = null;
+		closeChatNav();
 		stopSpeak();
 	}
 
@@ -494,19 +500,30 @@
 	});
 </script>
 
+<svelte:window onkeydown={onPageKeydown} />
+
 <div class="alayout">
 	{#if mode === 'chat'}
-		<ChatSidebar chats={chats} currentId={currentChatId} onOpen={openChat} onNew={clearChat} onRename={renameChatItem} onDelete={removeChatItem} />
+		<ChatSidebar chats={chats} currentId={currentChatId} mobileOpen={chatNavOpen} onOpen={openChat} onNew={clearChat} onRename={renameChatItem} onDelete={removeChatItem} />
+		{#if chatNavOpen}
+			<button class="app-backdrop" aria-label={i18n.t('common.cancel')} onclick={closeChatNav}></button>
+		{/if}
 	{/if}
 	<div class="amain">
-<AppHeader title="Assistent" eyebrow="Maschinenraum">
+<AppHeader title={i18n.t('chat.title')} eyebrow={i18n.t('chat.eyebrow')}>
+	{#if mode === 'chat'}
+	<button class="chatsbtn" aria-label={i18n.t('chat.chats')} aria-expanded={chatNavOpen} onclick={() => (chatNavOpen = !chatNavOpen)}>
+		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+		{i18n.t('chat.chats')}
+	</button>
+	{/if}
 	<div class="modetoggle">
 		<button class:sel={mode === 'chat'} onclick={() => (mode = 'chat')}>{i18n.t('chat.assistant')}</button>
 		<button class:sel={mode === 'crypt'} onclick={() => (mode = 'crypt')}>{i18n.t('crypt.title')}</button>
 	</div>
 	{#if mode === 'chat'}
 	<div class="ppick-wrap">
-		<button class="ppick" onclick={() => (personaMenu = !personaMenu)} title="Persönlichkeit wählen">
+		<button class="ppick" onclick={() => (personaMenu = !personaMenu)} title={i18n.t('chat.persona')}>
 			<span class="pe">{activePersona?.emoji ?? '🛰️'}</span>
 			<span>{activePersona?.name ?? 'Astoris'}</span>
 			<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -524,7 +541,7 @@
 	</div>
 	{#if modelOpts.length > 1}
 	<div class="ppick-wrap">
-		<button class="ppick" onclick={() => (modelMenu = !modelMenu)} title="Modell wählen">
+		<button class="ppick" onclick={() => (modelMenu = !modelMenu)} title={i18n.t('chat.chooseModel')}>
 			<span class="pe">🧠</span>
 			<span>{modelOpts.find((m) => m.id === selModelId)?.label ?? i18n.t('settings.kiSourceAuto')}</span>
 			<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -536,7 +553,7 @@
 				</button>
 				{#each modelOpts as m (m.id)}
 					<button class="pitem" class:sel={m.id === selModelId} onclick={() => setModel(m)}>
-						<span class="pinfo"><strong>{m.label}</strong><small>{m.source === 'cloud' ? 'Cloud' : 'Lokal'}</small></span>
+						<span class="pinfo"><strong>{m.label}</strong><small>{m.source === 'cloud' ? 'Cloud' : i18n.t('settings.kiSourceLocal')}</small></span>
 					</button>
 				{/each}
 			</div>
@@ -544,7 +561,7 @@
 	</div>
 	{/if}
 	{#if messages.length}
-		<button class="hbtn" onclick={clearChat} title="Neuer Chat">
+		<button class="hbtn" onclick={clearChat} title={i18n.t('chat.newChat')}>
 			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
 			{i18n.t('chat.newChat')}
 		</button>
@@ -573,7 +590,7 @@
 					<div class="bubble" class:err={m.error}>
 						{#if m.role === 'assistant' && m.reasoning}
 							<details class="think">
-								<summary>Denkt nach</summary>
+								<summary>{i18n.t('chat.thinking')}</summary>
 								<div class="think-body">{m.reasoning}</div>
 							</details>
 						{/if}
@@ -604,15 +621,15 @@
 									{#if m.demo}<span class="mi demo">Demo</span>{/if}
 								</span>
 								<span class="acts">
-									<button title="Kopieren" onclick={() => copy(i, m.text)}>
+									<button title={i18n.t('mail.copy')} onclick={() => copy(i, m.text)}>
 										{#if copiedIdx === i}✓{:else}
 											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
 										{/if}
 									</button>
-									<button title="Vorlesen" class:on={speakingIdx === i} onclick={() => speak(i, m.text)}>
+									<button title={i18n.t('chat.readAloud')} class:on={speakingIdx === i} onclick={() => speak(i, m.text)}>
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg>
 									</button>
-									<button title="Als .txt speichern" onclick={() => download(m.text)}>
+									<button title={i18n.t('chat.saveTxt')} onclick={() => download(m.text)}>
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
 									</button>
 									<button title={i18n.t('chat.toVault')} onclick={() => toTresor(m.text)}>
@@ -682,7 +699,7 @@
 				<span>{i18n.t('msgcard.key')}</span>
 				<div class="mc-pwwrap">
 					<input type={showMsgKey ? 'text' : 'password'} bind:value={msgKey} autocomplete="off" placeholder="••••••••" />
-					<button type="button" class="mc-eye" onclick={() => (showMsgKey = !showMsgKey)} aria-label="toggle">
+					<button type="button" class="mc-eye" onclick={() => (showMsgKey = !showMsgKey)} aria-label={showMsgKey ? i18n.t('common.hidePassword') : i18n.t('common.showPassword')}>
 						{#if showMsgKey}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6.5 0 10 7 10 7a18 18 0 0 1-3 3.8M6.5 6.5A18 18 0 0 0 2 11s3.5 7 10 7a10.9 10.9 0 0 0 3.5-.6M3 3l18 18"/></svg>
 						{:else}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>{/if}
 					</button>
@@ -728,7 +745,7 @@
 			<button class="df-go" onclick={checkDeepfake} disabled={dfBusy}>
 				🛡️ {dfBusy ? i18n.t('chat.deepfakeChecking') : i18n.t('chat.deepfakeCheck')}
 			</button>
-			<button class="df-x" onclick={clearAttachedImage} aria-label="Entfernen" title="Entfernen">✕</button>
+			<button class="df-x" onclick={clearAttachedImage} aria-label={i18n.t('studio.remove')} title={i18n.t('studio.remove')}>✕</button>
 		</div>
 	{/if}
 
@@ -767,11 +784,11 @@
 			></textarea>
 		{/if}
 		{#if busy}
-			<button class="send stop" onclick={stop} aria-label="Stop" title="Stoppen">
+			<button class="send stop" onclick={stop} aria-label={i18n.t('chat.stop')} title={i18n.t('chat.stop')}>
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
 			</button>
 		{:else}
-			<button class="send" disabled={!draft.trim()} onclick={() => send(draft)} aria-label="Senden">
+			<button class="send" disabled={!draft.trim()} onclick={() => send(draft)} aria-label={i18n.t('chat.send')}>
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
 			</button>
 		{/if}
@@ -790,6 +807,12 @@
 	.modetoggle button.sel { color: var(--ember-bright); background: var(--ember-soft); }
 	.hbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }
 	.hbtn:hover { color: var(--text); border-color: var(--ember-line); }
+	/* Chat-Liste-Toggle: nur auf Mobile sichtbar (Desktop: feste Sidebar). */
+	.chatsbtn { display: none; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }
+	.chatsbtn:hover { color: var(--text); border-color: var(--ember-line); }
+	@media (max-width: 760px) {
+		.chatsbtn { display: inline-flex; }
+	}
 
 	.chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 	.stream { flex: 1; overflow-y: auto; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
