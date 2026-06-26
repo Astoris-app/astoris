@@ -36,6 +36,16 @@ export const APPS: AppDef[] = [
 		icon: 'M4 5.5h16v13H4zM4 9.5h16M9 14a1.6 1.6 0 1 0 0-.01M7 17c0-1.1.9-1.9 2-1.9s2 .8 2 1.9M14 13h3M14 16h3'
 	},
 	{
+		id: 'marketing',
+		label: 'Marketing',
+		href: '/marketing',
+		group: 'work',
+		ready: true,
+		capability: 'marketing',
+		blurb: 'KI-gestützte Marketing-Werkzeuge: Content-Ideen, Social-Posts, Anzeigen und Kampagnenpläne — im Ton deiner Marke.',
+		icon: 'M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12'
+	},
+	{
 		id: 'chat',
 		label: 'Assistent',
 		href: '/',
