@@ -1,0 +1,11 @@
+{
+  "id": "timestamp-tool",
+  "name": "Timestamp-Konverter",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Konvertiert Unix-Zeit (s/ms) oder ISO-Datum in alle Formate inkl. relativer Angabe (z.B. vor 3 Tagen).",
+  "inputHint": "{ \"value\": 1700000000, \"unit\": \"auto\" }",
+  "code": "// Timestamp-Konverter. value: Unix s/ms oder ISO-String. Auto-Erkennung s vs ms.\nasync function run(input) {\n  var value = (input && input.value);\n  var unit = String((input && input.unit) || 'auto').toLowerCase();\n  var ms;\n  if (typeof value === 'number' || /^-?\\d+$/.test(String(value))) {\n    var num = Number(value);\n    if (unit === 's') ms = num * 1000;\n    else if (unit === 'ms') ms = num;\n    else ms = String(Math.abs(Math.trunc(num))).length >= 12 ? num : num * 1000;\n  } else {\n    var parsed = Date.parse(String(value));\n    if (isNaN(parsed)) return { fehler: 'Wert nicht erkannt (Unix-Zeit oder ISO-Datum erwartet).' };\n    ms = parsed;\n  }\n  var d = new Date(ms);\n  if (isNaN(d.getTime())) return { fehler: 'Ungueltiger Zeitwert.' };\n  var diff = Date.now() - ms;\n  function relativ(diffMs) {\n    var past = diffMs >= 0;\n    var s = Math.abs(diffMs) / 1000;\n    var units = [['Jahr', 31536000], ['Monat', 2592000], ['Tag', 86400], ['Stunde', 3600], ['Minute', 60], ['Sekunde', 1]];\n    var plurals = { 'Jahr': 'Jahren', 'Monat': 'Monaten', 'Tag': 'Tagen', 'Stunde': 'Stunden', 'Minute': 'Minuten', 'Sekunde': 'Sekunden' };\n    for (var i = 0; i < units.length; i++) {\n      var n = Math.floor(s / units[i][1]);\n      if (n >= 1) {\n        var word = n > 1 ? plurals[units[i][0]] : units[i][0];\n        return (past ? 'vor ' : 'in ') + n + ' ' + word;\n      }\n    }\n    return 'gerade eben';\n  }\n  var lesbar;\n  try { lesbar = d.toLocaleString('de-DE'); } catch (e) { lesbar = d.toUTCString(); }\n  return {\n    unixSekunden: Math.floor(ms / 1000),\n    unixMillis: ms,\n    iso: d.toISOString(),\n    lesbar: lesbar,\n    relativ: relativ(diff)\n  };\n}"
+}

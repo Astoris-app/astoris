@@ -1,0 +1,11 @@
+{
+  "id": "diff-tool",
+  "name": "Diff-Tool",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Vergleicht zwei Texte zeilenweise und zeigt hinzugefuegte, entfernte und unveraenderte Zeilen.",
+  "inputHint": "{ \"a\": \"zeile1\\nzeile2\", \"b\": \"zeile1\\nzeile3\" }",
+  "code": "// Diff-Tool. Zeilenweiser Multiset-Vergleich zweier Texte a und b.\nasync function run(input) {\n  var a = String((input && input.a) || '');\n  var b = String((input && input.b) || '');\n  var linesA = a.split('\\n');\n  var linesB = b.split('\\n');\n  function countMap(arr) {\n    var m = {};\n    arr.forEach(function (l) { m[l] = (m[l] || 0) + 1; });\n    return m;\n  }\n  var mapA = countMap(linesA);\n  var mapB = countMap(linesB);\n  var hinzugefuegt = [];\n  var entfernt = [];\n  var unveraendert = 0;\n  Object.keys(mapB).forEach(function (l) {\n    var inA = mapA[l] || 0;\n    var inB = mapB[l];\n    var common = Math.min(inA, inB);\n    unveraendert += common;\n    for (var i = 0; i < inB - common; i++) hinzugefuegt.push(l);\n  });\n  Object.keys(mapA).forEach(function (l) {\n    var inA = mapA[l];\n    var inB = mapB[l] || 0;\n    for (var i = 0; i < inA - Math.min(inA, inB); i++) entfernt.push(l);\n  });\n  return { identisch: a === b, hinzugefuegt: hinzugefuegt, entfernt: entfernt, unveraendert: unveraendert };\n}"
+}

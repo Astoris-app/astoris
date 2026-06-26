@@ -1,0 +1,11 @@
+{
+  "id": "regex-tester",
+  "name": "Regex-Tester",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Testet einen regulaeren Ausdruck gegen Text und liefert alle Treffer mit Index und Capture-Gruppen.",
+  "inputHint": "{ \"pattern\": \"(\\\\w+)@(\\\\w+)\", \"text\": \"a@b und c@d\", \"flags\": \"g\" }",
+  "code": "// Regex-Tester. Baut RegExp(pattern, flags||g), liefert Treffer mit Index+Gruppen (max 100).\nasync function run(input) {\n  var pattern = String((input && input.pattern) || '');\n  var text = String((input && input.text) || '');\n  var flags = String((input && input.flags) || 'g');\n  if (flags.indexOf('g') < 0) flags += 'g';\n  var re;\n  try { re = new RegExp(pattern, flags); }\n  catch (e) { return { fehler: 'Ungueltiges Pattern: ' + String((e && e.message) || e) }; }\n  var matches = [];\n  var m;\n  var guard = 0;\n  while ((m = re.exec(text)) !== null) {\n    matches.push({ match: m[0], index: m.index, gruppen: Array.prototype.slice.call(m, 1) });\n    if (m.index === re.lastIndex) re.lastIndex++;\n    if (matches.length >= 100) break;\n    if (++guard > 200000) break;\n  }\n  return { anzahl: matches.length, treffer: matches };\n}"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "uuid-generator",
+  "name": "UUID/ULID-Generator",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Erzeugt UUID v4 oder zeitbasierte ULIDs (Crockford-Base32), 1 bis 50 Stueck.",
+  "inputHint": "{ \"type\": \"ulid\", \"count\": 3 }",
+  "code": "// UUID/ULID-Generator. type: uuid|ulid, count 1-50.\nasync function run(input) {\n  var type = String((input && input.type) || 'uuid').toLowerCase();\n  var count = Number((input && input.count) || 1);\n  if (!(count >= 1)) count = 1;\n  if (count > 50) count = 50;\n  count = Math.floor(count);\n  function uuidv4() {\n    if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();\n    var b = new Uint8Array(16);\n    crypto.getRandomValues(b);\n    b[6] = (b[6] & 0x0f) | 0x40;\n    b[8] = (b[8] & 0x3f) | 0x80;\n    var hex = Array.prototype.map.call(b, function (x) { return x.toString(16).padStart(2, '0'); }).join('');\n    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);\n  }\n  var ENC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';\n  function ulid() {\n    var time = Date.now();\n    var timeChars = '';\n    for (var i = 9; i >= 0; i--) { timeChars = ENC[time % 32] + timeChars; time = Math.floor(time / 32); }\n    var rand = new Uint8Array(16);\n    crypto.getRandomValues(rand);\n    var randChars = '';\n    for (var j = 0; j < 16; j++) randChars += ENC[rand[j] % 32];\n    return timeChars + randChars;\n  }\n  var ids = [];\n  for (var k = 0; k < count; k++) ids.push(type === 'ulid' ? ulid() : uuidv4());\n  return { type: type === 'ulid' ? 'ulid' : 'uuid', anzahl: ids.length, ids: ids };\n}"
+}

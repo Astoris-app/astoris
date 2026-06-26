@@ -1,0 +1,11 @@
+{
+  "id": "token-counter",
+  "name": "Token-Zaehler & Kosten",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Schaetzt die Token-Anzahl eines Textes und rechnet grobe Input-Kosten fuer bekannte Modelle.",
+  "inputHint": "{ \"text\": \"Hallo Welt, das ist ein Test.\", \"model\": \"gpt-4o\" }",
+  "code": "// Token-Zaehler. Heuristik chars/4 + Wortanzahl. model: gpt-4o|gpt-4o-mini|claude-sonnet-4-6.\nasync function run(input) {\n  var text = String((input && input.text) || '');\n  var model = String((input && input.model) || '').toLowerCase();\n  var zeichen = text.length;\n  var woerter = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;\n  var byChars = zeichen / 4;\n  var byWords = woerter * 1.33;\n  var tokens = Math.round((byChars + byWords) / 2);\n  if (tokens < woerter) tokens = woerter;\n  var prices = { 'gpt-4o': 2.5, 'gpt-4o-mini': 0.15, 'claude-sonnet-4-6': 3.0 };\n  var out = {\n    zeichen: zeichen,\n    woerter: woerter,\n    tokensGeschaetzt: tokens,\n    hinweis: 'Grobe Schaetzung (kein echter Tokenizer).'\n  };\n  if (prices[model] != null) {\n    out.modell = model;\n    out.preisProMillionUSD = prices[model];\n    out.kostenInputUSD = Math.round(tokens / 1e6 * prices[model] * 1e6) / 1e6;\n  }\n  return out;\n}"
+}

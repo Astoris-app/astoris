@@ -1,0 +1,11 @@
+{
+  "id": "json-tool",
+  "name": "JSON-Tool",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Formatiert, minifiziert, validiert und durchsucht JSON (einfache Pfad-Abfrage wie a.b.0.c).",
+  "inputHint": "{ \"operation\": \"query\", \"json\": \"{\\\"a\\\":{\\\"b\\\":[{\\\"c\\\":42}]}}\", \"path\": \"a.b.0.c\" }",
+  "code": "// JSON-Werkzeug. operation: format|minify|validate|query (path z.B. a.b.0.c)\nasync function run(input) {\n  var op = String((input && input.operation) || '').toLowerCase();\n  var jsonStr = (input && input.json);\n  if (typeof jsonStr !== 'string') {\n    try { jsonStr = JSON.stringify(jsonStr); } catch (e) { jsonStr = String(jsonStr); }\n  }\n  function parse() { return JSON.parse(jsonStr); }\n  try {\n    if (op === 'format') return { ergebnis: JSON.stringify(parse(), null, 2) };\n    if (op === 'minify') return { ergebnis: JSON.stringify(parse()) };\n    if (op === 'validate') {\n      try { parse(); return { gueltig: true }; }\n      catch (e) { return { gueltig: false, fehler: String((e && e.message) || e) }; }\n    }\n    if (op === 'query') {\n      var p = String((input && input.path) || '');\n      var obj = parse();\n      var parts = p.split('.').filter(function (x) { return x.length > 0; });\n      var cur = obj;\n      for (var i = 0; i < parts.length; i++) {\n        if (cur == null) return { fehler: 'Pfad nicht gefunden bei: ' + parts[i] };\n        var key = parts[i];\n        if (Array.isArray(cur) && /^\\d+$/.test(key)) cur = cur[Number(key)];\n        else cur = cur[key];\n      }\n      if (cur === undefined) return { fehler: 'Pfad nicht gefunden.' };\n      return { ergebnis: cur };\n    }\n    return { fehler: 'Unbekannte Operation. Erlaubt: format, minify, validate, query.' };\n  } catch (e) {\n    return { fehler: 'Ungueltiges JSON: ' + String((e && e.message) || e) };\n  }\n}"
+}

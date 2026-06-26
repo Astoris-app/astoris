@@ -1,0 +1,11 @@
+{
+  "id": "jwt-decoder",
+  "name": "JWT-Decoder",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Dekodiert Header und Payload eines JWT und zeigt Ablauf-/Ausstellungsdatum (ohne Signaturpruefung).",
+  "inputHint": "{ \"token\": \"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMiLCJleHAiOjE3MDAwMDAwMDB9.sig\" }",
+  "code": "// JWT-Decoder. Dekodiert header+payload (base64url), zeigt exp/iat. Keine Signaturpruefung.\nasync function run(input) {\n  var token = String((input && input.token) || '');\n  var parts = token.split('.');\n  if (parts.length < 2) return { fehler: 'Kein gueltiges JWT (header.payload.signature).' };\n  function b64url(s) {\n    s = s.replace(/-/g, '+').replace(/_/g, '/');\n    while (s.length % 4) s += '=';\n    return decodeURIComponent(escape(atob(s)));\n  }\n  var header, payload;\n  try { header = JSON.parse(b64url(parts[0])); payload = JSON.parse(b64url(parts[1])); }\n  catch (e) { return { fehler: 'JWT konnte nicht dekodiert werden.' }; }\n  var out = {\n    header: header,\n    payload: payload,\n    signaturVorhanden: parts.length >= 3 && parts[2].length > 0,\n    hinweis: 'Signatur wurde NICHT verifiziert (kein Secret).'\n  };\n  if (payload && typeof payload.exp === 'number') {\n    out.abgelaufen = Date.now() > payload.exp * 1000;\n    out.ablaufDatum = new Date(payload.exp * 1000).toISOString();\n  }\n  if (payload && typeof payload.iat === 'number') {\n    out.ausstellungsDatum = new Date(payload.iat * 1000).toISOString();\n  }\n  return out;\n}"
+}
