@@ -1,0 +1,11 @@
+{
+  "id": "deepfake-check",
+  "name": "Deepfake-Check",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": true,
+  "description": "Prueft ein Bild auf Deepfake/KI-Manipulation und liefert eine Wahrscheinlichkeit (Sightengine-API). Braucht api_user + api_secret (Gratis-Tier auf sightengine.com).",
+  "inputHint": "{ \"imageUrl\": \"https://...\", \"apiUser\": \"\", \"apiSecret\": \"\" }",
+  "code": "// Deepfake-Erkennung fuer ein Bild via Sightengine (echte Wahrscheinlichkeit, kein LLM-Raten).\nasync function run(input) {\n  const url = String((input && input.imageUrl) || '').trim();\n  const apiUser = String((input && input.apiUser) || '').trim();\n  const apiSecret = String((input && input.apiSecret) || '').trim();\n  if (!/^https?:\\/\\//.test(url)) return { fehler: 'Bitte eine vollstaendige Bild-URL (http/https) angeben.' };\n  if (!apiUser || !apiSecret) return { fehler: 'Sightengine api_user und api_secret noetig (Gratis-Tier auf sightengine.com).' };\n  const ep = 'https://api.sightengine.com/1.0/check.json?models=deepfake'\n    + '&api_user=' + encodeURIComponent(apiUser)\n    + '&api_secret=' + encodeURIComponent(apiSecret)\n    + '&url=' + encodeURIComponent(url);\n  const res = await fetch(ep);\n  const d = await res.json();\n  if (d.status !== 'success') return { fehler: (d.error && d.error.message) || 'Pruefung fehlgeschlagen.' };\n  const score = d.type && d.type.deepfake;\n  if (score == null) return { fehler: 'Keine Deepfake-Bewertung erhalten.' };\n  return {\n    deepfakeWahrscheinlichkeit: Math.round(score * 1000) / 1000,\n    prozent: Math.round(score * 100) + '%',\n    einschaetzung: score >= 0.5 ? 'wahrscheinlich Deepfake/manipuliert' : 'wahrscheinlich echt',\n    hinweis: 'Wahrscheinlichkeit, kein forensischer Beweis.',\n    bild: url\n  };\n}"
+}

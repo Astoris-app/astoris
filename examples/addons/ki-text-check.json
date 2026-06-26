@@ -1,0 +1,11 @@
+{
+  "id": "ki-text-check",
+  "name": "KI-Text-Erkennung",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": true,
+  "description": "Schaetzt, ob ein Text von einer KI generiert wurde (Sapling AI-Detection). Liefert eine Wahrscheinlichkeit. Braucht einen API-Key (Gratis-Tier auf sapling.ai).",
+  "inputHint": "{ \"text\": \"Zu pruefender Text ...\", \"apiKey\": \"\" }",
+  "code": "// KI-Text-Erkennung via Sapling AI-Detection (Wahrscheinlichkeit KI-generiert).\nasync function run(input) {\n  const text = String((input && input.text) || '').trim();\n  const apiKey = String((input && input.apiKey) || '').trim();\n  if (text.length < 50) return { fehler: 'Bitte mindestens ~50 Zeichen Text zur Pruefung angeben.' };\n  if (!apiKey) return { fehler: 'Sapling API-Key noetig (Gratis-Tier auf sapling.ai).' };\n  const res = await fetch('https://api.sapling.ai/api/v1/aidetect', {\n    method: 'POST',\n    headers: { 'content-type': 'application/json' },\n    body: JSON.stringify({ key: apiKey, text: text })\n  });\n  const d = await res.json();\n  const score = d.score;\n  if (score == null) return { fehler: (d.msg || d.message) || 'Pruefung fehlgeschlagen.' };\n  return {\n    kiWahrscheinlichkeit: Math.round(score * 1000) / 1000,\n    prozent: Math.round(score * 100) + '%',\n    einschaetzung: score >= 0.5 ? 'wahrscheinlich KI-generiert' : 'wahrscheinlich menschlich geschrieben',\n    geprüfteZeichen: text.length\n  };\n}"
+}
