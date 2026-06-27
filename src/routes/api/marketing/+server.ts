@@ -335,23 +335,29 @@ export async function POST({ request }) {
 			`budgetEUR ist das Tagesbudget in EUR (nutze ${budgetFallback}, falls nicht anders sinnvoll).`;
 		const userPrompt = `Produkt/Angebot: ${offer}\nFinal URL: ${finalUrl}\nGewünschtes Tagesbudget (EUR): ${budgetFallback}`;
 		const system = [baseRole(c), companyContext(c), instruction].filter(Boolean).join('\n\n');
-		const res = await engineChat([
-			{ role: 'system', content: system },
-			{ role: 'user', content: userPrompt }
-		]);
-		if (res.source === 'demo') return json({ ok: false, message: res.reply });
-		let campaign: GoogleAdsCampaign;
-		try {
-			campaign = normalizeCampaign(parseCampaignJson(res.reply), finalUrl, budgetFallback);
-		} catch {
-			return json({ ok: false, message: 'Die KI hat kein gültiges Kampagnen-JSON geliefert. Bitte erneut versuchen.' }, { status: 502 });
+		// Lokale Modelle liefern JSON nicht immer sauber → bis zu 2 Versuche.
+		let campaign: GoogleAdsCampaign | null = null;
+		let lastSource = 'demo';
+		for (let attempt = 0; attempt < 2 && !campaign; attempt++) {
+			const res = await engineChat([
+				{ role: 'system', content: system },
+				{ role: 'user', content: userPrompt }
+			]);
+			lastSource = res.source;
+			if (res.source === 'demo') return json({ ok: false, message: res.reply });
+			try {
+				const parsed = normalizeCampaign(parseCampaignJson(res.reply), finalUrl, budgetFallback);
+				if (parsed.adGroups.length) campaign = parsed;
+			} catch {
+				/* nächster Versuch */
+			}
 		}
-		if (!campaign.adGroups.length) {
-			return json({ ok: false, message: 'Die KI-Antwort enthielt keine Anzeigengruppen. Bitte erneut versuchen.' }, { status: 502 });
+		if (!campaign) {
+			return json({ ok: false, message: 'Die KI hat kein gültiges Kampagnen-JSON geliefert. Bitte erneut versuchen.' }, { status: 502 });
 		}
 		const text = campaignToText(campaign);
 		const marketing = saveResult('googleAds', `${offer}`.slice(0, 80), text, campaign);
-		return json({ ok: true, result: text, campaign, source: res.source, marketing });
+		return json({ ok: true, result: text, campaign, source: lastSource, marketing });
 	}
 
 	// CSV-Export per POST (z. B. für eine direkt mitgesendete Kampagne, sonst die gespeicherte).
