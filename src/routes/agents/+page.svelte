@@ -3,6 +3,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { renderMarkdown } from '$lib/markdown';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { EMOJI_CATEGORIES } from '$lib/emojis';
 
 	// ---------- Types ----------
 	type Persona = {
@@ -89,6 +90,14 @@
 		busy: boolean;
 		error: string;
 	}>({ open: false, id: null, emoji: '', name: '', tagline: '', systemPrompt: '', busy: false, error: '' });
+
+	// emoji picker (popover inside the persona editor)
+	let emojiPickerOpen = $state(false);
+	let emojiCat = $state(0);
+	function pickEmoji(e: string) {
+		editor.emoji = e;
+		emojiPickerOpen = false;
+	}
 
 	// company head form
 	let cName = $state('');
@@ -208,9 +217,11 @@
 
 	// ---------- Persona actions ----------
 	function openCreate() {
+		emojiPickerOpen = false;
 		editor = { open: true, id: null, emoji: '', name: '', tagline: '', systemPrompt: '', busy: false, error: '' };
 	}
 	function openEdit(p: Persona) {
+		emojiPickerOpen = false;
 		editor = {
 			open: true,
 			id: p.id,
@@ -223,6 +234,7 @@
 		};
 	}
 	function closeEditor() {
+		emojiPickerOpen = false;
 		editor = { ...editor, open: false };
 	}
 
@@ -1230,10 +1242,46 @@
 
 			<div class="fields">
 				<div class="two">
-					<label>
+					<div class="emoji-field">
 						<span>{i18n.t('agents.emoji')}</span>
-						<input type="text" maxlength="4" placeholder="🙂" bind:value={editor.emoji} disabled={readOnly} autocomplete="off" />
-					</label>
+						<div class="emoji-input-row">
+							<button
+								type="button"
+								class="emoji-trigger"
+								onclick={() => (emojiPickerOpen = !emojiPickerOpen)}
+								disabled={readOnly}
+								aria-haspopup="true"
+								aria-expanded={emojiPickerOpen}
+								aria-label={i18n.t('agents.emojiPick')}
+								title={i18n.t('agents.emojiPick')}
+							>{editor.emoji || '🙂'}</button>
+							<input type="text" maxlength="4" placeholder="🙂" bind:value={editor.emoji} disabled={readOnly} autocomplete="off" />
+						</div>
+						{#if emojiPickerOpen && !readOnly}
+							<div class="emoji-pop">
+								<div class="emoji-tabs" role="tablist">
+									{#each EMOJI_CATEGORIES as cat, i (cat.key)}
+										<button
+											type="button"
+											class="emoji-tab"
+											class:on={emojiCat === i}
+											role="tab"
+											aria-selected={emojiCat === i}
+											title={i18n.t('agents.' + cat.key)}
+											aria-label={i18n.t('agents.' + cat.key)}
+											onclick={() => (emojiCat = i)}
+										>{cat.emojis[0]}</button>
+									{/each}
+								</div>
+								<div class="emoji-cat-title">{i18n.t('agents.' + EMOJI_CATEGORIES[emojiCat].key)}</div>
+								<div class="emoji-grid">
+									{#each EMOJI_CATEGORIES[emojiCat].emojis as e (e)}
+										<button type="button" class="emoji-cell" onclick={() => pickEmoji(e)}>{e}</button>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
 					<label class="grow">
 						<span>{i18n.t('agents.name')}</span>
 						<input type="text" placeholder={i18n.t('agents.personaNamePlaceholder')} bind:value={editor.name} disabled={readOnly} autocomplete="off" />
@@ -1595,6 +1643,47 @@
 	.fields .two label:first-child { width: 80px; flex: none; }
 	.fields .two label.grow { flex: 1; }
 	.fields label span { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 5px; }
+
+	/* Emoji field + picker */
+	.fields .two .emoji-field { position: relative; flex: none; width: 124px; }
+	.emoji-field > span { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 5px; }
+	.emoji-input-row { display: flex; gap: 6px; align-items: stretch; }
+	.emoji-trigger {
+		flex: none; width: 42px; display: grid; place-items: center;
+		background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
+		font-size: 19px; line-height: 1; cursor: pointer; transition: border-color 0.14s, background 0.14s;
+	}
+	.emoji-trigger:hover:not(:disabled) { border-color: var(--ember-line); background: var(--surface-1); }
+	.emoji-trigger:disabled { opacity: 0.5; cursor: default; }
+	.emoji-field .emoji-input-row input { width: 100%; min-width: 0; }
+	.emoji-pop {
+		position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+		width: 296px; max-width: 78vw;
+		background: var(--surface-3); border: 1px solid var(--border); border-radius: 12px;
+		box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 6px;
+	}
+	.emoji-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border-soft); padding-bottom: 6px; }
+	.emoji-tab {
+		flex: 1; display: grid; place-items: center; height: 30px; border-radius: 7px;
+		background: transparent; border: none; font-size: 16px; line-height: 1; cursor: pointer;
+		opacity: 0.6; transition: background 0.14s, opacity 0.14s;
+	}
+	.emoji-tab:hover { opacity: 1; background: var(--surface-1); }
+	.emoji-tab.on { opacity: 1; background: var(--ember-soft); }
+	.emoji-cat-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); font-family: var(--font-mono); padding: 0 2px; }
+	.emoji-grid {
+		display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+		max-height: 196px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+	}
+	.emoji-grid::-webkit-scrollbar { width: 6px; }
+	.emoji-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+	.emoji-cell {
+		aspect-ratio: 1; display: grid; place-items: center; border-radius: 7px;
+		background: transparent; border: none; font-size: 18px; line-height: 1; cursor: pointer;
+		transition: background 0.12s, transform 0.12s;
+	}
+	.emoji-cell:hover { background: var(--surface-1); transform: scale(1.12); }
+
 	.result { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 11px 13px; border-radius: 10px; font-size: 13px; }
 	.result.bad { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-soft); }
 	.result span { font-weight: 700; }

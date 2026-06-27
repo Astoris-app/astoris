@@ -17,15 +17,37 @@
 	// Im Mobile-Drawer immer mit Labels (volle Breite), sonst Desktop-Verhalten unverändert.
 	let showFull = $derived(expanded || mobileOpen);
 
+	// Akkordeon: pro Etage offen/zu. Explizite Wahl wird in localStorage gemerkt;
+	// Etagen ohne Eintrag fallen auf den Standard zurück (aktuelle Etage offen).
+	let openFloors = $state<Record<string, boolean>>({});
+
+	function isActive(href: string) {
+		return href === '/' ? path === '/' : path.startsWith(href);
+	}
+	// Etage der aktuell offenen Seite (für den Standard-Aufklappzustand).
+	let activeFloorId = $derived(floors.find((f) => f.apps.some((a) => isActive(a.href)))?.id ?? null);
+	// Offen, wenn explizit gewählt — sonst Standard: nur die aktive Etage offen.
+	function floorOpen(id: string): boolean {
+		return id in openFloors ? openFloors[id] : id === activeFloorId;
+	}
+
 	onMount(() => {
 		try { expanded = localStorage.getItem('astoris-rail') === '1'; } catch { /* ignore */ }
+		try {
+			const raw = localStorage.getItem('astoris-floors-open');
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				if (parsed && typeof parsed === 'object') openFloors = parsed;
+			}
+		} catch { /* ignore */ }
 	});
 	function toggle() {
 		expanded = !expanded;
 		try { localStorage.setItem('astoris-rail', expanded ? '1' : '0'); } catch { /* ignore */ }
 	}
-	function isActive(href: string) {
-		return href === '/' ? path === '/' : path.startsWith(href);
+	function toggleFloor(id: string) {
+		openFloors = { ...openFloors, [id]: !floorOpen(id) };
+		try { localStorage.setItem('astoris-floors-open', JSON.stringify(openFloors)); } catch { /* ignore */ }
 	}
 </script>
 
@@ -55,33 +77,54 @@
 			</a>
 		</div>
 
+		<!-- Ein App-Link (in Akkordeon und Icon-Modus gleich) -->
+		{#snippet appLink(app: (typeof floors)[number]['apps'][number])}
+			<a
+				class="item"
+				class:active={isActive(app.href)}
+				href={app.href}
+				aria-current={isActive(app.href) ? 'page' : undefined}
+				title={showFull ? '' : i18n.t('apps.' + app.id)}
+				onclick={onNavigate}
+			>
+				<Icon path={app.icon} />
+				{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
+				{#if !app.ready}<span class="soon" aria-hidden="true"></span>{/if}
+			</a>
+		{/snippet}
+
 		<!-- Vier Etagen des Firmengebäudes -->
 		{#each floors as floor (floor.id)}
 			<div class="floor" aria-label={i18n.t(floor.labelKey)}>
 				{#if showFull}
-					<div class="floor-label">
+					<!-- Ausgeklappt/Mobile: Etage als Akkordeon -->
+					{@const open = floorOpen(floor.id)}
+					<button
+						class="floor-header"
+						class:open
+						aria-expanded={open}
+						onclick={() => toggleFloor(floor.id)}
+					>
 						<span class="floor-ico"><Icon path={floor.icon} /></span>
 						<span class="floor-name">{i18n.t(floor.labelKey)}</span>
+						<svg class="chev" class:open viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+					</button>
+					<div class="floor-apps" class:open>
+						<div class="floor-apps-inner">
+							{#each floor.apps as app (app.id)}
+								{@render appLink(app)}
+							{/each}
+						</div>
 					</div>
 				{:else}
+					<!-- Eingeklappte Leiste: nur Icons, kein Akkordeon -->
 					<div class="floor-sep" aria-hidden="true"></div>
+					<div class="group">
+						{#each floor.apps as app (app.id)}
+							{@render appLink(app)}
+						{/each}
+					</div>
 				{/if}
-				<div class="group">
-					{#each floor.apps as app (app.id)}
-						<a
-							class="item"
-							class:active={isActive(app.href)}
-							href={app.href}
-							aria-current={isActive(app.href) ? 'page' : undefined}
-							title={showFull ? '' : i18n.t('apps.' + app.id)}
-							onclick={onNavigate}
-						>
-							<Icon path={app.icon} />
-							{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
-							{#if !app.ready}<span class="soon" aria-hidden="true"></span>{/if}
-						</a>
-					{/each}
-				</div>
 			</div>
 		{/each}
 	</div>
@@ -166,21 +209,58 @@
 	.rail:not(.expanded) .floor { align-items: center; margin-top: 8px; }
 	.entrance { margin-bottom: 2px; }
 
-	/* Etagen-Label (nur ausgeklappt) — dezent, mit Etagen-Icon. */
-	.floor-label {
+	/* Etagen-Header (nur ausgeklappt) — klickbar, klappt die Etage auf/zu. */
+	.floor-header {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: 4px 12px 3px;
+		width: 100%;
+		padding: 6px 10px 5px;
+		border: none;
+		background: transparent;
+		border-radius: 9px;
 		color: var(--text-faint);
 		font-size: 11px;
 		font-family: var(--font-mono);
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
+		cursor: pointer;
+		transition: color 0.16s, background 0.16s;
 	}
-	.floor-ico { display: grid; place-items: center; opacity: 0.7; }
+	.floor-header:hover { color: var(--text-muted); background: var(--surface-1); }
+	.floor-header.open { color: var(--text-muted); }
+	.floor-ico { display: grid; place-items: center; opacity: 0.7; flex: none; }
 	.floor-ico :global(svg) { width: 14px; height: 14px; }
 	.floor-name { white-space: nowrap; }
+	.floor-header .chev {
+		width: 15px;
+		height: 15px;
+		margin-left: auto;
+		flex: none;
+		opacity: 0.6;
+		transition: transform 0.22s var(--ease);
+	}
+	.floor-header .chev.open { transform: rotate(180deg); }
+
+	/* Aufklapp-Container: weiche Höhen-Transition via grid-template-rows. */
+	.floor-apps {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows 0.24s var(--ease);
+	}
+	.floor-apps.open { grid-template-rows: 1fr; }
+	.floor-apps-inner {
+		min-height: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		padding: 0 0 1px;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.floor-apps { transition: none; }
+		.floor-header .chev { transition: none; }
+	}
 
 	/* Trenner zwischen Gruppen (nur eingeklappt) — sehr dezent. */
 	.floor-sep {
