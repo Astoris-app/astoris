@@ -249,7 +249,7 @@ export async function POST({ request }) {
 		if (!c.agents.length) return json({ error: 'Keine Agenten in der Firma.' }, { status: 400 });
 
 		const roster = c.agents.map((a) => `- ${a.name} (${a.role})`).join('\n');
-		const planPrompt = `Du bist Projektkoordinator${c.name ? ' bei ' + c.name : ''}.\nTeam:\n${roster}\n\nGesamtaufgabe: ${task}\n\nVerteile die Aufgabe auf die passenden Teammitglieder (nur die nötigen, max 4). Antworte AUSSCHLIESSLICH als JSON-Array, ohne weiteren Text: [{"agent":"<exakter Name>","auftrag":"<konkreter Teilauftrag>"}]`;
+		const planPrompt = `Du bist Projektkoordinator${c.name ? ' bei ' + c.name : ''}.\nTeam:\n${roster}\n\nGesamtaufgabe: ${task}\n\nVerteile die Aufgabe auf MEHRERE passende Teammitglieder mit unterschiedlichen Perspektiven — in der Regel 2 bis 4 (z. B. Strategie, Marketing, Recht, Entwicklung). Nur bei sehr engen, rein fachspezifischen Aufgaben genügt ein einzelner. Antworte AUSSCHLIESSLICH als JSON-Array, ohne weiteren Text: [{"agent":"<exakter Name>","auftrag":"<konkreter Teilauftrag>"}]`;
 		const plan = await engineChat([{ role: 'user', content: planPrompt }]);
 		let assignments: { agent: string; auftrag: string }[] = [];
 		try {
