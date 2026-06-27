@@ -165,7 +165,7 @@ export const APPS: AppDef[] = [
 		id: 'research',
 		label: 'Recherche',
 		href: '/research',
-		floor: 'arbeitsplatz',
+		floor: 'wachstum',
 		group: 'work',
 		ready: true,
 		capability: 'web',
