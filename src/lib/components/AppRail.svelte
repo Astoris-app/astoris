@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { APPS } from '$lib/apps';
+	import { APPS, FLOORS, OVERVIEW_APP, appsOnFloor } from '$lib/apps';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import Icon from './Icon.svelte';
 	import Brand from './Brand.svelte';
@@ -10,8 +10,8 @@
 	// Auf Mobile wird die Rail zum Off-Canvas-Drawer (vom Layout gesteuert).
 	let { mobileOpen = false, onNavigate = () => {} }: { mobileOpen?: boolean; onNavigate?: () => void } = $props();
 
-	let work = $derived(APPS.filter((a) => a.group === 'work'));
-	let system = $derived(APPS.filter((a) => a.group === 'system'));
+	// Etagen mit ihren Apps vorbereiten (Reihenfolge aus apps.ts).
+	let floors = $derived(FLOORS.map((f) => ({ ...f, apps: appsOnFloor(f.id) })).filter((f) => f.apps.length > 0));
 	let path = $derived(page.url.pathname);
 	let expanded = $state(false);
 	// Im Mobile-Drawer immer mit Labels (volle Breite), sonst Desktop-Verhalten unverändert.
@@ -39,24 +39,50 @@
 		{#if showFull}<span class="brand-name">Astoris</span>{/if}
 	</a>
 
-	<div class="group">
-		{#each work as app (app.id)}
-			<a class="item" class:active={isActive(app.href)} href={app.href} title={showFull ? '' : i18n.t('apps.' + app.id)} onclick={onNavigate}>
-				<Icon path={app.icon} />
-				{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
-				{#if !app.ready}<span class="soon" aria-hidden="true"></span>{/if}
+	<div class="nav-scroll">
+		<!-- Eingang / Lobby — steht über den Etagen -->
+		<div class="group entrance">
+			<a
+				class="item entry"
+				class:active={isActive(OVERVIEW_APP.href)}
+				href={OVERVIEW_APP.href}
+				aria-current={isActive(OVERVIEW_APP.href) ? 'page' : undefined}
+				title={showFull ? '' : i18n.t('apps.uebersicht')}
+				onclick={onNavigate}
+			>
+				<Icon path={OVERVIEW_APP.icon} />
+				{#if showFull}<span class="label">{i18n.t('apps.uebersicht')}</span>{:else}<span class="tip">{i18n.t('apps.uebersicht')}</span>{/if}
 			</a>
-		{/each}
-	</div>
+		</div>
 
-	<div class="spacer"></div>
-
-	<div class="group">
-		{#each system as app (app.id)}
-			<a class="item" class:active={isActive(app.href)} href={app.href} title={showFull ? '' : i18n.t('apps.' + app.id)} onclick={onNavigate}>
-				<Icon path={app.icon} />
-				{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
-			</a>
+		<!-- Vier Etagen des Firmengebäudes -->
+		{#each floors as floor (floor.id)}
+			<div class="floor" aria-label={i18n.t(floor.labelKey)}>
+				{#if showFull}
+					<div class="floor-label">
+						<span class="floor-ico"><Icon path={floor.icon} /></span>
+						<span class="floor-name">{i18n.t(floor.labelKey)}</span>
+					</div>
+				{:else}
+					<div class="floor-sep" aria-hidden="true"></div>
+				{/if}
+				<div class="group">
+					{#each floor.apps as app (app.id)}
+						<a
+							class="item"
+							class:active={isActive(app.href)}
+							href={app.href}
+							aria-current={isActive(app.href) ? 'page' : undefined}
+							title={showFull ? '' : i18n.t('apps.' + app.id)}
+							onclick={onNavigate}
+						>
+							<Icon path={app.icon} />
+							{#if showFull}<span class="label">{i18n.t('apps.' + app.id)}</span>{:else}<span class="tip">{i18n.t('apps.' + app.id)}</span>{/if}
+							{#if !app.ready}<span class="soon" aria-hidden="true"></span>{/if}
+						</a>
+					{/each}
+				</div>
+			</div>
 		{/each}
 	</div>
 
@@ -108,14 +134,63 @@
 		border-radius: 12px;
 		margin-bottom: 8px;
 		padding-left: 7px;
+		flex: none;
 		transition: transform 0.25s var(--ease);
 	}
 	.rail:not(.expanded) .brand { width: 44px; justify-content: center; padding-left: 0; align-self: center; }
 	.brand:hover { transform: scale(1.04); }
 	.brand-name { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--text); letter-spacing: -0.01em; }
+
+	/* Scrollbarer Mittelteil (alle Etagen) — Brand + Engine bleiben fix. */
+	.nav-scroll {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		overflow-y: auto;
+		overflow-x: hidden;
+		scrollbar-width: thin;
+		scrollbar-color: var(--border) transparent;
+	}
+	.nav-scroll::-webkit-scrollbar { width: 6px; }
+	.nav-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+	.rail:not(.expanded) .nav-scroll { align-items: center; }
+
 	.group { display: flex; flex-direction: column; gap: 3px; width: 100%; }
 	.rail:not(.expanded) .group { align-items: center; }
-	.spacer { flex: 1; }
+
+	/* Etagen-Block: dezenter Abstand trennt die Gruppen. */
+	.floor { width: 100%; display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+	.rail:not(.expanded) .floor { align-items: center; margin-top: 8px; }
+	.entrance { margin-bottom: 2px; }
+
+	/* Etagen-Label (nur ausgeklappt) — dezent, mit Etagen-Icon. */
+	.floor-label {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 4px 12px 3px;
+		color: var(--text-faint);
+		font-size: 11px;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+	.floor-ico { display: grid; place-items: center; opacity: 0.7; }
+	.floor-ico :global(svg) { width: 14px; height: 14px; }
+	.floor-name { white-space: nowrap; }
+
+	/* Trenner zwischen Gruppen (nur eingeklappt) — sehr dezent. */
+	.floor-sep {
+		width: 22px;
+		height: 1px;
+		flex: none;
+		background: var(--border-soft);
+		margin: 3px 0 4px;
+	}
+
 	.item {
 		position: relative;
 		display: flex;
@@ -130,6 +205,8 @@
 	.rail:not(.expanded) .item { width: 44px; padding: 0; justify-content: center; }
 	.item:hover { color: var(--text); background: var(--surface-1); }
 	.item.active { color: var(--ember-bright); background: var(--ember-soft); }
+	.item.entry { color: var(--text); }
+	.item.entry.active { color: var(--ember-bright); }
 	.rail.expanded .item.active::before { display: none; }
 	.item.active::before {
 		content: '';
@@ -171,7 +248,7 @@
 		z-index: 30;
 	}
 	.item:hover .tip { opacity: 1; transform: translateY(-50%) translateX(0); }
-	.engine-wrap { width: 100%; display: grid; place-items: center; margin-top: 8px; }
+	.engine-wrap { width: 100%; display: grid; place-items: center; margin-top: 8px; flex: none; }
 	.rail.expanded .engine-wrap { place-items: stretch; }
 	.engine-wrap :global(.engine) { padding: 8px; border: none; background: transparent; }
 	.rail:not(.expanded) .engine-wrap :global(.meta) { display: none; }
