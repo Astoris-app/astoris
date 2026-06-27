@@ -91,6 +91,17 @@ export const APPS: AppDef[] = [
 		blurb: 'Maßnahme → messen → KI bewertet → Learning. Experimente an deinen Kennzahlen testen und systematisch dazulernen.',
 		icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z'
 	},
+	{
+		id: 'entscheidungen',
+		label: 'Entscheidungen',
+		href: '/entscheidungen',
+		floor: 'leitung',
+		group: 'work',
+		ready: true,
+		capability: 'agents',
+		blurb: 'Alle offenen Freigaben an einem Ort — freigeben oder ablehnen, was deine Agenten vorbereitet haben.',
+		icon: 'M5 7.5h11M5 12h7M5 16.5h5M14 16l2.2 2.2L21 13.5'
+	},
 
 	// ---------- Etage 2 · Wachstum ----------
 	{
@@ -228,6 +239,17 @@ export const APPS: AppDef[] = [
 		capability: 'crypto',
 		blurb: 'Nachrichten & Dateien Ende-zu-Ende verschlüsseln und sicher versenden.',
 		icon: 'M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5zM12 14v3'
+	},
+	{
+		id: 'logs',
+		label: 'Systemprotokoll',
+		href: '/logs',
+		floor: 'technik',
+		group: 'system',
+		ready: true,
+		capability: 'logs',
+		blurb: 'Das Logbuch deines Maschinenraums: KI-Läufe, Engine-Status und Fehler — neueste zuerst.',
+		icon: 'M5 4h11l3 3v13H5zM9 9h6M9 12.5h6M9 16h4'
 	},
 	{
 		id: 'settings',

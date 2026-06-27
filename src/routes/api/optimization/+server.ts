@@ -10,6 +10,7 @@ import {
 import { getMetrics, type Metric } from '$lib/server/metrics';
 import { getCompany, addMemory } from '$lib/server/company';
 import { engineChat } from '$lib/server/engine';
+import { logEvent } from '$lib/server/syslog';
 
 // Auth: alle /api-Routen sind in hooks.server.ts session-pflichtig (kein eigener Check nötig).
 
@@ -185,6 +186,7 @@ export async function POST({ request }) {
 
 		// Skip-on-fail: keine KI verbunden / Engine nicht erreichbar → klare Meldung, nichts speichern.
 		if (res.source === 'demo') {
+			logEvent('warn', 'optimierung', `KI nicht erreichbar — Auswertung übersprungen: ${exp.title}`.slice(0, 200));
 			return json({ ok: false, message: res.reply, experiments: getExperiments() });
 		}
 

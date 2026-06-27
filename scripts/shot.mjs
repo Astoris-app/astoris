@@ -35,7 +35,8 @@ try {
   await cmd('Network.enable');
   if (sess) await cmd('Network.setCookie', { name: 'astoris_session', value: sess, domain: 'localhost', path: '/', secure: true, httpOnly: true });
   await cmd('Page.enable');
-  await cmd('Page.navigate', { url: `https://localhost:5180${path}` });
+  const url = path.startsWith('http') ? path : `https://localhost:5180${path}`;
+  await cmd('Page.navigate', { url });
   await sleep(3500);
   const r = await cmd('Page.captureScreenshot', { format: 'png' });
   writeFileSync(out, Buffer.from(r.data, 'base64'));

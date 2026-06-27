@@ -11,6 +11,7 @@ import {
 } from '$lib/server/company';
 import { getPersona } from '$lib/server/personas';
 import { engineChat } from '$lib/server/engine';
+import { logEvent } from '$lib/server/syslog';
 
 // Normalisiert eine eingehende Metrik (oder null, wenn unbrauchbar/leer).
 function parseMetric(m: unknown): GoalMetric | undefined {
@@ -238,6 +239,9 @@ export async function POST({ request }) {
 		if (!task) return json({ error: 'Aufgabe fehlt.' }, { status: 400 });
 		const result = await runAgentTask(c, agent, task);
 		feed({ type: 'agent-task', agentId: agent.id, agentName: agent.name, title: `${agent.name} bearbeitete eine Aufgabe`, detail: shorten(task) });
+		// Syslog: KI-Lauf festhalten; bei nicht erreichbarer KI als Warnung.
+		if (result.source === 'demo') logEvent('warn', 'team', `KI nicht erreichbar — Aufgabe für ${agent.name} nicht ausgeführt`);
+		else logEvent('info', 'team', `Agent ${agent.name} bearbeitete eine Aufgabe`);
 		return json({ result: result.reply, source: result.source, company: getCompany() });
 	}
 
@@ -273,6 +277,7 @@ export async function POST({ request }) {
 		const summaryPrompt = `Gesamtaufgabe: ${task}\n\nTeilergebnisse des Teams:\n\n${breakdown.map((r) => `### ${r.agent} (${r.role})\n${r.ergebnis}`).join('\n\n')}\n\nFasse die Teilergebnisse zu einem stimmigen, vollständigen Gesamtergebnis zusammen.`;
 		const summary = await engineChat([{ role: 'user', content: summaryPrompt }]);
 		feed({ type: 'company-run', title: 'Firma bearbeitete: ' + shorten(task, 90), detail: `${breakdown.length} Agenten beteiligt` });
+		logEvent('info', 'team', `Firma bearbeitete eine Aufgabe — ${breakdown.length} Agenten beteiligt`);
 		return json({ result: summary.reply, breakdown, source: summary.source, company: getCompany() });
 	}
 

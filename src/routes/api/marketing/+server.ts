@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getCompany, MEMORY_CATEGORIES, type Company, type MemoryCategory } from '$lib/server/company';
 import { getCrm } from '$lib/server/crm';
 import { engineChat } from '$lib/server/engine';
+import { logEvent } from '$lib/server/syslog';
 import {
 	getMarketing,
 	saveResult,
@@ -113,6 +114,7 @@ async function run(tool: MarketingTool, instruction: string, userPrompt: string,
 	]);
 	if (res.source === 'demo') {
 		// Keine KI verbunden oder Engine nicht erreichbar → klare Meldung, nicht speichern.
+		logEvent('warn', 'marketing', `KI nicht erreichbar — ${tool} nicht generiert`);
 		return json({ ok: false, message: res.reply });
 	}
 	const marketing = saveResult(tool, label, res.reply);
@@ -353,6 +355,7 @@ export async function POST({ request }) {
 			}
 		}
 		if (!campaign) {
+			logEvent('error', 'marketing', 'Google-Ads: kein gültiges Kampagnen-JSON von der KI erhalten');
 			return json({ ok: false, message: 'Die KI hat kein gültiges Kampagnen-JSON geliefert. Bitte erneut versuchen.' }, { status: 502 });
 		}
 		const text = campaignToText(campaign);
