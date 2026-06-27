@@ -5,11 +5,15 @@
 	import { renderMarkdown } from '$lib/markdown';
 
 	// ---------- Types ----------
-	type Tool = 'content' | 'social' | 'ads' | 'campaign';
-	type Entry = { id: string; label: string; result: string; at: string };
+	type Tool = 'content' | 'social' | 'ads' | 'campaign' | 'googleAds';
+	type GaKeyword = { text: string; matchType: string };
+	type GaAdGroup = { name: string; keywords: GaKeyword[]; headlines: string[]; descriptions: string[]; path1: string; path2: string };
+	type GaCampaign = { campaignName: string; budgetEUR: number; finalUrl: string; adGroups: GaAdGroup[] };
+	type Entry = { id: string; label: string; result: string; at: string; data?: GaCampaign };
 	type ToolState = { last: Entry | null; history: Entry[] };
 	type Marketing = Record<Tool, ToolState>;
 
+	// Generische Werkzeuge (Markdown-Ergebnis); googleAds wird separat strukturiert gerendert.
 	const TOOLS: Tool[] = ['content', 'social', 'ads', 'campaign'];
 	const SOCIAL_PLATFORMS = ['linkedin', 'x', 'instagram'] as const;
 	const ADS_PLATFORMS = ['google', 'meta'] as const;
@@ -20,13 +24,14 @@
 
 	// ---------- State ----------
 	let tab = $state<Tool>('content');
-	let marketing = $state<Marketing>({ content: emptyTool(), social: emptyTool(), ads: emptyTool(), campaign: emptyTool() });
+	let marketing = $state<Marketing>({ content: emptyTool(), social: emptyTool(), ads: emptyTool(), campaign: emptyTool(), googleAds: emptyTool() });
 	let loading = $state(true);
 	let busy = $state<Tool | null>(null);
-	let errors = $state<Record<Tool, string>>({ content: '', social: '', ads: '', campaign: '' });
+	let errors = $state<Record<Tool, string>>({ content: '', social: '', ads: '', campaign: '', googleAds: '' });
 	// Freshly generated result per tool (kept separate so it's visible immediately, top of the list).
-	let fresh = $state<Record<Tool, string>>({ content: '', social: '', ads: '', campaign: '' });
+	let fresh = $state<Record<Tool, string>>({ content: '', social: '', ads: '', campaign: '', googleAds: '' });
 	let copied = $state<string | null>(null);
+	let downloading = $state(false);
 
 	// Inputs
 	let contentTopic = $state('');
@@ -35,6 +40,9 @@
 	let adsOffer = $state('');
 	let adsPlatform = $state<(typeof ADS_PLATFORMS)[number]>('google');
 	let campaignGoal = $state('');
+	let gaOffer = $state('');
+	let gaUrl = $state('');
+	let gaBudget = $state('');
 
 	// ---------- Loaders ----------
 	function applyMarketing(m: any) {
@@ -46,7 +54,8 @@
 			content: safe(m?.content),
 			social: safe(m?.social),
 			ads: safe(m?.ads),
-			campaign: safe(m?.campaign)
+			campaign: safe(m?.campaign),
+			googleAds: safe(m?.googleAds)
 		};
 	}
 
@@ -106,6 +115,53 @@
 	function genCampaign() {
 		if (!campaignGoal.trim()) return;
 		generate('campaign', { action: 'generate-campaign', goal: campaignGoal.trim() });
+	}
+	function genGoogleAds() {
+		const offer = gaOffer.trim();
+		const url = gaUrl.trim();
+		if (!offer || !url) return;
+		if (!/^https?:\/\//i.test(url)) {
+			errors.googleAds = i18n.t('marketing.googleAdsInvalidUrl');
+			return;
+		}
+		const budget = Number(gaBudget);
+		generate('googleAds', {
+			action: 'generate-google-ads',
+			offer,
+			finalUrl: url,
+			...(Number.isFinite(budget) && budget > 0 ? { budget } : {})
+		});
+	}
+
+	// Lädt die gespeicherte Kampagne als Google-Ads-Editor-CSV (UTF-16 LE) herunter.
+	async function downloadGoogleAdsCsv() {
+		if (downloading) return;
+		downloading = true;
+		try {
+			const res = await fetch('/api/marketing?action=google-ads-csv');
+			if (!res.ok) {
+				errors.googleAds = i18n.t('marketing.failed');
+				return;
+			}
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'astoris-kampagne.csv';
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+		} catch {
+			errors.googleAds = i18n.t('marketing.networkError');
+		} finally {
+			downloading = false;
+		}
+	}
+
+	// Aktuelle Google-Ads-Kampagne (frisch erzeugt oder zuletzt gespeichert).
+	function gaEntry(): Entry | null {
+		return marketing.googleAds.last;
 	}
 
 	async function clearTool(tool: Tool) {
@@ -190,6 +246,10 @@
 		<button class="tab" class:on={tab === 'campaign'} role="tab" aria-selected={tab === 'campaign'} onclick={() => (tab = 'campaign')}>
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /><circle cx="18" cy="18" r="2.5" /></svg>
 			{i18n.t('marketing.tabCampaign')}
+		</button>
+		<button class="tab" class:on={tab === 'googleAds'} role="tab" aria-selected={tab === 'googleAds'} onclick={() => (tab = 'googleAds')}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v11H3z" /><path d="M8 20h8M12 16v4" /><path d="m8 12 2.4-3.2L13 11l3-4" /></svg>
+			{i18n.t('marketing.tabGoogleAds')}
 		</button>
 	</div>
 
@@ -317,6 +377,114 @@
 				</div>
 			{/if}
 		{/each}
+
+		<!-- Google-Ads-Kampagne: strukturierte Eingabe + Anzeige + CSV-Export. -->
+		{#if tab === 'googleAds'}
+			{@const ga = gaEntry()}
+			<div class="tool">
+				<p class="lead">{i18n.t('marketing.googleAdsLead')}</p>
+
+				<div class="form">
+					<label>
+						<span>{i18n.t('marketing.googleAdsOfferLabel')}</span>
+						<textarea rows="2" placeholder={i18n.t('marketing.googleAdsOfferPlaceholder')} bind:value={gaOffer}></textarea>
+					</label>
+					<div class="row">
+						<label class="grow">
+							<span>{i18n.t('marketing.googleAdsUrlLabel')}</span>
+							<input type="url" inputmode="url" placeholder={i18n.t('marketing.googleAdsUrlPlaceholder')} bind:value={gaUrl} />
+						</label>
+						<label class="budget">
+							<span>{i18n.t('marketing.googleAdsBudgetLabel')}</span>
+							<input type="number" min="0" step="1" placeholder={i18n.t('marketing.googleAdsBudgetPlaceholder')} bind:value={gaBudget} />
+						</label>
+					</div>
+					<div class="actions">
+						<button class="btn primary" onclick={genGoogleAds} disabled={busy === 'googleAds' || !gaOffer.trim() || !gaUrl.trim()}>
+							{busy === 'googleAds' ? i18n.t('marketing.generating') : i18n.t('marketing.generate')}
+						</button>
+					</div>
+				</div>
+
+				{#if errors.googleAds}
+					<div class="notice">{errors.googleAds}</div>
+				{/if}
+
+				{#if busy === 'googleAds'}
+					<div class="result-box pending">
+						<span class="spinner"></span>
+						<span>{i18n.t('marketing.generating')}</span>
+					</div>
+				{:else if ga && ga.data}
+					{@const c = ga.data}
+					<div class="result-box">
+						<div class="result-head">
+							<div class="result-meta">
+								<span class="result-title">{i18n.t('marketing.result')}</span>
+								{#if ga.at}<span class="result-time">{fmtDate(ga.at)}</span>{/if}
+							</div>
+							<div class="result-tools">
+								<button class="mini-btn" onclick={() => copy(ga.id, ga.result)}>
+									{copied === ga.id ? i18n.t('marketing.copied') : i18n.t('marketing.copy')}
+								</button>
+								<button class="mini-btn" onclick={downloadGoogleAdsCsv} disabled={downloading}>
+									{i18n.t('marketing.googleAdsExportCsv')}
+								</button>
+								<button class="mini-btn danger" onclick={() => clearTool('googleAds')}>{i18n.t('marketing.clear')}</button>
+							</div>
+						</div>
+
+						<div class="ga">
+							<h2 class="ga-name">{c.campaignName}</h2>
+							<div class="ga-sub">
+								<span><strong>{i18n.t('marketing.googleAdsBudgetField')}:</strong> {c.budgetEUR} EUR</span>
+								<span class="ga-url"><strong>{i18n.t('marketing.googleAdsFinalUrl')}:</strong> {c.finalUrl}</span>
+							</div>
+
+							{#each c.adGroups as g, gi (gi)}
+								<section class="ga-group">
+									<h3>{gi + 1}. {g.name}</h3>
+									{#if g.keywords.length}
+										<div class="ga-block">
+											<span class="ga-label">{i18n.t('marketing.googleAdsKeywords')}</span>
+											<div class="kw-list">
+												{#each g.keywords as k, ki (ki)}
+													<span class="kw">{k.text}<em>{k.matchType}</em></span>
+												{/each}
+											</div>
+										</div>
+									{/if}
+									{#if g.headlines.length}
+										<div class="ga-block">
+											<span class="ga-label">{i18n.t('marketing.googleAdsHeadlines')}</span>
+											<ol class="ga-ol">
+												{#each g.headlines as h, hi (hi)}<li>{h}</li>{/each}
+											</ol>
+										</div>
+									{/if}
+									{#if g.descriptions.length}
+										<div class="ga-block">
+											<span class="ga-label">{i18n.t('marketing.googleAdsDescriptions')}</span>
+											<ol class="ga-ol">
+												{#each g.descriptions as d, di (di)}<li>{d}</li>{/each}
+											</ol>
+										</div>
+									{/if}
+									{#if g.path1 || g.path2}
+										<div class="ga-path">{i18n.t('marketing.googleAdsPath')}: /{g.path1}{g.path2 ? '/' + g.path2 : ''}</div>
+									{/if}
+								</section>
+							{/each}
+						</div>
+					</div>
+				{:else}
+					<div class="empty">
+						<span class="big">📣</span>
+						<p>{i18n.t('marketing.noResult')}</p>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -342,13 +510,14 @@
 	.form label span { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 5px; }
 	.actions { display: flex; justify-content: flex-end; }
 
-	textarea, select {
+	textarea, select, input {
 		width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text);
 		padding: 10px 12px; font-family: var(--font-body); font-size: 13.5px;
 	}
 	textarea { resize: vertical; line-height: 1.5; }
 	select { cursor: pointer; }
-	textarea:focus, select:focus { outline: none; border-color: var(--ember-line); }
+	textarea:focus, select:focus, input:focus { outline: none; border-color: var(--ember-line); }
+	.form .budget { flex: none; width: 180px; }
 
 	/* Buttons */
 	.btn { display: inline-flex; align-items: center; gap: 7px; border-radius: 9px; padding: 9px 18px; font-size: 13px; font-weight: 500; border: 1px solid transparent; transition: all 0.16s; white-space: nowrap; }
@@ -358,6 +527,7 @@
 
 	.mini-btn { font-size: 12px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 10px; transition: all 0.14s; }
 	.mini-btn:hover { color: var(--text); border-color: var(--border); }
+	.mini-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 	.mini-btn.danger:hover { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
 
 	/* Notice (error / skip-on-fail message) */
@@ -404,13 +574,32 @@
 	.md :global(hr) { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
 	.md :global(a) { color: var(--ember-bright); }
 
+	/* Google-Ads-Kampagne (strukturierte Anzeige) */
+	.ga { display: flex; flex-direction: column; gap: 14px; }
+	.ga-name { font-size: 17px; margin: 0; color: var(--text); }
+	.ga-sub { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--text-muted); }
+	.ga-sub strong { color: var(--text); font-weight: 500; }
+	.ga-url { word-break: break-all; }
+	.ga-group { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 12px 14px; background: var(--surface-2); display: flex; flex-direction: column; gap: 10px; }
+	.ga-group h3 { font-size: 14px; margin: 0; color: var(--text); }
+	.ga-block { display: flex; flex-direction: column; gap: 5px; }
+	.ga-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); color: var(--text-faint); }
+	.kw-list { display: flex; flex-wrap: wrap; gap: 6px; }
+	.kw { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 7px; padding: 3px 8px; color: var(--text); }
+	.kw em { font-style: normal; font-size: 10px; color: var(--text-faint); font-family: var(--font-mono); text-transform: uppercase; }
+	.ga-ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+	.ga-ol li { font-size: 13px; color: var(--text); line-height: 1.45; }
+	.ga-path { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+
 	/* Mobile */
 	@media (max-width: 640px) {
 		.scroll { padding: 20px 16px 40px; }
-		.tabs { display: flex; }
+		.tabs { display: flex; flex-wrap: wrap; }
 		.tab { flex: 1; justify-content: center; }
 		.form .row { flex-direction: column; align-items: stretch; }
+		.form .budget { width: 100%; }
 		.actions { justify-content: stretch; }
 		.btn.primary { width: 100%; justify-content: center; }
+		.result-tools { flex-wrap: wrap; }
 	}
 </style>
