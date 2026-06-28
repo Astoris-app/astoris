@@ -62,6 +62,11 @@
 	<main class="canvas" class:has-rail={showRail}>
 		{@render children()}
 	</main>
+	{#if showRail && page.url.pathname !== '/'}
+		<a class="chat-fab" href="/" title={i18n.t('apps.chat')} aria-label={i18n.t('apps.chat')}>
+			<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+		</a>
+	{/if}
 </div>
 
 <style>
@@ -81,6 +86,23 @@
 			radial-gradient(120% 80% at 100% 0%, rgba(232, 132, 60, 0.05), transparent 55%),
 			var(--bg);
 	}
+
+	.chat-fab {
+		position: fixed;
+		top: 9px;
+		right: 11px;
+		z-index: 65;
+		width: 40px;
+		height: 40px;
+		display: grid;
+		place-items: center;
+		border-radius: 11px;
+		color: var(--text);
+		background: var(--surface-1);
+		border: 1px solid var(--border-soft);
+		box-shadow: var(--shadow);
+	}
+	.chat-fab:hover { border-color: var(--ember-line); color: var(--ember-bright); }
 
 	/* --- Mobile-Navigation (≤ 760px) — Desktop bleibt unberührt --- */
 	.navtoggle {
