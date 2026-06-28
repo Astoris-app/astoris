@@ -65,7 +65,9 @@ export async function POST({ request }) {
 
 	// Code eines Add-ons im In-App-Editor speichern
 	if (action === 'save-code') {
-		const ok = saveCodePlugin((b.id ?? '').toString(), (b.code ?? '').toString());
+		// website nur weiterreichen, wenn das Feld im Body steht (undefined = unverändert lassen).
+		const website = (b && typeof b === 'object' && 'website' in b) ? b.website : undefined;
+		const ok = saveCodePlugin((b.id ?? '').toString(), (b.code ?? '').toString(), website);
 		if (!ok) throw error(400, 'Code konnte nicht gespeichert werden.');
 		return json({ ok: true });
 	}

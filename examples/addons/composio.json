@@ -6,6 +6,7 @@
   "author": "Astoris",
   "premium": false,
   "description": "Bruecke zu 1000+ Apps (Gmail, Slack, GitHub, Notion ...) ueber die Composio-API. Fuehrt jede Composio-Aktion aus; OAuth/Verbindungen verwaltet Composio.",
+  "website": "https://docs.composio.dev",
   "inputHint": "{\"action\": \"GMAIL_SEND_EMAIL\", \"arguments\": {\"recipient_email\": \"max@example.com\", \"subject\": \"Hallo\", \"body\": \"Test\"}}",
   "configFields": [
     {

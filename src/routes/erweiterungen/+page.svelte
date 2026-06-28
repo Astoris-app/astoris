@@ -48,7 +48,12 @@
 
 	// Editor-State
 	type ConfigField = { key: string; label: string; type: 'text' | 'password' | 'url'; placeholder?: string; optional?: boolean; hint?: string };
-	let editor = $state<{ isNew: boolean; id: string; name: string; code: string; description?: string; inputHint?: string; configFields?: ConfigField[]; configKeys?: string[] } | null>(null);
+	let editor = $state<{ isNew: boolean; id: string; name: string; code: string; description?: string; inputHint?: string; website?: string; configFields?: ConfigField[]; configKeys?: string[] } | null>(null);
+
+	// Domain aus einer http(s)-URL für den dezenten Kachel-Link (z. B. "docs.composio.dev").
+	function domainOf(u: string): string {
+		try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; }
+	}
 
 	// KI-Generator-Dialog
 	let aiOpen = $state(false);
@@ -110,7 +115,7 @@
 
 	function newCode() {
 		notice = ''; testRes = ''; testInput = '';
-		editor = { isNew: true, id: '', name: '', code: i18n.t('erweiterungen.codePlaceholder') };
+		editor = { isNew: true, id: '', name: '', code: i18n.t('erweiterungen.codePlaceholder'), website: '' };
 	}
 
 	// KI-Generator: öffnet den Dialog, generiert ein Add-on und lädt es in den Editor (isNew).
@@ -127,7 +132,7 @@
 			if (!res.ok || d.ok === false || !d.addon) { aiErr = d.message ?? i18n.t('erweiterungen.aiFailed'); return; }
 			// Erfolg: Ergebnis in den bestehenden Code-Editor laden (testen/bearbeiten/speichern).
 			notice = ''; testRes = ''; testInput = '';
-			editor = { isNew: true, id: d.addon.id ?? '', name: d.addon.name ?? '', code: d.addon.code ?? '', description: d.addon.description, inputHint: d.addon.inputHint };
+			editor = { isNew: true, id: d.addon.id ?? '', name: d.addon.name ?? '', code: d.addon.code ?? '', description: d.addon.description, inputHint: d.addon.inputHint, website: d.addon.website ?? '' };
 			aiOpen = false;
 		} catch {
 			aiErr = i18n.t('erweiterungen.aiFailed');
@@ -139,7 +144,7 @@
 		notice = ''; testRes = ''; testInput = ''; cfgNotice = ''; cfgValues = {};
 		try {
 			const d = await (await fetch('/api/plugins?id=' + encodeURIComponent(p.id))).json();
-			editor = { isNew: false, id: d.plugin.id, name: d.plugin.name, code: d.plugin.code ?? '', configFields: d.plugin.configFields ?? [], configKeys: d.configKeys ?? [] };
+			editor = { isNew: false, id: d.plugin.id, name: d.plugin.name, code: d.plugin.code ?? '', website: d.plugin.website ?? '', configFields: d.plugin.configFields ?? [], configKeys: d.configKeys ?? [] };
 		} catch { err = i18n.t('erweiterungen.invalid'); }
 	}
 	function closeEditor() { editor = null; }
@@ -160,9 +165,10 @@
 		saving = true;
 		notice = '';
 		try {
+			const website = (editor.website ?? '').trim();
 			const body = editor.isNew
-				? { action: 'upload', manifest: { id: editor.id, name: editor.name || editor.id, version: '1.0.0', type: 'agent-tool', code: editor.code, ...(editor.description ? { description: editor.description } : {}), ...(editor.inputHint ? { inputHint: editor.inputHint } : {}) } }
-				: { action: 'save-code', id: editor.id, code: editor.code };
+				? { action: 'upload', manifest: { id: editor.id, name: editor.name || editor.id, version: '1.0.0', type: 'agent-tool', code: editor.code, ...(editor.description ? { description: editor.description } : {}), ...(editor.inputHint ? { inputHint: editor.inputHint } : {}), ...(website ? { website } : {}) } }
+				: { action: 'save-code', id: editor.id, code: editor.code, website };
 			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 			const d = await res.json().catch(() => ({}));
 			if (!res.ok) { notice = '⚠ ' + (d.message ?? i18n.t('erweiterungen.invalid')); return; }
@@ -283,6 +289,13 @@
 					<h3>{p.name}</h3>
 					{#if p.description}<p class="desc">{p.description}</p>{/if}
 					<div class="meta mono">{p.type} · v{p.version}</div>
+					{#if p.website}
+						<a class="site" href={p.website} target="_blank" rel="noopener noreferrer" title={i18n.t('erweiterungen.websiteLink')} onclick={(e) => e.stopPropagation()}>
+							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+							<span>{domainOf(p.website)}</span>
+							<svg class="ext" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+						</a>
+					{/if}
 					{#if p.premium && !p.licensed}<div class="premlock">🔒 {i18n.t('erweiterungen.premiumLocked')}</div>{/if}
 					<div class="acts">
 						{#if p.premium && !p.licensed}
@@ -346,6 +359,9 @@
 				<label>{i18n.t('erweiterungen.nameLabel')} <InfoHint text={i18n.t('erweiterungen.nameHint')} /><input bind:value={editor.name} placeholder={i18n.t('erweiterungen.addonNamePlaceholder')} /></label>
 				{#if editor.isNew}<label>{i18n.t('erweiterungen.idLabel')} <InfoHint text={i18n.t('erweiterungen.idHint')} /><input bind:value={editor.id} placeholder={i18n.t('erweiterungen.addonIdPlaceholder')} /></label>{/if}
 			</div>
+			<label class="full">{i18n.t('erweiterungen.websiteLabel')} <InfoHint text={i18n.t('erweiterungen.websiteHint')} />
+				<input type="url" inputmode="url" bind:value={editor.website} placeholder={i18n.t('erweiterungen.websitePlaceholder')} />
+			</label>
 			<label class="full">{i18n.t('erweiterungen.codeLabel')} <InfoHint text={i18n.t('erweiterungen.codeHint')} />
 				<CodeEditor bind:value={editor.code} placeholder={i18n.t('erweiterungen.codePlaceholder')} />
 			</label>
@@ -442,6 +458,11 @@
 	.card h3 { font-size: 15.5px; }
 	.desc { margin: 0; font-size: 13px; color: var(--text-muted); flex: 1; }
 	.meta { font-size: 10.5px; color: var(--text-faint); }
+	.site { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; max-width: 100%; font-size: 11.5px; color: var(--text-muted); border: 1px solid var(--border-soft); background: var(--surface-2); border-radius: 999px; padding: 3px 9px; transition: all 0.16s; }
+	.site:hover { color: var(--ember-bright); border-color: var(--ember-line); }
+	.site span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.site svg { flex: none; }
+	.site .ext { opacity: 0.6; }
 	.acts { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
 	.premlock { font-size: 12px; color: var(--text); background: var(--ember-soft); border: 1px solid var(--ember-line); border-radius: 8px; padding: 6px 10px; margin: 4px 0; }
 	.btn { border-radius: 9px; padding: 7px 13px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.16s; }

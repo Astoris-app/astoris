@@ -6,6 +6,7 @@
   "author": "Astoris",
   "premium": false,
   "description": "Rechnet Geldbetraege mit aktuellen Wechselkursen um (Frankfurter API, EZB-Kurse, kostenlos).",
+  "website": "https://www.frankfurter.app",
   "inputHint": "{ \"betrag\": 100, \"von\": \"EUR\", \"nach\": \"USD\" }",
   "code": "// Waehrungsumrechnung mit aktuellen EZB-Kursen (frankfurter.app, gratis).\nasync function run(input) {\n  const betrag = Number((input && input.betrag) != null ? input.betrag : 1);\n  const von = String((input && input.von) || 'EUR').toUpperCase();\n  const nach = String((input && input.nach) || 'USD').toUpperCase();\n  if (von === nach) return { betrag: betrag, von: von, nach: nach, ergebnis: betrag };\n  const res = await fetch('https://api.frankfurter.app/latest?amount=' + betrag + '&from=' + von + '&to=' + nach);\n  if (!res.ok) return { fehler: 'Kurs-Abruf fehlgeschlagen (HTTP ' + res.status + ').' };\n  const d = await res.json();\n  const ergebnis = d.rates && d.rates[nach];\n  if (ergebnis == null) return { fehler: 'Waehrung nicht gefunden: ' + nach };\n  return { betrag: betrag, von: von, nach: nach, ergebnis: ergebnis, datum: d.date };\n}"
 }

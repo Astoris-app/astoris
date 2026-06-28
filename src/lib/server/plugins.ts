@@ -144,6 +144,17 @@ export function getConnectorManifests(): ConnectorManifest[] {
 import type { CodeManifest } from '$lib/plugins/types';
 
 const MAX_CODE = 50000;
+const MAX_WEBSITE = 300;
+
+/** Akzeptiert nur http(s)-URLs (≤300 Zeichen). Sonst undefined (= Feld weglassen). */
+function cleanWebsite(raw: unknown): string | undefined {
+	if (typeof raw !== 'string') return undefined;
+	const s = raw.trim();
+	if (!s || s.length > MAX_WEBSITE || !/^https?:\/\//i.test(s)) return undefined;
+	try { new URL(s); } catch { return undefined; }
+	return s;
+}
+
 function validCode(raw: unknown): raw is CodeManifest {
 	const m = raw as Record<string, any>;
 	if (!m || typeof m.id !== 'string' || !/^[a-z0-9][a-z0-9-]{1,40}$/.test(m.id)) return false;
@@ -159,7 +170,8 @@ export function installCodePlugin(raw: unknown): CodeManifest {
 	const clean: CodeManifest = {
 		id: m.id, name: m.name, version: m.version, type: 'agent-tool',
 		author: m.author, premium: Boolean(m.premium), description: m.description, icon: m.icon,
-		code: m.code, inputHint: m.inputHint, configFields: Array.isArray(m.configFields) ? m.configFields : undefined
+		code: m.code, inputHint: m.inputHint, configFields: Array.isArray(m.configFields) ? m.configFields : undefined,
+		website: cleanWebsite(m.website)
 	};
 	const dir = join(DIR, clean.id);
 	mkdirSync(dir, { recursive: true });
@@ -176,11 +188,16 @@ export function getPlugin(id: string): PluginManifest | null {
 }
 
 /** Speichert geänderten Code eines Code-Add-ons (In-App-Editor). */
-export function saveCodePlugin(id: string, code: string): boolean {
+export function saveCodePlugin(id: string, code: string, website?: unknown): boolean {
 	if (typeof code !== 'string' || code.length === 0 || code.length > MAX_CODE) return false;
 	const m = getPlugin(id) as any;
 	if (!m || m.type !== 'agent-tool') return false;
 	m.code = code;
+	// website nur anfassen, wenn der Client das Feld mitgeschickt hat (sonst unverändert lassen).
+	if (website !== undefined) {
+		const w = cleanWebsite(website);
+		if (w) m.website = w; else delete m.website;
+	}
 	writeFileSync(join(DIR, id, 'plugin.json'), JSON.stringify(m, null, 2), { mode: 0o600 });
 	return true;
 }
