@@ -1,0 +1,25 @@
+{
+  "id": "composio",
+  "name": "Composio",
+  "version": "1.0.0",
+  "type": "agent-tool",
+  "author": "Astoris",
+  "premium": false,
+  "description": "Bruecke zu 1000+ Apps (Gmail, Slack, GitHub, Notion ...) ueber die Composio-API. Fuehrt jede Composio-Aktion aus; OAuth/Verbindungen verwaltet Composio.",
+  "inputHint": "{\"action\": \"GMAIL_SEND_EMAIL\", \"arguments\": {\"recipient_email\": \"max@example.com\", \"subject\": \"Hallo\", \"body\": \"Test\"}}",
+  "configFields": [
+    {
+      "key": "api_key",
+      "label": "Composio API-Key",
+      "type": "password",
+      "placeholder": "von app.composio.dev"
+    },
+    {
+      "key": "user_id",
+      "label": "Standard-User/Entity-ID (optional)",
+      "type": "text",
+      "placeholder": "default"
+    }
+  ],
+  "code": "// Composio: fuehrt ein Tool aus 1000+ Apps (Gmail, Slack, GitHub, Notion ...) ueber die Composio-API aus.\n// OAuth/App-Verbindungen verwaltet Composio (im Composio-Dashboard); hier nur Key + Tool ausfuehren.\nasync function run(input) {\n  const apiKey = String((input && (input.api_key || input.apiKey)) || '').trim();\n  const action = String((input && input.action) || '').trim();\n  if (!apiKey) return { fehler: 'Composio API-Key fehlt. Bitte in den Add-on-Einstellungen hinterlegen (app.composio.dev).' };\n  if (!action) return { fehler: 'Bitte das Tool angeben (action), z. B. GMAIL_SEND_EMAIL.' };\n  const url = 'https://backend.composio.dev/api/v3/tools/execute/' + encodeURIComponent(action);\n  const payload = { arguments: (input && input.arguments) || {}, user_id: String((input && (input.user_id || input.userId)) || 'default') };\n  if (input && input.connected_account_id) payload.connected_account_id = String(input.connected_account_id);\n  try {\n    const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': apiKey }, body: JSON.stringify(payload) });\n    let data; try { data = await res.json(); } catch (e) { data = await res.text(); }\n    if (!res.ok) return { fehler: 'Composio-Fehler ' + res.status, status: res.status, daten: data };\n    const erfolg = data && typeof data.successful !== 'undefined' ? data.successful : res.ok;\n    const ergebnis = data && typeof data.data !== 'undefined' ? data.data : data;\n    return { ok: true, erfolgreich: erfolg, ergebnis: ergebnis };\n  } catch (e) {\n    return { fehler: 'Composio nicht erreichbar: ' + String((e && e.message) || e) };\n  }\n}"
+}
