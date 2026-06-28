@@ -13,6 +13,39 @@
 	let err = $state('');
 	let fileInput = $state<HTMLInputElement>();
 
+	// Suche / Filter / Sortierung (lokaler UI-State, keine Server-Felder erfunden).
+	let q = $state('');
+	let fStatus = $state<'all' | 'on' | 'off'>('all');
+	let fKind = $state<'all' | 'free' | 'premium'>('all');
+	let fType = $state<'all' | 'agent-tool' | 'connector'>('all');
+	let sort = $state<'name-asc' | 'name-desc' | 'enabled'>('name-asc');
+
+	// Typ-Filter nur zeigen, wenn beide Typen wirklich vorkommen.
+	const hasCode = $derived(plugins.some((p) => p.type === 'agent-tool'));
+	const hasConnector = $derived(plugins.some((p) => p.type === 'connector'));
+	const showTypeFilter = $derived(hasCode && hasConnector);
+
+	const filtered = $derived.by(() => {
+		const needle = q.trim().toLowerCase();
+		const byName = (a: any, b: any) => String(a.name ?? '').localeCompare(String(b.name ?? ''));
+		const list = plugins.filter((p) => {
+			if (needle) {
+				const hay = (String(p.name ?? '') + ' ' + String(p.description ?? '')).toLowerCase();
+				if (!hay.includes(needle)) return false;
+			}
+			if (fStatus === 'on' && !p.enabled) return false;
+			if (fStatus === 'off' && p.enabled) return false;
+			if (fKind === 'free' && p.premium) return false;
+			if (fKind === 'premium' && !p.premium) return false;
+			if (showTypeFilter && fType !== 'all' && p.type !== fType) return false;
+			return true;
+		});
+		if (sort === 'name-asc') return [...list].sort(byName);
+		if (sort === 'name-desc') return [...list].sort((a, b) => byName(b, a));
+		// 'enabled': aktivierte zuerst, dann alphabetisch.
+		return [...list].sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0) || byName(a, b));
+	});
+
 	// Editor-State
 	type ConfigField = { key: string; label: string; type: 'text' | 'password' | 'url'; placeholder?: string; optional?: boolean; hint?: string };
 	let editor = $state<{ isNew: boolean; id: string; name: string; code: string; description?: string; inputHint?: string; configFields?: ConfigField[]; configKeys?: string[] } | null>(null);
@@ -189,8 +222,56 @@
 			<small class="mono">{i18n.t('erweiterungen.uploadHint')}</small>
 		</div>
 	{:else}
+		<div class="toolbar">
+			<div class="search">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+				<input
+					type="search"
+					bind:value={q}
+					placeholder={i18n.t('erweiterungen.search')}
+					aria-label={i18n.t('erweiterungen.searchLabel')}
+					use:dictation={{ getText: () => q, append: (s) => (q = (q ? q + ' ' : '') + s) }}
+				/>
+				{#if q}<button class="clear" onclick={() => (q = '')} aria-label={i18n.t('erweiterungen.clearSearch')} type="button">✕</button>{/if}
+			</div>
+
+			<div class="chips">
+				<div class="seg" role="group" aria-label={i18n.t('erweiterungen.filterStatus')}>
+					<button class:active={fStatus === 'all'} onclick={() => (fStatus = 'all')} type="button">{i18n.t('erweiterungen.all')}</button>
+					<button class:active={fStatus === 'on'} onclick={() => (fStatus = 'on')} type="button">{i18n.t('erweiterungen.statusOn')}</button>
+					<button class:active={fStatus === 'off'} onclick={() => (fStatus = 'off')} type="button">{i18n.t('erweiterungen.statusOff')}</button>
+				</div>
+				<div class="seg" role="group" aria-label={i18n.t('erweiterungen.filterKind')}>
+					<button class:active={fKind === 'all'} onclick={() => (fKind = 'all')} type="button">{i18n.t('erweiterungen.all')}</button>
+					<button class:active={fKind === 'free'} onclick={() => (fKind = 'free')} type="button">{i18n.t('erweiterungen.free')}</button>
+					<button class:active={fKind === 'premium'} onclick={() => (fKind = 'premium')} type="button">{i18n.t('erweiterungen.premium')}</button>
+				</div>
+				{#if showTypeFilter}
+					<div class="seg" role="group" aria-label={i18n.t('erweiterungen.filterType')}>
+						<button class:active={fType === 'all'} onclick={() => (fType = 'all')} type="button">{i18n.t('erweiterungen.all')}</button>
+						<button class:active={fType === 'agent-tool'} onclick={() => (fType = 'agent-tool')} type="button">{i18n.t('erweiterungen.codeType')}</button>
+						<button class:active={fType === 'connector'} onclick={() => (fType = 'connector')} type="button">{i18n.t('erweiterungen.connectorType')}</button>
+					</div>
+				{/if}
+			</div>
+
+			<select class="sort" bind:value={sort} aria-label={i18n.t('erweiterungen.sortLabel')}>
+				<option value="name-asc">{i18n.t('erweiterungen.sortNameAsc')}</option>
+				<option value="name-desc">{i18n.t('erweiterungen.sortNameDesc')}</option>
+				<option value="enabled">{i18n.t('erweiterungen.sortEnabled')}</option>
+			</select>
+		</div>
+
+		<div class="count mono">{filtered.length} {i18n.t('erweiterungen.resultsOf')} {plugins.length} {i18n.t('erweiterungen.resultsUnit')}</div>
+
+		{#if filtered.length === 0}
+			<div class="empty">
+				<div class="bigico"><Icon path={DEFAULT_ICON} size={26} /></div>
+				<p>{i18n.t('erweiterungen.noResults')}</p>
+			</div>
+		{:else}
 		<div class="grid">
-			{#each plugins as p (p.id)}
+			{#each filtered as p (p.id)}
 				<article class="card" class:on={p.enabled}>
 					<div class="top">
 						<div class="ico"><Icon path={p.icon || DEFAULT_ICON} size={20} /></div>
@@ -215,6 +296,7 @@
 				</article>
 			{/each}
 		</div>
+		{/if}
 	{/if}
 </div>
 
@@ -326,6 +408,28 @@
 	.empty { text-align: center; padding: 60px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; }
 	.bigico { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; color: var(--ember-bright); background: var(--ember-soft); border: 1px solid var(--ember-line); }
 	.empty small { font-size: 11px; color: var(--text-faint); }
+	/* Such-/Filterleiste */
+	.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+	.search { position: relative; display: flex; align-items: center; flex: 1 1 240px; min-width: 200px; }
+	.search > svg { position: absolute; left: 12px; color: var(--text-faint); pointer-events: none; }
+	.search input { width: 100%; background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px; padding: 9px 34px 9px 34px; color: var(--text); font-size: 13px; }
+	.search input:focus { outline: none; border-color: var(--ember-line); }
+	.search input::-webkit-search-cancel-button { display: none; }
+	.clear { position: absolute; right: 6px; width: 24px; height: 24px; border-radius: 999px; border: none; background: transparent; color: var(--text-faint); font-size: 12px; cursor: pointer; }
+	.clear:hover { color: var(--text); background: var(--surface-2); }
+	.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+	.seg { display: inline-flex; background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 2px; gap: 2px; }
+	.seg button { font-size: 12px; color: var(--text-muted); background: transparent; border: none; border-radius: 999px; padding: 5px 12px; white-space: nowrap; transition: all 0.16s; cursor: pointer; }
+	.seg button:hover { color: var(--text); }
+	.seg button.active { color: #1a1206; background: var(--ember); }
+	.sort { background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px; padding: 8px 13px; color: var(--text); font-size: 12.5px; cursor: pointer; }
+	.sort:focus { outline: none; border-color: var(--ember-line); }
+	.count { font-size: 11px; color: var(--text-faint); margin: 0 0 14px; }
+	@media (max-width: 560px) {
+		.toolbar { flex-direction: column; align-items: stretch; }
+		.chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+		.sort { width: 100%; }
+	}
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 	.card { background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 7px; }
 	.card.on { box-shadow: inset 2px 0 0 var(--sage); }
