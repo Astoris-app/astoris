@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { dictation } from '$lib/actions/dictation';
 
 	// KI-Zusammenfassung der Quellen folgt in Verfeinerung (über /api/chat).
 
@@ -72,6 +73,7 @@
 			type="text"
 			bind:value={query}
 			onkeydown={onKey}
+			use:dictation={{ getText: () => query, append: (s) => query = (query ? query + ' ' : '') + s }}
 			placeholder={i18n.t('research.searchPlaceholder')}
 			aria-label={i18n.t('research.searchLabel')}
 		/>

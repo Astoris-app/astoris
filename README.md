@@ -50,6 +50,7 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 | Bereich | Status | Beschreibung |
 |---|---|---|
 | **Assistent** | ✅ | Chat mit Streaming, „denkt nach"-Anzeige, Antwortdauer, Markdown/Code, Kopieren, Vorlesen, Mikrofon |
+| **Spracheingabe** | ✅ | Diktieren per Mikrofon — überall: **Leertaste halten zum Sprechen** (Push-to-Talk) in allen wichtigen Feldern (Assistent, Marketing, Team, CRM, Optimierung, Kennzahlen, Recherche, Dokumente). Lokal im Browser, braucht HTTPS |
 | **Tresor** | ✅ | Ende-zu-Ende-Verschlüsselung (AES-256-GCM) für Text & Dateien, Teilen via Messenger/E-Mail |
 | **Verbindungen** | ✅ | Alltags-Konten anlegen, live getestet, verschlüsselt gespeichert |
 | **Posteingang** | ✅ | E-Mails über IMAP, Übersicht & Vorschau |

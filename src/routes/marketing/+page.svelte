@@ -3,6 +3,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { renderMarkdown } from '$lib/markdown';
+	import { dictation } from '$lib/actions/dictation';
 
 	// ---------- Types ----------
 	type Tool = 'content' | 'social' | 'ads' | 'campaign' | 'googleAds';
@@ -267,7 +268,7 @@
 						{#if t === 'content'}
 							<label>
 								<span>{i18n.t('marketing.contentTopicLabel')}</span>
-								<textarea rows="2" placeholder={i18n.t('marketing.contentTopicPlaceholder')} bind:value={contentTopic}></textarea>
+								<textarea rows="2" placeholder={i18n.t('marketing.contentTopicPlaceholder')} bind:value={contentTopic} use:dictation={{ getText: () => contentTopic, append: (s) => contentTopic = (contentTopic ? contentTopic + ' ' : '') + s }}></textarea>
 							</label>
 							<div class="actions">
 								<button class="btn primary" onclick={genContent} disabled={busy === 'content' || !contentTopic.trim()}>
@@ -277,7 +278,7 @@
 						{:else if t === 'social'}
 							<label>
 								<span>{i18n.t('marketing.socialTopicLabel')}</span>
-								<textarea rows="2" placeholder={i18n.t('marketing.socialTopicPlaceholder')} bind:value={socialTopic}></textarea>
+								<textarea rows="2" placeholder={i18n.t('marketing.socialTopicPlaceholder')} bind:value={socialTopic} use:dictation={{ getText: () => socialTopic, append: (s) => socialTopic = (socialTopic ? socialTopic + ' ' : '') + s }}></textarea>
 							</label>
 							<div class="row">
 								<label class="grow">
@@ -295,7 +296,7 @@
 						{:else if t === 'ads'}
 							<label>
 								<span>{i18n.t('marketing.adsOfferLabel')}</span>
-								<textarea rows="2" placeholder={i18n.t('marketing.adsOfferPlaceholder')} bind:value={adsOffer}></textarea>
+								<textarea rows="2" placeholder={i18n.t('marketing.adsOfferPlaceholder')} bind:value={adsOffer} use:dictation={{ getText: () => adsOffer, append: (s) => adsOffer = (adsOffer ? adsOffer + ' ' : '') + s }}></textarea>
 							</label>
 							<div class="row">
 								<label class="grow">
@@ -313,7 +314,7 @@
 						{:else}
 							<label>
 								<span>{i18n.t('marketing.campaignGoalLabel')}</span>
-								<textarea rows="2" placeholder={i18n.t('marketing.campaignGoalPlaceholder')} bind:value={campaignGoal}></textarea>
+								<textarea rows="2" placeholder={i18n.t('marketing.campaignGoalPlaceholder')} bind:value={campaignGoal} use:dictation={{ getText: () => campaignGoal, append: (s) => campaignGoal = (campaignGoal ? campaignGoal + ' ' : '') + s }}></textarea>
 							</label>
 							<div class="actions">
 								<button class="btn primary" onclick={genCampaign} disabled={busy === 'campaign' || !campaignGoal.trim()}>
@@ -387,7 +388,7 @@
 				<div class="form">
 					<label>
 						<span>{i18n.t('marketing.googleAdsOfferLabel')}</span>
-						<textarea rows="2" placeholder={i18n.t('marketing.googleAdsOfferPlaceholder')} bind:value={gaOffer}></textarea>
+						<textarea rows="2" placeholder={i18n.t('marketing.googleAdsOfferPlaceholder')} bind:value={gaOffer} use:dictation={{ getText: () => gaOffer, append: (s) => gaOffer = (gaOffer ? gaOffer + ' ' : '') + s }}></textarea>
 					</label>
 					<div class="row">
 						<label class="grow">

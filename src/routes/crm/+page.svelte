@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { dictation } from '$lib/actions/dictation';
 
 	// ---------- Types ----------
 	type ContactType = 'lead' | 'kunde' | 'kontakt';
@@ -451,7 +452,7 @@
 				</div>
 				<label>
 					<span>{i18n.t('crm.notes')}</span>
-					<textarea rows="3" placeholder={i18n.t('crm.notesPlaceholder')} bind:value={contactEditor.notes}></textarea>
+					<textarea rows="3" placeholder={i18n.t('crm.notesPlaceholder')} bind:value={contactEditor.notes} use:dictation={{ getText: () => contactEditor.notes, append: (s) => contactEditor.notes = (contactEditor.notes ? contactEditor.notes + ' ' : '') + s }}></textarea>
 				</label>
 			</div>
 			<div class="dactions">
@@ -507,7 +508,7 @@
 				</div>
 				<label>
 					<span>{i18n.t('crm.dealNotes')}</span>
-					<textarea rows="3" placeholder={i18n.t('crm.notesPlaceholder')} bind:value={dealEditor.notes}></textarea>
+					<textarea rows="3" placeholder={i18n.t('crm.notesPlaceholder')} bind:value={dealEditor.notes} use:dictation={{ getText: () => dealEditor.notes, append: (s) => dealEditor.notes = (dealEditor.notes ? dealEditor.notes + ' ' : '') + s }}></textarea>
 				</label>
 			</div>
 			<div class="dactions">
@@ -548,7 +549,7 @@
 				</div>
 				<label>
 					<span>{i18n.t('crm.description')}</span>
-					<textarea rows="3" placeholder={i18n.t('crm.descriptionPlaceholder')} bind:value={productEditor.description}></textarea>
+					<textarea rows="3" placeholder={i18n.t('crm.descriptionPlaceholder')} bind:value={productEditor.description} use:dictation={{ getText: () => productEditor.description, append: (s) => productEditor.description = (productEditor.description ? productEditor.description + ' ' : '') + s }}></textarea>
 				</label>
 			</div>
 			<div class="dactions">

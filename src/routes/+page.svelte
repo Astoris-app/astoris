@@ -780,7 +780,7 @@
 				oninput={resize}
 				onkeydown={onKey}
 				rows="1"
-				placeholder={i18n.t('chat.placeholder')}
+				placeholder={i18n.t('chat.placeholder') + (voice.enabled && voice.mode === 'ptt' && micSupported ? '   ' + i18n.t('chat.pttHint') : '')}
 			></textarea>
 		{/if}
 		{#if busy}

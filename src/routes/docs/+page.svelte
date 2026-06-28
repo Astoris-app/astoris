@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { dictation } from '$lib/actions/dictation';
 
 	// Ablage mit Upload, Volltextsuche und KI-Zusammenfassung.
 
@@ -255,6 +256,7 @@
 			type="search"
 			placeholder={i18n.t('docs.searchPlaceholder')}
 			bind:value={query}
+			use:dictation={{ getText: () => query, append: (s) => query = (query ? query + ' ' : '') + s }}
 			oninput={() => { if (!query.trim()) hits = null; }}
 		/>
 		{#if query.trim()}

@@ -4,6 +4,7 @@
 	import { renderMarkdown } from '$lib/markdown';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { EMOJI_CATEGORIES } from '$lib/emojis';
+	import { dictation } from '$lib/actions/dictation';
 
 	// ---------- Types ----------
 	type Persona = {
@@ -1076,7 +1077,7 @@
 							<span class="commission-hint">{i18n.t('agents.commissionHint')}</span>
 						</div>
 					</div>
-					<textarea rows="3" placeholder={i18n.t('agents.commissionPlaceholder')} bind:value={coTask}></textarea>
+					<textarea rows="3" placeholder={i18n.t('agents.commissionPlaceholder')} bind:value={coTask} use:dictation={{ getText: () => coTask, append: (s) => coTask = (coTask ? coTask + ' ' : '') + s }}></textarea>
 					<div class="commission-actions">
 						{#if coBusy}<span class="working-note">{coResult ? i18n.t('agents.agentsWorking') : i18n.t('agents.coordinating')}</span>{/if}
 						<button class="btn primary" onclick={runCompany} disabled={coBusy || !coTask.trim()}>
@@ -1293,7 +1294,7 @@
 				</label>
 				<label>
 					<span>{i18n.t('agents.systemPrompt')}</span>
-					<textarea rows="6" placeholder={i18n.t('agents.systemPromptPlaceholder')} bind:value={editor.systemPrompt} disabled={readOnly}></textarea>
+					<textarea rows="6" placeholder={i18n.t('agents.systemPromptPlaceholder')} bind:value={editor.systemPrompt} disabled={readOnly} use:dictation={{ getText: () => editor.systemPrompt, append: (s) => editor.systemPrompt = (editor.systemPrompt ? editor.systemPrompt + ' ' : '') + s }}></textarea>
 				</label>
 			</div>
 
@@ -1318,7 +1319,7 @@
 		<div class="task-dialog" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
 			<h3>{i18n.t('agents.taskFor').replace('{name}', taskAgent.name)}</h3>
 			<p class="task-role">{taskAgent.role}</p>
-			<textarea bind:value={taskInput} rows="3" placeholder={i18n.t('agents.taskPlaceholder').replace('{name}', taskAgent.name)}></textarea>
+			<textarea bind:value={taskInput} rows="3" placeholder={i18n.t('agents.taskPlaceholder').replace('{name}', taskAgent.name)} use:dictation={{ getText: () => taskInput, append: (s) => taskInput = (taskInput ? taskInput + ' ' : '') + s }}></textarea>
 			<div class="task-actions">
 				<button class="tbtn ghost" onclick={() => (taskAgent = null)}>{i18n.t('agents.close')}</button>
 				<button class="tbtn primary" onclick={runTask} disabled={taskBusy || !taskInput.trim()}>{taskBusy ? i18n.t('agents.running') : i18n.t('agents.run')}</button>

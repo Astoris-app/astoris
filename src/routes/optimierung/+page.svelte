@@ -3,6 +3,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { renderMarkdown } from '$lib/markdown';
+	import { dictation } from '$lib/actions/dictation';
 
 	// ---------- Types ----------
 	type Status = 'geplant' | 'laufend' | 'ausgewertet';
@@ -292,7 +293,7 @@
 				</label>
 				<label>
 					<span>{i18n.t('optimierung.hypothesis')}</span>
-					<textarea rows="3" placeholder={i18n.t('optimierung.hypothesisPlaceholder')} bind:value={editor.hypothesis}></textarea>
+					<textarea rows="3" placeholder={i18n.t('optimierung.hypothesisPlaceholder')} bind:value={editor.hypothesis} use:dictation={{ getText: () => editor.hypothesis, append: (s) => editor.hypothesis = (editor.hypothesis ? editor.hypothesis + ' ' : '') + s }}></textarea>
 				</label>
 				<label>
 					<span>{i18n.t('optimierung.linkMetric')}</span>

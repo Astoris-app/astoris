@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { dictation } from '$lib/actions/dictation';
 
 	// ---------- Types ----------
 	type Measurement = { at: string; value: number };
@@ -308,7 +309,7 @@
 			<div class="fields">
 				<label>
 					<span>{i18n.t('metrics.name')}</span>
-					<input type="text" placeholder={i18n.t('metrics.namePlaceholder')} bind:value={editor.name} autocomplete="off" />
+					<input type="text" placeholder={i18n.t('metrics.namePlaceholder')} bind:value={editor.name} autocomplete="off" use:dictation={{ getText: () => editor.name, append: (s) => editor.name = (editor.name ? editor.name + ' ' : '') + s }} />
 				</label>
 				<div class="two">
 					<label class="grow">
