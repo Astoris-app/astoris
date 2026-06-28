@@ -5,6 +5,7 @@ import {
 } from '$lib/server/plugins';
 import { runCodeAddon } from '$lib/server/sandbox';
 import { getPluginConfigKeys, setPluginConfig, getPluginConfig } from '$lib/server/pluginConfig';
+import { generateAddon } from '$lib/server/addonGen';
 
 export async function GET({ url }) {
 	const id = url.searchParams.get('id');
@@ -38,6 +39,15 @@ export async function POST({ request }) {
 		const secretKeys = Array.isArray(b.secretKeys) ? b.secretKeys.map(String) : [];
 		setPluginConfig((b.id ?? '').toString(), cfg, secretKeys);
 		return json({ ok: true });
+	}
+
+	// KI-Generator: erzeugt aus einer Beschreibung ein Code-Add-on (id, name, code …).
+	// Installiert NICHTS — das Ergebnis lädt der Nutzer in den Editor zum Testen/Speichern.
+	if (action === 'generate-addon') {
+		const description = (b.description ?? '').toString();
+		const gen = await generateAddon(description);
+		if (!gen.ok) return json({ ok: false, message: gen.message });
+		return json({ ok: true, addon: gen.addon });
 	}
 
 	// Upload: Code-Add-on (type agent-tool + code) ODER Connector-Add-on (Daten)

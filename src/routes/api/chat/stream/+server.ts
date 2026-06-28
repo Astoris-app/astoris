@@ -24,6 +24,8 @@ export async function POST({ request }) {
 			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content', text: result.reply })}\n\n`));
 			if (result.pendingMail) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-mail', draft: result.pendingMail, mode: sendMode })}\n\n`));
 			if (result.pendingMessage) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-message', draft: result.pendingMessage, mode: sendMode })}\n\n`));
+			// Add-on-Vorschlag: IMMER als Karte zur Bestätigung (Code wird nie automatisch installiert).
+			if (result.pendingAddon) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-addon', addon: result.pendingAddon })}\n\n`));
 			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done', model: result.model, tools: result.tools, demo: result.source === 'demo', ms: Date.now() - t0 })}\n\n`));
 			c.close();
 		}

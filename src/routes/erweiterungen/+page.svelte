@@ -5,6 +5,7 @@
 	import CodeEditor from '$lib/components/CodeEditor.svelte';
 	import InfoHint from '$lib/components/InfoHint.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import { dictation } from '$lib/actions/dictation';
 
 	const DEFAULT_ICON = 'M4 8V5a1 1 0 0 1 1-1h3a2 2 0 1 1 4 0h3a1 1 0 0 1 1 1v3a2 2 0 1 0 0 4v3a1 1 0 0 1-1 1h-3a2 2 0 1 0-4 0H5a1 1 0 0 1-1-1v-3a2 2 0 1 1 0-4z';
 
@@ -14,7 +15,13 @@
 
 	// Editor-State
 	type ConfigField = { key: string; label: string; type: 'text' | 'password' | 'url'; placeholder?: string; optional?: boolean; hint?: string };
-	let editor = $state<{ isNew: boolean; id: string; name: string; code: string; configFields?: ConfigField[]; configKeys?: string[] } | null>(null);
+	let editor = $state<{ isNew: boolean; id: string; name: string; code: string; description?: string; inputHint?: string; configFields?: ConfigField[]; configKeys?: string[] } | null>(null);
+
+	// KI-Generator-Dialog
+	let aiOpen = $state(false);
+	let aiDesc = $state('');
+	let aiBusy = $state(false);
+	let aiErr = $state('');
 	let testInput = $state('');
 	let testRes = $state('');
 	let notice = $state('');
@@ -72,6 +79,29 @@
 		notice = ''; testRes = ''; testInput = '';
 		editor = { isNew: true, id: '', name: '', code: i18n.t('erweiterungen.codePlaceholder') };
 	}
+
+	// KI-Generator: öffnet den Dialog, generiert ein Add-on und lädt es in den Editor (isNew).
+	function openAi() { aiErr = ''; aiDesc = ''; aiOpen = true; }
+	function closeAi() { if (aiBusy) return; aiOpen = false; }
+	async function generateAi() {
+		if (aiBusy) return;
+		aiErr = '';
+		if (!aiDesc.trim()) { aiErr = i18n.t('erweiterungen.aiEmpty'); return; }
+		aiBusy = true;
+		try {
+			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'generate-addon', description: aiDesc }) });
+			const d = await res.json().catch(() => ({}));
+			if (!res.ok || d.ok === false || !d.addon) { aiErr = d.message ?? i18n.t('erweiterungen.aiFailed'); return; }
+			// Erfolg: Ergebnis in den bestehenden Code-Editor laden (testen/bearbeiten/speichern).
+			notice = ''; testRes = ''; testInput = '';
+			editor = { isNew: true, id: d.addon.id ?? '', name: d.addon.name ?? '', code: d.addon.code ?? '', description: d.addon.description, inputHint: d.addon.inputHint };
+			aiOpen = false;
+		} catch {
+			aiErr = i18n.t('erweiterungen.aiFailed');
+		} finally {
+			aiBusy = false;
+		}
+	}
 	async function editCode(p: any) {
 		notice = ''; testRes = ''; testInput = ''; cfgNotice = ''; cfgValues = {};
 		try {
@@ -98,7 +128,7 @@
 		notice = '';
 		try {
 			const body = editor.isNew
-				? { action: 'upload', manifest: { id: editor.id, name: editor.name || editor.id, version: '1.0.0', type: 'agent-tool', code: editor.code } }
+				? { action: 'upload', manifest: { id: editor.id, name: editor.name || editor.id, version: '1.0.0', type: 'agent-tool', code: editor.code, ...(editor.description ? { description: editor.description } : {}), ...(editor.inputHint ? { inputHint: editor.inputHint } : {}) } }
 				: { action: 'save-code', id: editor.id, code: editor.code };
 			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 			const d = await res.json().catch(() => ({}));
@@ -133,6 +163,10 @@
 		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
 		{i18n.t('erweiterungen.more')}
 	</a>
+	<button class="hbtn ai" onclick={openAi}>
+		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9zM19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+		{i18n.t('erweiterungen.aiCreate')}
+	</button>
 	<button class="hbtn" onclick={newCode}>
 		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
 		{i18n.t('erweiterungen.createCode')}
@@ -183,6 +217,39 @@
 		</div>
 	{/if}
 </div>
+
+{#if aiOpen}
+	<div class="overlay" onclick={closeAi} role="presentation"></div>
+	<div class="aimodal" role="dialog" aria-modal="true" aria-label={i18n.t('erweiterungen.aiTitle')}>
+		<header>
+			<h2>
+				<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9zM19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+				{i18n.t('erweiterungen.aiTitle')}
+			</h2>
+			<button class="x" onclick={closeAi} aria-label={i18n.t('erweiterungen.close')} disabled={aiBusy}>✕</button>
+		</header>
+		<div class="aibody">
+			<label class="full">{i18n.t('erweiterungen.aiPrompt')}
+				<textarea
+					class="aidesc"
+					bind:value={aiDesc}
+					rows="4"
+					placeholder={i18n.t('erweiterungen.aiPlaceholder')}
+					disabled={aiBusy}
+					use:dictation={{ getText: () => aiDesc, append: (s) => (aiDesc = (aiDesc ? aiDesc + ' ' : '') + s) }}
+				></textarea>
+			</label>
+			<p class="aihint">{i18n.t('erweiterungen.aiHint')}</p>
+			{#if aiErr}<div class="aierr">{aiErr}</div>{/if}
+		</div>
+		<footer>
+			<button class="btn" onclick={closeAi} disabled={aiBusy}>{i18n.t('erweiterungen.close')}</button>
+			<button class="btn primary" onclick={generateAi} disabled={aiBusy || !aiDesc.trim()}>
+				{aiBusy ? i18n.t('erweiterungen.aiGenerating') : i18n.t('erweiterungen.aiGenerate')}
+			</button>
+		</footer>
+	</div>
+{/if}
 
 {#if editor}
 	<div class="overlay" onclick={closeEditor} role="presentation"></div>
@@ -239,6 +306,20 @@
 	.hbtn:hover { color: var(--text); border-color: var(--text-faint); }
 	.hbtn.ember { color: var(--ember-bright); background: var(--ember-soft); border-color: var(--ember-line); }
 	.hbtn.ember:hover { background: var(--ember); color: #1a1206; }
+	.hbtn.ai { color: var(--sage); background: var(--sage-soft); border-color: color-mix(in srgb, var(--sage) 30%, transparent); }
+	.hbtn.ai:hover { color: var(--text); border-color: var(--sage); }
+	/* KI-Generator-Dialog (zentriert, über dem Overlay) */
+	.aimodal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(540px, 94vw); max-height: 90vh; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); z-index: 42; display: flex; flex-direction: column; box-shadow: 0 30px 70px -25px rgba(0,0,0,0.6); }
+	.aimodal header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-soft); }
+	.aimodal header h2 { display: flex; align-items: center; gap: 9px; font-size: 16px; }
+	.aimodal header h2 svg { color: var(--sage); flex: none; }
+	.aibody { padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+	.aidesc { width: 100%; background: var(--surface-1); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px; color: var(--text); font-size: 14px; font-family: var(--font-body); line-height: 1.5; resize: vertical; min-height: 90px; }
+	.aidesc:focus { outline: none; border-color: var(--ember-line); }
+	.aidesc:disabled { opacity: 0.6; }
+	.aihint { margin: 0; font-size: 12px; color: var(--text-faint); }
+	.aierr { background: var(--danger-soft); color: var(--danger); border-radius: 9px; padding: 9px 12px; font-size: 12.5px; }
+	.aimodal footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border-soft); }
 	.scroll { flex: 1; overflow-y: auto; padding: 24px 28px 40px; }
 	.intro { color: var(--text-muted); max-width: 640px; margin: 0 0 22px; }
 	.err { background: var(--danger-soft); color: var(--danger); border-radius: var(--radius); padding: 11px 14px; font-size: 13px; margin-bottom: 18px; }

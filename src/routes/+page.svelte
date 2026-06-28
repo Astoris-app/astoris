@@ -43,6 +43,11 @@
 	let msgSending = $state(false);
 	let showMsgKey = $state(false);
 
+	// KI-Add-on-Vorschlag (Chat-Werkzeug addon_erstellen). Wird als Karte zur Bestätigung gezeigt.
+	let pendingAddon = $state<{ id: string; name: string; description?: string; inputHint?: string; code: string } | null>(null);
+	let addonStatus = $state('');
+	let addonBusy = $state(false);
+
 	// Deepfake-Check: Bild-Upload separat von der normalen Chat-Nachricht.
 	let attachedImage = $state<string | null>(null);
 	let dfBusy = $state(false);
@@ -241,6 +246,7 @@
 						if (d.mode === 'direct' && k.trim()) { sendPendingMsg(d.draft, k); }
 						else { pendingMsg = d.draft; msgKey = k; msgStatus = ''; }
 					}
+					else if (d.type === 'pending-addon') { pendingAddon = d.addon; addonStatus = ''; }
 					else if (d.type === 'error') { m.text += (m.text ? '\n\n' : '') + (d.text ?? 'Fehler'); m.error = true; }
 					else if (d.type === 'done') { m.model = d.model; m.ms = d.ms; m.demo = d.demo; m.time = nowTime(); }
 					scrollDown();
@@ -361,6 +367,46 @@
 	function cancelPendingMsg() {
 		pendingMsg = null;
 		msgStatus = '';
+	}
+
+	// Add-on-Vorschlag bestätigen → installieren (installCodePlugin via action 'upload'). Keine Auto-Installation.
+	async function createPendingAddon() {
+		if (!pendingAddon || addonBusy) return;
+		addonBusy = true;
+		addonStatus = '';
+		const a = pendingAddon;
+		try {
+			const manifest = {
+				id: a.id, name: a.name || a.id, version: '1.0.0', type: 'agent-tool', code: a.code,
+				...(a.description ? { description: a.description } : {}),
+				...(a.inputHint ? { inputHint: a.inputHint } : {})
+			};
+			const res = await fetch('/api/plugins', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'upload', manifest }) });
+			const d = await res.json().catch(() => ({}));
+			if (res.ok && d.ok) {
+				addonStatus = i18n.t('addoncard.created');
+				pendingAddon = null;
+				for (let i = messages.length - 1; i >= 0; i--) {
+					if (messages[i].role === 'assistant') {
+						const note = `${i18n.t('addoncard.created')} — ${a.name}`;
+						messages[i].text += (messages[i].text ? '\n\n' : '') + note;
+						break;
+					}
+				}
+				persistChat();
+			} else {
+				addonStatus = d.message ?? i18n.t('addoncard.failed');
+			}
+		} catch {
+			addonStatus = i18n.t('addoncard.failed');
+		} finally {
+			addonBusy = false;
+		}
+	}
+
+	function cancelPendingAddon() {
+		pendingAddon = null;
+		addonStatus = '';
 	}
 
 	function clearChat() {
@@ -716,6 +762,35 @@
 		<div class="mailcard mc-flash">{msgStatus}</div>
 	{/if}
 
+	{#if pendingAddon}
+		<div class="mailcard">
+			<div class="mc-head">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9zM19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+				<strong>{i18n.t('addoncard.title')}</strong>
+			</div>
+			<label class="mc-field">
+				<span>{i18n.t('addoncard.name')}</span>
+				<input type="text" bind:value={pendingAddon.name} />
+			</label>
+			<div class="mc-field">
+				<span>{i18n.t('addoncard.id')}</span>
+				<code class="addon-id">{pendingAddon.id}</code>
+			</div>
+			{#if pendingAddon.description}<div class="mc-hint">{pendingAddon.description}</div>{/if}
+			<div class="mc-field">
+				<span>{i18n.t('addoncard.code')}</span>
+				<pre class="addon-code">{pendingAddon.code}</pre>
+			</div>
+			{#if addonStatus}<div class="mc-status">{addonStatus}</div>{/if}
+			<div class="mc-actions">
+				<button class="mc-cancel" onclick={cancelPendingAddon} disabled={addonBusy}>{i18n.t('addoncard.discard')}</button>
+				<button class="mc-send" onclick={createPendingAddon} disabled={addonBusy}>{i18n.t('addoncard.create')}</button>
+			</div>
+		</div>
+	{:else if addonStatus}
+		<div class="mailcard mc-flash">{addonStatus}</div>
+	{/if}
+
 	{#if dfError}
 		<div class="dfcard dferr">
 			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
@@ -930,6 +1005,8 @@
 	.mc-eye { position: absolute; right: 7px; width: 28px; height: 28px; display: grid; place-items: center; border: none; background: transparent; color: var(--text-faint); border-radius: 6px; }
 	.mc-eye:hover { color: var(--text); }
 	.mc-hint { font-size: 11.5px; color: var(--text-faint); }
+	.addon-id { font-family: var(--font-mono); font-size: 12.5px; color: var(--sage); background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; align-self: flex-start; }
+	.addon-code { background: var(--bg-veil); border: 1px solid var(--border-soft); border-radius: 9px; padding: 11px 13px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; color: var(--text); overflow: auto; max-height: 220px; white-space: pre; margin: 0; }
 
 	.ppick-wrap { position: relative; }
 	.ppick { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }

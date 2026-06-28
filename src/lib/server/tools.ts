@@ -66,15 +66,16 @@ export function buildBuiltinTools(): AddonTool[] {
 		{ type: 'function', function: { name: 'calendar_update', description: 'Einen bestehenden Termin ändern. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, date: { type: 'string' }, time: { type: 'string' }, notes: { type: 'string' } }, required: ['id'] } } },
 		{ type: 'function', function: { name: 'calendar_delete', description: 'Einen Termin löschen. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } },
 		{ type: 'function', function: { name: 'mail_send', description: 'Eine E-Mail VORBEREITEN. Sie wird dem Nutzer zur Bestätigung angezeigt und NICHT automatisch versendet. Nutze dies, wenn der Nutzer eine Mail schreiben/senden möchte.', parameters: { type: 'object', properties: { to: { type: 'string', description: 'Empfänger-E-Mail-Adresse' }, subject: { type: 'string', description: 'Betreff' }, text: { type: 'string', description: 'Mail-Text' } }, required: ['to', 'text'] } } },
-		{ type: 'function', function: { name: 'messenger_send', description: 'Eine verschlüsselte Messenger-Nachricht VORBEREITEN (Kanal: telegram/email/whatsapp/signal). Wird dem Nutzer zur Bestätigung angezeigt und erst nach client-seitiger Verschlüsselung gesendet — NICHT automatisch.', parameters: { type: 'object', properties: { channel: { type: 'string', description: 'telegram, email, whatsapp oder signal' }, recipient: { type: 'string', description: 'Empfänger-Adresse (z. B. Telegram-Chat-ID, E-Mail)' }, text: { type: 'string', description: 'Klartext der Nachricht' } }, required: ['text'] } } }
+		{ type: 'function', function: { name: 'messenger_send', description: 'Eine verschlüsselte Messenger-Nachricht VORBEREITEN (Kanal: telegram/email/whatsapp/signal). Wird dem Nutzer zur Bestätigung angezeigt und erst nach client-seitiger Verschlüsselung gesendet — NICHT automatisch.', parameters: { type: 'object', properties: { channel: { type: 'string', description: 'telegram, email, whatsapp oder signal' }, recipient: { type: 'string', description: 'Empfänger-Adresse (z. B. Telegram-Chat-ID, E-Mail)' }, text: { type: 'string', description: 'Klartext der Nachricht' } }, required: ['text'] } } },
+		{ type: 'function', function: { name: 'addon_erstellen', description: 'Ein neues Astoris-Code-Add-on (Werkzeug) VORSCHLAGEN, wenn dir für eine Anfrage eine Fähigkeit fehlt. Beschreibe in description in einem Satz, was das Add-on tun soll (z. B. „fragt die Wetter-API für eine Stadt ab"). Die KI generiert den Code; der Nutzer sieht einen Vorschlag mit Code-Vorschau und bestätigt die Erstellung selbst — es wird NICHTS automatisch installiert.', parameters: { type: 'object', properties: { description: { type: 'string', description: 'Was soll das neue Add-on/Werkzeug können? Ein bis zwei Sätze.' } }, required: ['description'] } } }
 	];
 }
 
 export function isBuiltinTool(name: string): boolean {
-	return name.startsWith('calendar_') || name === 'mail_send' || name === 'messenger_send';
+	return name.startsWith('calendar_') || name === 'mail_send' || name === 'messenger_send' || name === 'addon_erstellen';
 }
 
-export function runBuiltinTool(name: string, args: any): unknown {
+export async function runBuiltinTool(name: string, args: any): Promise<unknown> {
 	try {
 		if (name === 'calendar_list') return { events: listEvents(args?.from, args?.to) };
 		if (name === 'calendar_create') return { event: createEvent(args?.title, args?.date, args?.time, args?.notes) };
@@ -82,6 +83,14 @@ export function runBuiltinTool(name: string, args: any): unknown {
 		if (name === 'calendar_delete') return { ok: deleteEvent(args?.id) };
 		if (name === 'mail_send') return { pendingMail: { to: String(args?.to ?? ''), subject: String(args?.subject ?? ''), text: String(args?.text ?? '') }, hinweis: 'Entwurf vorbereitet — der Nutzer bestätigt den Versand.' };
 		if (name === 'messenger_send') return { pendingMessage: { channel: String(args?.channel ?? 'telegram'), recipient: String(args?.recipient ?? ''), text: String(args?.text ?? '') }, hinweis: 'Nachricht vorbereitet — der Nutzer bestätigt + verschlüsselt vor dem Versand.' };
+		if (name === 'addon_erstellen') {
+			// Dynamischer Import bricht den Zyklus engine -> tools -> addonGen -> engine auf.
+			const { generateAddon } = await import('./addonGen');
+			const gen = await generateAddon(String(args?.description ?? ''));
+			if (!gen.ok) return { fehler: gen.message };
+			// pendingAddon -> der Chat zeigt eine Karte mit Vorschau + „Erstellen"/„Verwerfen" (keine Auto-Installation).
+			return { pendingAddon: gen.addon, hinweis: 'Add-on vorbereitet — der Nutzer bestätigt die Erstellung selbst.' };
+		}
 	} catch (e) {
 		return { error: e instanceof Error ? e.message : 'Fehler' };
 	}

@@ -10,6 +10,7 @@ import { scanInjection, wrapAsData } from './promptGuard';
 import { applyAigate, getAigateMode } from './aigate';
 import { getKiSource } from './kiSource';
 import { getSelectedModel, type SelectedModel } from './models';
+import type { GeneratedAddon } from './addonGen';
 
 export const ENGINE_URL = env.ENGINE_URL ?? 'http://localhost:8081';
 const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
@@ -17,7 +18,15 @@ const engineKey = env['ENGINE_' + 'API_KEY'] ?? '';
 export type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string };
 export type PendingMail = { to: string; subject: string; text: string };
 export type PendingMessage = { channel: string; recipient: string; text: string };
-export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[]; pendingMail?: PendingMail; pendingMessage?: PendingMessage };
+export type PendingAddon = GeneratedAddon;
+export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[]; pendingMail?: PendingMail; pendingMessage?: PendingMessage; pendingAddon?: PendingAddon };
+
+// Hinweis an die KI: bei fehlender Fähigkeit ein Add-on vorschlagen statt nur abzulehnen.
+// Wird an den System-Kontext der werkzeugfähigen Pfade angehängt.
+const TOOL_GUIDANCE =
+	'Hinweis: Fehlt dir für eine Anfrage eine konkrete Fähigkeit (z. B. eine bestimmte externe API abfragen oder Daten umwandeln), ' +
+	'kannst du mit dem Werkzeug „addon_erstellen" ein passendes Astoris-Code-Add-on vorschlagen und bauen lassen — beschreibe darin in einem Satz, was das Add-on tun soll. ' +
+	'Der Nutzer bestätigt die Erstellung selbst. Nutze das nur, wenn wirklich eine Fähigkeit fehlt, nicht für Aufgaben, die du direkt erledigen kannst.';
 export type EngineStatus = {
 	online: boolean;
 	mode: 'local' | 'cloud' | 'offline';
@@ -116,13 +125,16 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	const iso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${tz}`;
 	const dateInfo = `Aktueller Zeitstempel (ISO 8601, lokale Zeit): ${iso}. Lesbar: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr. Für Kalender-Termine: Datum YYYY-MM-DD, Uhrzeit HH:MM.`;
 	// vLLM erlaubt nur EINE System-Message am Anfang → Datum an vorhandene anhängen statt eine zweite einfügen.
+	// Werkzeug-Hinweis nur, wenn tatsächlich Werkzeuge angeboten werden (nicht in werkzeugfreien Runden, z. B. Add-on-Generierung).
+	const sysExtra = dateInfo + (tools.length ? '\n\n' + TOOL_GUIDANCE : '');
 	const first = messages[0];
 	const msgs: unknown[] = first && first.role === 'system'
-		? [{ role: 'system', content: first.content + '\n\n' + dateInfo }, ...messages.slice(1)]
-		: [{ role: 'system', content: dateInfo }, ...messages];
+		? [{ role: 'system', content: first.content + '\n\n' + sysExtra }, ...messages.slice(1)]
+		: [{ role: 'system', content: sysExtra }, ...messages];
 	const used: string[] = [];
 	let pendingMail: PendingMail | undefined;
 	let pendingMessage: PendingMessage | undefined;
+	let pendingAddon: PendingAddon | undefined;
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
 		const t = setTimeout(() => ctrl.abort(), 120000);
@@ -143,9 +155,10 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 					let args: unknown = {};
 					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leeres Argument */ }
 					used.push(tc.function?.name);
-					const result = isBuiltinTool(tc.function?.name) ? runBuiltinTool(tc.function?.name, args) : await runAddonTool(byName, tc.function?.name, args);
+					const result = await (isBuiltinTool(tc.function?.name) ? runBuiltinTool(tc.function?.name, args) : runAddonTool(byName, tc.function?.name, args));
 					if (result && typeof result === 'object' && 'pendingMail' in result) pendingMail = (result as { pendingMail: PendingMail }).pendingMail;
 					if (result && typeof result === 'object' && 'pendingMessage' in result) pendingMessage = (result as { pendingMessage: PendingMessage }).pendingMessage;
+					if (result && typeof result === 'object' && 'pendingAddon' in result) pendingAddon = (result as { pendingAddon: PendingAddon }).pendingAddon;
 					const out = JSON.stringify(result);
 					// Werkzeug-Ausgaben können externe Inhalte enthalten → bei Injektion als Daten markieren.
 					const scan = scanInjection(out);
@@ -155,7 +168,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 			}
 			const reply = (msg.content ?? '').trim();
 			if (!reply) return chatOpenAICompat(rawBase, apiKey, messages);
-			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}), ...(pendingMessage ? { pendingMessage } : {}) };
+			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}), ...(pendingMessage ? { pendingMessage } : {}), ...(pendingAddon ? { pendingAddon } : {}) };
 		} finally {
 			clearTimeout(t);
 		}
@@ -180,11 +193,12 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 	const filtered = allowedTools && allowedTools.length ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
 	const anthropicTools = toAnthropicTools(filtered);
 	const sysBase = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-	const system = (sysBase ? sysBase + '\n\n' : '') + nowContext();
+	const system = (sysBase ? sysBase + '\n\n' : '') + nowContext() + (anthropicTools.length ? '\n\n' + TOOL_GUIDANCE : '');
 	const msgs: unknown[] = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
 	const used: string[] = [];
 	let pendingMail: PendingMail | undefined;
 	let pendingMessage: PendingMessage | undefined;
+	let pendingAddon: PendingAddon | undefined;
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
 		const t = setTimeout(() => ctrl.abort(), 120000);
@@ -204,9 +218,10 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 				const results = [];
 				for (const tu of toolUses) {
 					used.push(tu.name ?? '');
-					const r = isBuiltinTool(tu.name ?? '') ? runBuiltinTool(tu.name ?? '', tu.input) : await runAddonTool(byName, tu.name ?? '', tu.input);
+					const r = await (isBuiltinTool(tu.name ?? '') ? runBuiltinTool(tu.name ?? '', tu.input) : runAddonTool(byName, tu.name ?? '', tu.input));
 					if (r && typeof r === 'object' && 'pendingMail' in r) pendingMail = (r as { pendingMail: PendingMail }).pendingMail;
 					if (r && typeof r === 'object' && 'pendingMessage' in r) pendingMessage = (r as { pendingMessage: PendingMessage }).pendingMessage;
+					if (r && typeof r === 'object' && 'pendingAddon' in r) pendingAddon = (r as { pendingAddon: PendingAddon }).pendingAddon;
 					results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(r) });
 				}
 				msgs.push({ role: 'user', content: results });
@@ -214,7 +229,7 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 			}
 			const reply = content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('').trim();
 			if (!reply) throw new Error('leere Antwort');
-			return { reply, source: 'model', model: data.model ?? model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}), ...(pendingMessage ? { pendingMessage } : {}) };
+			return { reply, source: 'model', model: data.model ?? model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}), ...(pendingMessage ? { pendingMessage } : {}), ...(pendingAddon ? { pendingAddon } : {}) };
 		} finally {
 			clearTimeout(t);
 		}
