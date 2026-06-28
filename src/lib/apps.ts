@@ -162,6 +162,17 @@ export const APPS: AppDef[] = [
 		icon: 'M3.5 6.5h17v11h-17zM3.8 7l8.2 6 8.2-6'
 	},
 	{
+		id: 'calls',
+		label: 'Anrufe',
+		href: '/calls',
+		floor: 'arbeitsplatz',
+		group: 'work',
+		ready: true,
+		capability: 'telephony',
+		blurb: 'Intelligente Voicemail: eingehende Anrufe werden begrüßt, aufgezeichnet, transkribiert und von der KI zusammengefasst.',
+		icon: 'M6 3.5l2.2 4-1.6 1.6a12 12 0 0 0 6.3 6.3l1.6-1.6 4 2.2v3.2A1.6 1.6 0 0 1 17 21 15 15 0 0 1 3 7a1.6 1.6 0 0 1 1.8-1.7z'
+	},
+	{
 		id: 'docs',
 		label: 'Dokumente',
 		href: '/docs',

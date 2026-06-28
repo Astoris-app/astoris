@@ -99,6 +99,25 @@ export const CONNECTORS: Connector[] = [
 		scopes: [{ id: 'send', label: 'Nachrichten senden', default: true }]
 	},
 	{
+		id: 'telephony',
+		name: 'Telefon (Twilio)',
+		category: 'Kommunikation',
+		blurb: 'KI-Anrufbeantworter: eingehende Anrufe begrüßen, aufzeichnen, transkribieren und als Anruf-Eintrag zusammenfassen.',
+		icon: 'M6 3.5l2.2 4-1.6 1.6a12 12 0 0 0 6.3 6.3l1.6-1.6 4 2.2v3.2A1.6 1.6 0 0 1 17 21 15 15 0 0 1 3 7a1.6 1.6 0 0 1 1.8-1.7z',
+		fields: [
+			{ key: 'account_sid', label: 'Account SID', type: 'password', placeholder: 'AC…', hint: 'Aus der Twilio-Console (wird verschlüsselt gespeichert).' },
+			{ key: 'auth_token', label: 'Auth Token', type: 'password', hint: 'Twilio Auth Token — sichert die Webhook-Signatur.' },
+			{ key: 'phone_number', label: 'Telefonnummer', type: 'text', placeholder: '+49…', hint: 'Deine gekaufte Twilio-Nummer im E.164-Format.' },
+			{ key: 'public_url', label: 'Öffentliche URL', type: 'url', optional: true, placeholder: 'https://dein-tunnel.trycloudflare.com', hint: 'Basis-URL deines öffentlichen Tunnels (für die Signatur-Prüfung). Ohne sie nutzt der Server die Anfrage-URL.' },
+			{ key: 'ansage_text', label: 'Ansage-Text', type: 'text', optional: true, hint: 'Wird dem Anrufer vorgelesen. Leer = Standard-Ansage.' },
+			{ key: 'notify_chat_id', label: 'Telegram Chat-ID', type: 'text', optional: true, hint: 'Wohin neue Anrufe per Telegram gemeldet werden (Telegram-Verbindung nötig).' }
+		],
+		scopes: [
+			{ id: 'voicemail', label: 'Anrufe annehmen & aufzeichnen', default: true },
+			{ id: 'transcribe', label: 'Aufnahmen transkribieren (Twilio)', default: true }
+		]
+	},
+	{
 		id: 'cloud-ai',
 		name: 'Cloud-KI',
 		category: 'KI-Modelle',

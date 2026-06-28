@@ -45,7 +45,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Login + Setup-Status MÜSSEN immer erreichbar sein — die Login-Seite fragt /api/auth ab
 	// (Nutzer ist da per Definition noch nicht eingeloggt). Engine/Connections nur während
 	// des Erst-Onboardings (vor Auth-Konfiguration), danach session-pflichtig.
-	const alwaysOpen = p.startsWith('/api/auth') || p.startsWith('/api/setup');
+	// Twilio-Webhooks haben keine Session — NUR diese zwei Routen sind offen und
+	// werden in den Handlern selbst per X-Twilio-Signature (HMAC-SHA1) verifiziert.
+	// /api/calls (Liste/Aktionen) bleibt bewusst session-pflichtig.
+	const isCallWebhook = p === '/api/calls/incoming' || p === '/api/calls/recording';
+	const alwaysOpen = p.startsWith('/api/auth') || p.startsWith('/api/setup') || isCallWebhook;
 	const onboardingOnly = p.startsWith('/api/engine') || p.startsWith('/api/connections');
 	if (isApi && !user) {
 		const allowed = alwaysOpen || (!authConfigured() && onboardingOnly);

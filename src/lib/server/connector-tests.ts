@@ -160,6 +160,19 @@ export async function testConnection(
 				message: 'Google verbindet sich per OAuth — Freigabe erfolgt beim ersten Zugriff.'
 			};
 
+		case 'telephony': {
+			const sid = (f.account_sid || '').trim();
+			const tok = (f.auth_token || '').trim();
+			if (!sid || !tok) return { ok: false, message: 'Account SID und Auth Token nötig.' };
+			// Verify credentials against the Twilio REST API (basic auth sid:token).
+			const auth = btoa([sid, tok].join(String.fromCharCode(58)));
+			return httpProbe(
+				`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`,
+				{ authorization: `Basic ${auth}` },
+				'Twilio-Zugang gültig.'
+			);
+		}
+
 		default:
 			return { ok: true, skipped: true, message: 'Kein automatischer Test für diesen Typ.' };
 	}
