@@ -1,17 +1,28 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import ResearchSidebar from '$lib/components/ResearchSidebar.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { dictation } from '$lib/actions/dictation';
 
 	// KI-Zusammenfassung der Quellen folgt in Verfeinerung (über /api/chat).
 
 	type Result = { title: string; url: string; snippet: string };
+	type HistoryEntry = { id: string; query: string; title?: string; at: string; favorite: boolean; resultCount?: number };
 
 	let query = $state('');
 	let results = $state<Result[]>([]);
 	let loading = $state(false);
 	let error = $state('');
 	let searched = $state(false);
+
+	let history = $state<HistoryEntry[]>([]);
+	// aktuell angezeigte Suche (für Aktiv-Markierung in der Sidebar)
+	let activeQuery = $state('');
+	// Mobile: Historie als Off-Canvas-Drawer (Desktop: feste Sidebar, unverändert).
+	let histNavOpen = $state(false);
+	function closeHistNav() { histNavOpen = false; }
+	function onPageKeydown(e: KeyboardEvent) { if (e.key === 'Escape') histNavOpen = false; }
 
 	const examples = $derived([
 		i18n.t('research.example1'),
@@ -20,12 +31,20 @@
 		i18n.t('research.example4')
 	]);
 
+	async function loadHistory() {
+		try {
+			const d = await (await fetch('/api/research/history')).json();
+			history = Array.isArray(d.history) ? d.history : [];
+		} catch { /* ignore */ }
+	}
+
 	async function search() {
 		const q = query.trim();
 		if (!q || loading) return;
 		loading = true;
 		error = '';
 		searched = true;
+		activeQuery = q;
 		try {
 			const res = await fetch('/api/research', {
 				method: 'POST',
@@ -40,6 +59,8 @@
 			error = i18n.t('research.networkError');
 		} finally {
 			loading = false;
+			// Verlauf nach jeder Suche aktualisieren (Server hat upsertSearch ausgeführt).
+			loadHistory();
 		}
 	}
 
@@ -52,6 +73,30 @@
 		search();
 	}
 
+	// Klick auf Verlaufseintrag → Query laden + Suche ausführen.
+	function selectHistory(q: string) {
+		query = q;
+		closeHistNav();
+		search();
+	}
+
+	async function renameHistory(id: string, title: string) {
+		await fetch('/api/research/history', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'rename', id, title }) });
+		await loadHistory();
+	}
+	async function toggleFavorite(id: string, favorite: boolean) {
+		await fetch('/api/research/history', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'favorite', id, favorite }) });
+		await loadHistory();
+	}
+	async function deleteHistory(id: string) {
+		await fetch('/api/research/history', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'delete', id }) });
+		await loadHistory();
+	}
+	async function clearHistory() {
+		await fetch('/api/research/history', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) });
+		await loadHistory();
+	}
+
 	function domain(url: string): string {
 		try {
 			return new URL(url).hostname.replace(/^www\./, '');
@@ -59,9 +104,33 @@
 			return url;
 		}
 	}
+
+	onMount(loadHistory);
 </script>
 
-<AppHeader title={i18n.t('research.title')} eyebrow={i18n.t('research.eyebrow')} />
+<svelte:window onkeydown={onPageKeydown} />
+
+<div class="alayout">
+	<ResearchSidebar
+		history={history}
+		activeQuery={activeQuery}
+		mobileOpen={histNavOpen}
+		onSelect={selectHistory}
+		onRename={renameHistory}
+		onToggleFavorite={toggleFavorite}
+		onDelete={deleteHistory}
+		onClear={clearHistory}
+	/>
+	{#if histNavOpen}
+		<button class="app-backdrop" aria-label={i18n.t('common.cancel')} onclick={closeHistNav}></button>
+	{/if}
+	<div class="amain">
+<AppHeader title={i18n.t('research.title')} eyebrow={i18n.t('research.eyebrow')}>
+	<button class="histbtn" aria-label={i18n.t('research.historyTitle')} aria-expanded={histNavOpen} onclick={() => (histNavOpen = !histNavOpen)}>
+		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>
+		{i18n.t('research.historyTitle')}
+	</button>
+</AppHeader>
 
 <div class="scroll">
 	<div class="searchbar">
@@ -116,8 +185,19 @@
 		</div>
 	{/if}
 </div>
+	</div>
+</div>
 
 <style>
+	.alayout { display: flex; flex: 1; min-height: 0; }
+	.amain { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+	/* Historie-Toggle: nur auf Mobile sichtbar (Desktop: feste Sidebar). */
+	.histbtn { display: none; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-1); border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 12px; transition: all 0.16s; }
+	.histbtn:hover { color: var(--text); border-color: var(--ember-line); }
+	@media (max-width: 760px) {
+		.histbtn { display: inline-flex; }
+	}
+
 	.scroll {
 		flex: 1;
 		overflow-y: auto;

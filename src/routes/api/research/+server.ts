@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { upsertSearch } from '$lib/server/research-history';
 
 type Result = { title: string; url: string; snippet: string };
 
@@ -80,6 +81,13 @@ export async function POST({ request }) {
 				results: [],
 				error: 'Keine Treffer gefunden. Der Suchdienst hat eventuell sein Format geändert.'
 			});
+		}
+
+		// Erfolgreiche Suche in der Recherche-Historie festhalten (Dedupe greift im Store).
+		try {
+			upsertSearch({ query, resultCount: results.length });
+		} catch {
+			/* Historie ist best-effort – Such-Antwort nie blockieren */
 		}
 
 		return json({ results });
