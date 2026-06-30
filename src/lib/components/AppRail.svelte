@@ -6,6 +6,72 @@
 	import Icon from './Icon.svelte';
 	import Brand from './Brand.svelte';
 	import EngineStatus from './EngineStatus.svelte';
+	import CompanyWizard from './CompanyWizard.svelte';
+
+	// --- Company-Switcher (Multi-Company) ---
+	type CompanyMeta = { id: string; name: string; industry?: string };
+	let companies = $state<CompanyMeta[]>([]);
+	let activeId = $state('');
+	let csOpen = $state(false); // Firmen-Dropdown offen?
+	let wizardOpen = $state(false); // „Neue Firma"-Assistent offen?
+	let switching = $state(false);
+	let switcherEl = $state<HTMLElement>();
+	let popStyle = $state('');
+
+	let activeCompany = $derived(companies.find((c) => c.id === activeId) ?? null);
+	let activeName = $derived(activeCompany?.name ?? 'Astoris');
+	let activeInitial = $derived((activeName.trim()[0] ?? 'A').toUpperCase());
+
+	async function loadCompanies() {
+		try {
+			const r = await fetch('/api/companies');
+			if (r.ok) {
+				const d = await r.json();
+				companies = Array.isArray(d?.companies) ? d.companies : [];
+				activeId = (d?.active ?? '').toString();
+			}
+		} catch { /* Switcher bleibt leer, Rail funktioniert weiter */ }
+	}
+
+	// Dropdown öffnen + an der aktuellen Position des Buttons ausrichten (fixed → nicht vom
+	// overflow:hidden der Rail abgeschnitten, funktioniert in allen Modi inkl. Mobile-Drawer).
+	function openDropdown() {
+		if (!switcherEl) return;
+		const r = switcherEl.getBoundingClientRect();
+		popStyle = `top:${Math.round(r.bottom + 6)}px; left:${Math.round(r.left)}px; min-width:${Math.round(Math.max(r.width, 210))}px;`;
+		csOpen = true;
+	}
+	function toggleDropdown() {
+		if (csOpen) csOpen = false;
+		else openDropdown();
+	}
+
+	async function switchTo(id: string) {
+		csOpen = false;
+		if (id === activeId || switching) return;
+		switching = true;
+		try {
+			await fetch('/api/companies', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'switch', id })
+			});
+			// Voller Reload, damit ALLE Module die neue aktive Firma frisch laden.
+			location.reload();
+		} catch {
+			switching = false;
+		}
+	}
+
+	function openWizard() {
+		csOpen = false;
+		wizardOpen = true;
+	}
+	function onWizardDone() {
+		wizardOpen = false;
+		// Neue Firma ist jetzt aktiv → in die Übersicht und alles frisch laden.
+		location.href = OVERVIEW_APP.href;
+	}
 
 	// Auf Mobile wird die Rail zum Off-Canvas-Drawer (vom Layout gesteuert).
 	let { mobileOpen = false, onNavigate = () => {} }: { mobileOpen?: boolean; onNavigate?: () => void } = $props();
@@ -32,6 +98,7 @@
 	}
 
 	onMount(() => {
+		loadCompanies();
 		try { expanded = localStorage.getItem('astoris-rail') === '1'; } catch { /* ignore */ }
 		try {
 			const raw = localStorage.getItem('astoris-floors-open');
@@ -60,6 +127,29 @@
 		<Brand size={30} />
 		{#if showFull}<span class="brand-name">Astoris</span>{/if}
 	</a>
+
+	<!-- Company-Switcher: aktive Firma anzeigen + umschalten / neue anlegen -->
+	<button
+		class="switcher"
+		class:open={csOpen}
+		bind:this={switcherEl}
+		onclick={toggleDropdown}
+		aria-haspopup="listbox"
+		aria-expanded={csOpen}
+		title={showFull ? '' : activeName}
+		disabled={switching}
+	>
+		<span class="cs-badge" aria-hidden="true">{activeInitial}</span>
+		{#if showFull}
+			<span class="cs-meta">
+				<span class="cs-eyebrow">{i18n.t('companies.label')}</span>
+				<span class="cs-name">{activeName}</span>
+			</span>
+			<svg class="cs-chev" class:open={csOpen} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+		{:else}
+			<span class="tip">{activeName}</span>
+		{/if}
+	</button>
 
 	<div class="nav-scroll">
 		<!-- Eingang / Lobby — steht über den Etagen -->
@@ -134,6 +224,41 @@
 	</div>
 </nav>
 
+<!-- Firmen-Dropdown (fixed → außerhalb des overflow:hidden der Rail) -->
+{#if csOpen}
+	<button class="cs-backdrop" aria-label={i18n.t('common.cancel')} onclick={() => (csOpen = false)}></button>
+	<div class="cs-pop" style={popStyle} role="listbox" aria-label={i18n.t('companies.label')}>
+		<div class="cs-list">
+			{#each companies as c (c.id)}
+				<button
+					class="cs-item"
+					class:active={c.id === activeId}
+					role="option"
+					aria-selected={c.id === activeId}
+					onclick={() => switchTo(c.id)}
+				>
+					<span class="cs-badge sm" aria-hidden="true">{(c.name.trim()[0] ?? '?').toUpperCase()}</span>
+					<span class="cs-item-name">{c.name}</span>
+					{#if c.id === activeId}
+						<svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
+					{/if}
+				</button>
+			{/each}
+		</div>
+		<button class="cs-new" onclick={openWizard}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+			{i18n.t('companies.newCompany')}
+		</button>
+	</div>
+{/if}
+
+<!-- „Neue Firma"-Assistent als Modal -->
+{#if wizardOpen}
+	<div class="wiz-overlay" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) wizardOpen = false; }}>
+		<CompanyWizard onDone={onWizardDone} onCancel={() => (wizardOpen = false)} />
+	</div>
+{/if}
+
 <style>
 	.rail {
 		width: var(--rail-w);
@@ -183,6 +308,100 @@
 	.rail:not(.expanded) .brand { width: 44px; justify-content: center; padding-left: 0; align-self: center; }
 	.brand:hover { transform: scale(1.04); }
 	.brand-name { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--text); letter-spacing: -0.01em; }
+
+	/* --- Company-Switcher --- */
+	.switcher {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		flex: none;
+		height: 44px;
+		padding: 0 9px;
+		margin-bottom: 8px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		background: var(--surface-1);
+		color: var(--text);
+		cursor: pointer;
+		text-align: left;
+		transition: border-color 0.16s, background 0.16s;
+	}
+	.switcher:hover:not(:disabled), .switcher.open { border-color: var(--ember-line); background: var(--surface-2); }
+	.switcher:disabled { opacity: 0.6; cursor: default; }
+	.rail:not(.expanded) .switcher { width: 44px; padding: 0; justify-content: center; align-self: center; position: relative; }
+	.cs-badge {
+		flex: none; width: 26px; height: 26px; border-radius: 8px;
+		display: grid; place-items: center;
+		background: var(--ember-soft); color: var(--ember-bright);
+		font-family: var(--font-display); font-weight: 600; font-size: 13px; line-height: 1;
+	}
+	.cs-badge.sm { width: 24px; height: 24px; font-size: 12px; }
+	.cs-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+	.cs-eyebrow { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); font-family: var(--font-mono); }
+	.cs-name { font-size: 13.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.cs-chev { width: 15px; height: 15px; flex: none; opacity: 0.6; color: var(--text-faint); transition: transform 0.2s var(--ease); }
+	.cs-chev.open { transform: rotate(180deg); }
+	/* Tooltip im Icon-Modus (wie .item .tip) */
+	.switcher .tip {
+		position: absolute;
+		left: calc(100% + 12px);
+		top: 50%;
+		transform: translateY(-50%) translateX(-4px);
+		background: var(--surface-3); color: var(--text);
+		font-size: 12.5px; padding: 5px 10px; border-radius: 7px;
+		white-space: nowrap; pointer-events: none; opacity: 0;
+		transition: opacity 0.16s, transform 0.16s var(--ease);
+		box-shadow: var(--shadow); z-index: 30;
+	}
+	.switcher:hover .tip { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+	/* Dropdown-Popover (fixed, dokument-weit) */
+	.cs-backdrop { position: fixed; inset: 0; z-index: 95; background: transparent; border: none; cursor: default; }
+	.cs-pop {
+		position: fixed; z-index: 96;
+		max-width: 280px;
+		background: var(--surface-3);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		box-shadow: var(--shadow);
+		padding: 6px;
+		display: flex; flex-direction: column; gap: 4px;
+	}
+	.cs-list { display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+	.cs-list::-webkit-scrollbar { width: 6px; }
+	.cs-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+	.cs-item {
+		display: flex; align-items: center; gap: 9px;
+		padding: 7px 9px; border-radius: 9px;
+		background: transparent; border: none; cursor: pointer;
+		color: var(--text-muted); text-align: left;
+		transition: background 0.14s, color 0.14s;
+	}
+	.cs-item:hover { background: var(--surface-1); color: var(--text); }
+	.cs-item.active { color: var(--text); }
+	.cs-item-name { flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.cs-check { width: 16px; height: 16px; flex: none; color: var(--ember-bright); }
+	.cs-new {
+		display: flex; align-items: center; gap: 8px;
+		padding: 8px 9px; border-radius: 9px;
+		background: transparent; border: none; cursor: pointer;
+		color: var(--ember-bright); font: inherit; font-size: 13px; font-weight: 500;
+		border-top: 1px solid var(--border-soft); margin-top: 2px; padding-top: 9px;
+		transition: background 0.14s;
+	}
+	.cs-new:hover { background: var(--ember-soft); }
+	.cs-new svg { width: 16px; height: 16px; flex: none; }
+
+	/* Wizard-Modal */
+	.wiz-overlay {
+		position: fixed; inset: 0; z-index: 110;
+		background: rgba(8, 6, 4, 0.66);
+		backdrop-filter: blur(3px);
+		display: grid; place-items: center;
+		padding: 20px;
+	}
+	@media (max-width: 760px) { .wiz-overlay { padding: 0; } }
 
 	/* Scrollbarer Mittelteil (alle Etagen) — Brand + Engine bleiben fix. */
 	.nav-scroll {
