@@ -76,6 +76,48 @@ export async function POST({ request }) {
 		return json({ id: meta.id, active: getActiveId(), companies: listCompanies() });
 	}
 
+	// AKTIVE Firma befüllen (Ersteinrichtung in /welcome): keine NEUE Firma anlegen,
+	// sondern die bereits aktive (erste/leere) Firma konfigurieren. Reihenfolge analog zu
+	// create, nur OHNE createCompany/setActiveId — die Schreib-Funktionen treffen die aktive Firma.
+	if (action === 'setup-active') {
+		const name = (b.name ?? '').toString().trim();
+		if (!name) return json({ error: 'Firmenname fehlt.' }, { status: 400 });
+		const industry = (b.industry ?? '').toString().trim();
+		const id = getActiveId();
+
+		// 1) Registry-Name der aktiven Firma setzen.
+		renameCompany(id, name);
+
+		// 2) Stammdaten in die company.json der aktiven Firma schreiben.
+		saveCompany({
+			name,
+			industry,
+			mission: (b.mission ?? '').toString(),
+			knowledge: (b.knowledge ?? '').toString()
+		});
+
+		// 3) Branchen-Vorlage übernehmen: Rollen + je Rolle ein passender Agent (wie create).
+		if (b.template) {
+			const tpl = INDUSTRY_TEMPLATES[industry];
+			if (tpl) {
+				for (const r of tpl.roles) {
+					addRole(r.title, r.description);
+					addAgent(r.title, r.title, pickPersona(r.title));
+				}
+			}
+		}
+
+		// 4) Erste Ziele anlegen (optional).
+		if (Array.isArray(b.goals)) {
+			for (const g of b.goals) {
+				const title = (g ?? '').toString().trim();
+				if (title) addGoal({ title });
+			}
+		}
+
+		return json({ id, active: getActiveId(), companies: listCompanies() });
+	}
+
 	// Firma umbenennen.
 	if (action === 'rename') {
 		const meta = renameCompany((b.id ?? '').toString(), (b.name ?? '').toString());

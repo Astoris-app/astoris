@@ -6,7 +6,20 @@
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { dictation } from '$lib/actions/dictation';
 
-	let { onDone = () => {}, onCancel = () => {} }: { onDone?: () => void; onCancel?: () => void } = $props();
+	// mode: 'create' legt eine NEUE Firma an (Switcher) — 'setup' befüllt die bereits aktive
+	// (erste/leere) Firma in der Ersteinrichtung. embedded: ohne eigenen Card/Modal-Rahmen
+	// rendern, damit der Wizard als Schritt in /welcome eingebettet werden kann.
+	let {
+		onDone = () => {},
+		onCancel = () => {},
+		mode = 'create',
+		embedded = false
+	}: {
+		onDone?: () => void;
+		onCancel?: () => void;
+		mode?: 'create' | 'setup';
+		embedded?: boolean;
+	} = $props();
 
 	type Tpl = { label: string; roles: { title: string; description: string }[] };
 
@@ -72,7 +85,7 @@
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
-					action: 'create',
+					action: mode === 'setup' ? 'setup-active' : 'create',
 					name: name.trim(),
 					industry,
 					mission: mission.trim(),
@@ -101,16 +114,19 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="wiz">
-	<header class="whead">
-		<div>
-			<p class="eyebrow">{i18n.t('companies.wizardEyebrow')}</p>
-			<h2>{i18n.t('companies.wizardTitle')}</h2>
-		</div>
-		<button class="x" onclick={onCancel} aria-label={i18n.t('common.cancel')}>
-			<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-		</button>
-	</header>
+<div class="wiz" class:embedded>
+	<!-- In embedded /welcome rendert die Seite Titel/Untertitel selbst — eigenen Header weglassen. -->
+	{#if !embedded}
+		<header class="whead">
+			<div>
+				<p class="eyebrow">{i18n.t(mode === 'setup' ? 'companies.setupEyebrow' : 'companies.wizardEyebrow')}</p>
+				<h2>{i18n.t(mode === 'setup' ? 'companies.setupTitle' : 'companies.wizardTitle')}</h2>
+			</div>
+			<button class="x" onclick={onCancel} aria-label={i18n.t('common.cancel')}>
+				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+			</button>
+		</header>
+	{/if}
 
 	<!-- Fortschritt -->
 	<div class="progress" aria-label={`${step}/${TOTAL}`}>
@@ -226,7 +242,11 @@
 			<button class="btn primary" onclick={next} disabled={!canNext}>{i18n.t('companies.next')}</button>
 		{:else}
 			<button class="btn primary" onclick={finish} disabled={submitting || !name.trim()}>
-				{submitting ? i18n.t('companies.creating') : i18n.t('companies.create')}
+				{#if mode === 'setup'}
+					{submitting ? i18n.t('companies.setupCreating') : i18n.t('companies.setupCreate')}
+				{:else}
+					{submitting ? i18n.t('companies.creating') : i18n.t('companies.create')}
+				{/if}
 			</button>
 		{/if}
 	</footer>
@@ -245,6 +265,18 @@
 		box-shadow: var(--shadow);
 		overflow: hidden;
 	}
+	/* Eingebettet (z. B. als /welcome-Schritt): ohne eigene Card/Modal-Optik, bündig im Panel. */
+	.wiz.embedded {
+		max-width: 100%;
+		max-height: none;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		overflow: visible;
+	}
+	.wiz.embedded .progress { padding-top: 4px; }
+	.wiz.embedded .body { padding-left: 0; padding-right: 0; }
+	.wiz.embedded .wfoot { padding-left: 0; padding-right: 0; padding-bottom: 0; }
 	.whead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 0; }
 	.whead h2 { font-size: 18px; font-family: var(--font-display); letter-spacing: -0.01em; }
 	.eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); font-family: var(--font-mono); margin-bottom: 3px; }

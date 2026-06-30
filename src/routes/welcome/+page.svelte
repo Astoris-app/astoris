@@ -7,6 +7,7 @@
 	import { i18n } from '$lib/stores/i18n.svelte';
 	import { APPS } from '$lib/apps';
 	import { CONNECTORS } from '$lib/connectors';
+	import CompanyWizard from '$lib/components/CompanyWizard.svelte';
 
 	let step = $state(0);
 	let profile = $state<'personal' | 'business'>('personal');
@@ -18,15 +19,27 @@
 	// Verbindungen DÜRFEN auch im Replay gespeichert werden, nur markSetupDone/Profil nicht.
 	const replay = $derived(page.url.searchParams.get('replay') === '1');
 
-	// Schritte: Willkommen → Funktionen → Profil → KI-Modell → E-Mail → Weitere Konten
-	const steps = $derived([
-		i18n.t('welcome.stepWelcome'),
-		i18n.t('welcome.stepFeatures'),
-		i18n.t('welcome.stepProfile'),
-		i18n.t('welcome.stepModel'),
-		i18n.t('welcome.stepEmail'),
-		i18n.t('welcome.stepMore')
+	// Schritt-Fluss als id-Liste: der Firma-Schritt erscheint NUR im business-Profil.
+	// step ist der Index in flow → Inhalte werden über die id (cur) gerendert, nicht über feste Zahlen.
+	const flow = $derived<string[]>([
+		'welcome',
+		'features',
+		'profile',
+		...(profile === 'business' ? ['company'] : []),
+		'model',
+		'email',
+		'more'
 	]);
+	const cur = $derived(flow[Math.min(step, flow.length - 1)]);
+	const stepLabels: Record<string, string> = $derived({
+		welcome: i18n.t('welcome.stepWelcome'),
+		features: i18n.t('welcome.stepFeatures'),
+		profile: i18n.t('welcome.stepProfile'),
+		company: i18n.t('welcome.stepCompany'),
+		model: i18n.t('welcome.stepModel'),
+		email: i18n.t('welcome.stepEmail'),
+		more: i18n.t('welcome.stepMore')
+	});
 
 	// Feature-Überblick: Icons aus der App-Registry, Namen + Kurzsätze aus i18n.
 	const featureIds = ['chat', 'calendar', 'mail', 'docs', 'research', 'studio', 'tresor', 'agents', 'erweiterungen'];
@@ -106,7 +119,7 @@
 
 	function next() {
 		saveMsg = null;
-		if (step < steps.length - 1) step++;
+		if (step < flow.length - 1) step++;
 	}
 	function back() {
 		saveMsg = null;
@@ -222,12 +235,12 @@
 <div class="wrap">
 	<div class="panel">
 		<div class="progress" aria-hidden="true">
-			{#each steps as s, i (s)}
-				<span class="dot" class:done={i < step} class:cur={i === step}></span>
+			{#each flow as id, i (id)}
+				<span class="dot" class:done={i < step} class:cur={i === step} title={stepLabels[id]}></span>
 			{/each}
 		</div>
 
-		{#if step === 0}
+		{#if cur === 'welcome'}
 			<div class="hero">
 				<Brand size={56} />
 				<h1>{i18n.t('welcome.heroTitle')}</h1>
@@ -237,7 +250,7 @@
 				<span></span>
 				<button class="btn primary" onclick={next}>{i18n.t('welcome.start')}</button>
 			</div>
-		{:else if step === 1}
+		{:else if cur === 'features'}
 			<h2>{i18n.t('welcome.featuresTitle')}</h2>
 			<p class="sub">{i18n.t('welcome.featuresSub')}</p>
 			<div class="features">
@@ -254,7 +267,7 @@
 				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
 				<button class="btn primary" onclick={next}>{i18n.t('welcome.next')}</button>
 			</div>
-		{:else if step === 2}
+		{:else if cur === 'profile'}
 			<h2>{i18n.t('welcome.profileTitle')}</h2>
 			<p class="sub">{i18n.t('welcome.profileSub')}</p>
 			<div class="choices">
@@ -271,7 +284,15 @@
 				<button class="btn ghost" onclick={back}>{i18n.t('welcome.back')}</button>
 				<button class="btn primary" onclick={next}>{i18n.t('welcome.next')}</button>
 			</div>
-		{:else if step === 3}
+		{:else if cur === 'company'}
+			<h2>{i18n.t('welcome.companyTitle')}</h2>
+			<p class="sub">{i18n.t('welcome.companySub')}</p>
+			<!-- Befüllt die bereits aktive (erste) Firma; eigene Navigation (Zurück/Weiter/Einrichten).
+			     onDone → weiter im /welcome-Flow, onCancel → zurück zum Profil-Schritt. -->
+			<div class="company-step">
+				<CompanyWizard mode="setup" embedded onDone={next} onCancel={back} />
+			</div>
+		{:else if cur === 'model'}
 			<div class="shead">
 				<h2>{i18n.t('welcome.modelTitle')}</h2>
 				{#if savedMap['cloud-ai'] || savedMap['local-models']}
@@ -353,7 +374,7 @@
 					<button class="btn primary" onclick={modelNext} disabled={busy}>{busy ? i18n.t('welcome.saving') : i18n.t('welcome.next')}</button>
 				</div>
 			</div>
-		{:else if step === 4}
+		{:else if cur === 'email'}
 			<div class="shead">
 				<h2>{i18n.t('welcome.emailTitle')}</h2>
 				{#if savedMap['email']}
@@ -444,6 +465,7 @@
 	.choice strong { font-size: 15px; }
 	.choice small { color: var(--text-muted); font-size: 12.5px; }
 	.form { display: flex; flex-direction: column; gap: 14px; margin: 18px 0 4px; }
+	.company-step { margin-top: 18px; }
 	.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 	label span { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 5px; }
 	label small { display: block; font-size: 11px; color: var(--text-faint); margin-top: 5px; }
