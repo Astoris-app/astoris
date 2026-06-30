@@ -1,10 +1,15 @@
 // Firma: Name, Branche, Mission + Rollen + Unteragenten (Paperclip-Stil).
 // Persistenz in data/company.json. Branchen-Vorlagen schlagen Rollen vor.
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { companyDir } from './companies';
 
-const FILE = 'data/company.json';
+// Pfad der company.json der aktiven Firma (data/companies/<id>/company.json).
+function file(): string {
+	return join(companyDir(), 'company.json');
+}
 
 export type Role = { id: string; title: string; description: string };
 export type AgentModel = { source: 'local' | 'cloud'; model: string };
@@ -123,12 +128,12 @@ export const INDUSTRY_TEMPLATES: Record<string, { label: string; roles: { title:
 };
 
 function load(): Company {
+	const FILE = file();
 	if (!existsSync(FILE)) return { ...EMPTY };
 	try { return { ...EMPTY, ...JSON.parse(readFileSync(FILE, 'utf8')) } as Company; } catch { return { ...EMPTY }; }
 }
 function save(c: Company) {
-	mkdirSync('data', { recursive: true });
-	writeFileSync(FILE, JSON.stringify(c, null, 2), { mode: 0o600 });
+	writeFileSync(file(), JSON.stringify(c, null, 2), { mode: 0o600 });
 }
 
 export function getCompany(): Company { return load(); }

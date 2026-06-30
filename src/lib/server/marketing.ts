@@ -1,10 +1,15 @@
 // Marketing-Modul: speichert je Werkzeug das letzte Ergebnis + kurzen Verlauf.
 // Persistenz in data/marketing.json (mode 0o600), Muster wie company.ts/crm.ts.
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { companyDir } from './companies';
 
-const FILE = 'data/marketing.json';
+// Pfad der marketing.json der aktiven Firma (data/companies/<id>/marketing.json).
+function file(): string {
+	return join(companyDir(), 'marketing.json');
+}
 
 export type MarketingTool = 'content' | 'social' | 'ads' | 'campaign' | 'googleAds';
 export const MARKETING_TOOLS: MarketingTool[] = ['content', 'social', 'ads', 'campaign', 'googleAds'];
@@ -38,6 +43,7 @@ function empty(): Marketing {
 
 function load(): Marketing {
 	const base = empty();
+	const FILE = file();
 	if (!existsSync(FILE)) return base;
 	try {
 		const raw = JSON.parse(readFileSync(FILE, 'utf8'));
@@ -57,8 +63,7 @@ function load(): Marketing {
 }
 
 function save(m: Marketing) {
-	mkdirSync('data', { recursive: true });
-	writeFileSync(FILE, JSON.stringify(m, null, 2), { mode: 0o600 });
+	writeFileSync(file(), JSON.stringify(m, null, 2), { mode: 0o600 });
 }
 
 export function getMarketing(): Marketing {

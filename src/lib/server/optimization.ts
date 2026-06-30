@@ -2,10 +2,15 @@
 // Experimente mit Hypothese, verknüpfter Kennzahl, Baseline und KI-Auswertung.
 // Persistenz in data/optimization.json (mode 0o600), Muster wie metrics.ts / marketing.ts.
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { companyDir } from './companies';
 
-const FILE = 'data/optimization.json';
+// Pfad der optimization.json der aktiven Firma (data/companies/<id>/optimization.json).
+function file(): string {
+	return join(companyDir(), 'optimization.json');
+}
 
 export type ExperimentStatus = 'geplant' | 'laufend' | 'ausgewertet';
 export const EXPERIMENT_STATUS: ExperimentStatus[] = ['geplant', 'laufend', 'ausgewertet'];
@@ -45,6 +50,7 @@ function str(v: unknown): string {
 }
 
 function load(): Optimization {
+	const FILE = file();
 	if (!existsSync(FILE)) return { experiments: [] };
 	try {
 		const raw = JSON.parse(readFileSync(FILE, 'utf8'));
@@ -70,8 +76,7 @@ function load(): Optimization {
 }
 
 function save(o: Optimization) {
-	mkdirSync('data', { recursive: true });
-	writeFileSync(FILE, JSON.stringify(o, null, 2), { mode: 0o600 });
+	writeFileSync(file(), JSON.stringify(o, null, 2), { mode: 0o600 });
 }
 
 export function getExperiments(): Experiment[] {
