@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import CuratorPanel from '$lib/components/CuratorPanel.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
 
 	// ---------- Types (read-only mirror of company.ts) ----------
@@ -429,6 +430,9 @@
 				</div>
 			{/if}
 		</section>
+
+		<!-- =============== Selbstentwicklung (Kurator) =============== -->
+		<CuratorPanel />
 	{/if}
 </div>
 
