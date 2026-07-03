@@ -8,6 +8,12 @@ Ein self-hosted Workspace für Mensch und Firma — auf deiner Hardware, unter d
 
 [**astoris.org**](https://astoris.org) · [info@astoris.org](mailto:info@astoris.org)
 
+[![Lizenz](https://img.shields.io/badge/Lizenz-FSL--1.1--MIT-2f6f4e.svg)](LICENSE.md)
+&nbsp;
+![Stack](https://img.shields.io/badge/Stack-SvelteKit-ff3e00.svg)
+&nbsp;
+![Betrieb](https://img.shields.io/badge/Betrieb-self--hosted-c96442.svg)
+
 <br />
 
 <img src="docs/banner.webp" width="100%" alt="Astoris — Self-hosted KI-Workspace" />
