@@ -95,11 +95,29 @@ Astoris selbst ist vollständig kostenlos — der komplette Workspace mit allen 
 sind kein Bezahl-Schalter für Grundfunktionen, sondern **zusätzliche** Fähigkeiten obendrauf:
 
 - **Connector-Add-ons** (daten-getriebenes JSON) per **Upload** installieren — sicher, kein Code, kein Neustart.
-- **Code-Add-ons** mit eigenem JavaScript, direkt im **In-App-Code-Editor** schreiben, bearbeiten und testen. Der Code läuft in einer **Sandbox** (`node:vm` — kein `process`/`require`/Dateisystem, mit Timeout).
+- **Code-Add-ons** mit eigenem JavaScript, direkt im **In-App-Code-Editor** schreiben, bearbeiten und testen. Der Code läuft in einer **Sandbox** (`node:vm` — kein `process`/`require`/Dateisystem, gehärtetes `fetch` mit SSRF-Schutz, harter Timeout).
+- **KI baut Add-ons selbst:** Fehlt eine Fähigkeit, beschreibst du sie in einem Satz — die KI generiert das passende Code-Add-on, testet es in der Sandbox und legt es dir vor. Prüfen, per Klick installieren.
 - **Im Chat nutzbar:** Aktive Code-Add-ons werden der KI als **Werkzeuge** angeboten — fragst du nach dem Wetter, ruft die KI das passende Add-on selbst auf (Tool-Calling).
 - Übersicht & Download verfügbarer Add-ons: [astoris.org/erweiterungen](https://astoris.org/erweiterungen).
 
-Konzept & Erweiterungspunkte: **[docs/PLUGINS-KONZEPT.md](docs/PLUGINS-KONZEPT.md)**.
+#### Selbstentwicklung — die Firma erweitert sich selbst
+
+Im **Cockpit** kann deine KI-Firma anhand ihrer **Ziele** selbst erkennen, welche Fähigkeit ihr
+noch fehlt, das passende Add-on bauen, es in der Sandbox testen und dir als **Vorschlag** vorlegen.
+Du entscheidest mit einem Klick — **Allow** oder **Deny**:
+
+- **Nichts wird ohne deine Freigabe installiert.** Jeder Vorschlag zeigt dir Code, Testergebnis und ein Risiko-Siegel — du behältst die volle Kontrolle.
+- **Getrennter Prüfer:** Ein zweiter, unabhängiger KI-Durchlauf bewertet das *echte* Sandbox-Ergebnis. So fallen fehlerhafte Add-ons **vor** deiner Freigabe auf, statt einfach „hat geklappt" zu behaupten.
+- **Not-Aus & Rollback:** Ein Klick stoppt die Selbstentwicklung und schaltet alle selbst gebauten Add-ons ab; jedes installierte lässt sich einzeln zurückrollen.
+- **Feste Leitplanken:** Regeln und Tages-Budgets liegen in einer `constitution.json`, die die KI nur **lesen**, aber nicht ändern kann. Jede Aktion landet in einem **Prüf-Protokoll** (Audit-Log).
+
+> **⚠️ Sicherheitshinweis zur Sandbox:** `node:vm` hält Add-ons von Dateisystem und Prozess fern und
+> schützt vor Versehen — ist aber **kein vollständiger Schutzwall gegen absichtlich bösartigen Code**.
+> Astoris ist für den **Self-Host-Betrieb durch dich** gedacht: Es läuft *dein eigener* bzw. *von dir
+> freigegebener* Code. Für einen öffentlichen Mehrnutzer-Betrieb wäre stärkere Isolation
+> (microVM/WASM) nötig — siehe [Roadmap](#status--roadmap).
+
+Konzept & Erweiterungspunkte: **[docs/PLUGINS-KONZEPT.md](docs/PLUGINS-KONZEPT.md)** · Selbst-Erweiterung im Detail: **[docs/SELBST-ERWEITERUNG.md](docs/SELBST-ERWEITERUNG.md)**.
 
 ## Anmeldung & Sicherheit
 
@@ -210,11 +228,11 @@ SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Setting
 MVP läuft: Chat, Tresor, Verbindungen, 8 Apps, Login (Passwort + Tailscale), HTTPS, Settings.
 Als Nächstes:
 
-1. **Erweiterungen**: ✅ Code-Add-ons als KI-Werkzeuge im Chat (Tool-Calling) — als Nächstes: Connector-Add-ons in „Verbindungen" verdrahten, Premium-Lizenz-Freischaltung
+1. **Erweiterungen & Selbstentwicklung**: ✅ Code-Add-ons als KI-Werkzeuge (Tool-Calling); ✅ die KI baut & schlägt eigene Add-ons vor (Cockpit → Selbstentwicklung, mit Allow/Deny, Prüfer, Not-Aus) — als Nächstes: Lernschleife aus dem Nutzungs-Feedback, Connector-Add-ons in „Verbindungen" verdrahten
 2. Apps verfeinern: Mail-Body-Anzeige, RAG/Volltextsuche, Google-Kalender-Sync, Bildgenerierung (FLUX)
 3. **Dokumente-RAG** (Volltext/Embeddings) & Tresor-Zugriff als KI-Werkzeug
 4. Google-Kalender-Sync, Bildgenerierung (FLUX), Premium-Add-on-Freischaltung
-5. Multi-Tenancy (mehrere Nutzer/Workspaces) für öffentlichen Mehrnutzer-Betrieb
+5. Multi-Tenancy (mehrere Nutzer/Workspaces) **und stärkere Add-on-Isolation (microVM/WASM)** für öffentlichen Mehrnutzer-Betrieb
 
 ## Lizenz
 
