@@ -24,10 +24,11 @@ Ein self-hosted Workspace für Mensch und Firma — auf deiner Hardware, unter d
 
 ## Was ist Astoris?
 
-Astoris ist eine selbst gehostete KI-Arbeitsumgebung. Ein Assistent, der deinen Kontext kennt
-und deine Alltags-Konten bedient — E-Mail, Kalender, Dokumente, Recherche und mehr. Die
-Intelligenz läuft lokal auf deiner Hardware (oder wahlweise über einen Cloud-Anbieter), und
-**du** entscheidest pro Verbindung, was die KI darf.
+Astoris ist eine selbst gehostete KI-Arbeitsumgebung — **für dich und deine Firma**. Ein Assistent,
+der deinen Kontext kennt und deine Alltags-Konten bedient (E-Mail, Kalender, Dokumente, Recherche
+und mehr) — und zugleich ein **Firma-OS** mit KI-Agenten, Zielen, Kennzahlen und einer Firma, die
+sich auf Wunsch selbst erweitert. Die Intelligenz läuft lokal auf deiner Hardware (oder wahlweise
+über einen Cloud-Anbieter), und **du** entscheidest pro Verbindung, was die KI darf.
 
 **Astoris selbst kostet nichts** — quelloffen, ohne Lizenzkosten, mit dem vollen Funktionsumfang.
 Einige optionale Premium-Add-ons binden kostenpflichtige Dritt-Dienste an (meist mit Gratis-Tier);
@@ -61,7 +62,7 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 | **Verbindungen** | ✅ | Alltags-Konten anlegen, live getestet, verschlüsselt gespeichert |
 | **Posteingang** | ✅ | E-Mails über IMAP, Übersicht & Vorschau |
 | **Dokumente** | ✅ | Upload (Drag & Drop), Verwaltung, Download |
-| **Recherche** | ✅ | Web-Suche (Brave/DuckDuckGo) & Wikipedia — als KI-Werkzeuge im Chat |
+| **Recherche** | ✅ | Web-Suche (Brave/DuckDuckGo) & Wikipedia — als KI-Werkzeuge im Chat, mit **Suchverlauf & Favoriten** |
 | **Studio** | ✅ | Bild hochladen & vom lokalen Vision-Modell analysieren lassen |
 | **Kalender** | ✅ | Monats-, Wochen- & Agenda-Ansicht; Termine anlegen — auch von der KI bedienbar |
 | **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), **Hell/Dunkel-Modus**, **Sprache DE/EN**, Sicherheit, Modell, **Sende-Bestätigung** (Entwurf/direkt), **aigate-Cloud-Schutz** |
@@ -72,6 +73,26 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 | **Verschlüsselter Messenger** | ✅ | Eigener E2E-Messenger mit Kontakten & Schlüsseltausch — Kontakte client-seitig, Tausch per `astoris-contact:`-Link, Versand via Telegram/E-Mail/Slack/Discord |
 | **KI-Aktionen** | ✅ | Die KI bedient Kalender, Mail & verschlüsselten Messenger per Tool-Calling — ausgehende Nachrichten mit Entwurf + Bestätigung |
 
+## Firma-OS — deine KI-gesteuerte Firma
+
+Astoris ist nicht nur ein persönlicher Assistent, sondern ein **Betriebssystem für deine Firma**:
+Du kannst **mehrere Firmen parallel** führen — jede mit eigenem Team aus KI-Agenten, eigenen Zielen,
+Kennzahlen und Gedächtnis. Zwischen ihnen schaltest du mit einem Klick um.
+
+| Bereich | Status | Beschreibung |
+|---|---|---|
+| **Cockpit** | ✅ | Zentrale Firmen-Übersicht: **Ziele** (mit Metriken, Fortschritt, Unterzielen & Deadlines), Agenten-Aktivität, **Firmen-Gedächtnis** (kategorisiertes Wissen) und Aufgaben-Workflow |
+| **Team & Agenten** | ✅ | Rollen + Unteragenten mit **Autonomie-Level 0–5** (von „nur vorschlagen" bis „autonom im Bereich"), eigenem Modell & eigenen Werkzeugen pro Agent |
+| **Selbstentwicklung** | ✅ | Die Firma erkennt fehlende Fähigkeiten, baut sie als Add-on und legt sie dir zur Freigabe vor — [Details unten](#selbstentwicklung--die-firma-erweitert-sich-selbst) |
+| **CRM** | ✅ | Kontakte & Kundenbeziehungen verwalten |
+| **Kennzahlen** | ✅ | KPIs erfassen und über die Zeit verfolgen |
+| **Optimierung** | ✅ | Verbesserungs-Maßnahmen sammeln und priorisieren |
+| **Marketing** | ✅ | Kampagnen & Inhalte planen |
+| **Entscheidungen** | ✅ | Freigabe-Hub: alle Aufgaben, die auf deine Zustimmung warten, an einem Ort |
+| **Anrufe (Call-AI)** | ✅ | KI-Anrufbeantworter: nimmt Anrufe entgegen (Twilio), transkribiert, fasst zusammen und benachrichtigt dich (Telegram/E-Mail) |
+| **Mehrere Firmen** | ✅ | Beliebig viele Firmen parallel, mit Schnell-Umschalter & geführtem Einrichtungs-Assistent |
+| **Übersicht & Protokoll** | ✅ | Aggregierte Firmen-Übersicht + Systemprotokoll aller Aktionen |
+
 ### Was die KI selbst bedient
 
 Aktive Werkzeuge ruft die KI im Chat automatisch auf (Tool-Calling) — beim lokalen Modell **und** bei Claude/OpenAI:
@@ -79,7 +100,7 @@ Aktive Werkzeuge ruft die KI im Chat automatisch auf (Tool-Calling) — beim lok
 - **Kalender** — Termine einsehen, anlegen, ändern, löschen.
 - **Mail** — die KI bereitet eine E-Mail vor; gesendet wird erst nach deiner **Bestätigung** (oder direkt, wenn in den Einstellungen erlaubt).
 - **Verschlüsselter Messenger** — Nachricht vorbereiten, **client-seitig** verschlüsseln und über Telegram/E-Mail/Slack/Discord senden (Zero-Knowledge — die KI sieht nie den Schlüssel).
-- **Add-ons** — über 25 im Katalog: Web-Suche, Wikipedia, Währungs- & Einheiten-Rechner, URL-Reader, Universal-HTTP, Hash & Encode, IBAN, Passwort-Generator, Wetter, plus Entwickler-Tools (JSON, JWT, Regex, Cron, UUID, Timestamp, Diff, Token-Zähler) und Office-Helfer (Markdown, MwSt, Farbe & Kontrast, TOTP, vCard, iCal).
+- **Add-ons** — über 30 im Katalog: **Composio** (Brücke zu 1000+ Apps: Gmail, Slack, GitHub, Notion …), Web-Suche, Wikipedia, Währungs- & Einheiten-Rechner, URL-Reader, Universal-HTTP, Hash & Encode, IBAN, Passwort-Generator, Wetter, Deepfake-Check, plus Entwickler-Tools (JSON, JWT, Regex, Cron, UUID, Timestamp, Diff, Token-Zähler) und Office-Helfer (Markdown, MwSt, Farbe & Kontrast, TOTP, vCard, iCal).
 
 ### Tresor — verschlüsselt teilen
 
@@ -231,7 +252,8 @@ SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Setting
 
 ## Status & Roadmap
 
-MVP läuft: Chat, Tresor, Verbindungen, 8 Apps, Login (Passwort + Tailscale), HTTPS, Settings.
+Voll funktionsfähig: Assistent, Tresor, Verbindungen, **20+ Apps** (persönlich + Firma-OS),
+Multi-Company, Call-AI, Selbstentwicklung, Login (Passwort + Tailscale), HTTPS, Settings.
 Als Nächstes:
 
 1. **Erweiterungen & Selbstentwicklung**: ✅ Code-Add-ons als KI-Werkzeuge (Tool-Calling); ✅ die KI baut & schlägt eigene Add-ons vor (Cockpit → Selbstentwicklung, mit Allow/Deny, Prüfer, Not-Aus) — als Nächstes: Lernschleife aus dem Nutzungs-Feedback, Connector-Add-ons in „Verbindungen" verdrahten
