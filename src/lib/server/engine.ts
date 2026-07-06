@@ -239,6 +239,13 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 	throw new Error('zu viele Werkzeug-Runden');
 }
 
+/** Tool-freie Einzel-Antwort (kein Tool-Calling-Loop, Reasoning aus). Für Pipelines wie
+ *  Deep Research, die reine Text-/JSON-Antworten brauchen. Erbt Provider-Auswahl + Fallback
+ *  von engineChat (lokal default, Cloud per override). */
+export async function engineComplete(messages: ChatMsg[], override?: SelectedModel | null): Promise<ChatResult> {
+	return engineChat(messages, override, ['__no_tools__']);
+}
+
 /** Status für die Maschinenraum-Anzeige. Spiegelt Modell-Wahl + KI-Quelle. */
 export async function engineStatus(): Promise<EngineStatus> {
 	const sel = getSelectedModel();
@@ -276,8 +283,10 @@ export async function engineStatus(): Promise<EngineStatus> {
 /** Chat. Nutzt die konfigurierte Modell-Verbindung; bei deren Ausfall klare Meldung
  *  (KEIN Clawy-Fallback, der wäre irreführend). Clawy nur, wenn nichts konfiguriert ist. */
 export async function engineChat(messages: ChatMsg[], override?: SelectedModel | null, allowedTools?: string[]): Promise<ChatResult> {
-	// Add-on-Generierung (NO_TOOLS-Sentinel) -> Reasoning aus: lokale Modelle liefern sonst erst nach Minuten -> Timeout.
-	const noThink = !!allowedTools?.includes('__addongen_no_tools__');
+	// NO_TOOLS-Sentinels (Add-on-Generierung, Deep Research) -> Reasoning aus: lokale Modelle
+	// liefern sonst erst nach Minuten -> Timeout. Kein echtes Tool heißt so -> Tool-Set wird leer
+	// -> chatWithTools fällt auf den werkzeugfreien Chat zurück.
+	const noThink = !!allowedTools?.some((t) => t === '__addongen_no_tools__' || t === '__no_tools__');
 	// 0. Cloud zuerst? Modell-Override (z. B. pro Agent) > globale Wahl > KI-Quelle.
 	const sel = override ?? getSelectedModel();
 	if (sel ? sel.source === 'cloud' : getKiSource() === 'cloud') {
