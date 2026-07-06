@@ -206,6 +206,17 @@ export const APPS: AppDef[] = [
 		icon: 'M4 5.5h16v13H4zM4 15l4.5-4.5 4 4 3-3L20 15M9 9.5a1.2 1.2 0 1 0 0-.01'
 	},
 	{
+		id: 'vergleich',
+		label: 'Vergleich',
+		href: '/vergleich',
+		floor: 'arbeitsplatz',
+		group: 'work',
+		ready: true,
+		capability: 'chat',
+		blurb: 'Dieselbe Frage an mehrere Modelle — Antworten nebeneinander vergleichen, optional mit KI-Bewertung.',
+		icon: 'M4 5h7v14H4zM13 5h7v14h-7z'
+	},
+	{
 		id: 'calendar',
 		label: 'Kalender',
 		href: '/calendar',

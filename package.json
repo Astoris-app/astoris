@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"dompurify": "^3.4.11",
-		"marked": "^18.0.5"
+		"marked": "^18.0.5",
+		"undici": "^8.7.0"
 	}
 }
