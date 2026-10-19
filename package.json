@@ -4,13 +4,19 @@
   "version": "0.0.1",
   "license": "SEE LICENSE IN LICENSE.md",
   "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "engines": { "node": ">=22.13.0" },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "node --experimental-strip-types scripts/smoke.ts",
+    "verify": "pnpm test && pnpm check && pnpm build && pnpm smoke"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^7.0.1",
@@ -21,9 +27,11 @@
     "svelte": "^5.56.1",
     "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "dompurify": "^3.4.16",
     "marked": "^18.0.5"
   },

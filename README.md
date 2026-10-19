@@ -36,9 +36,6 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 
 ## Einblick
 
-**Assistent** — Chat mit Verläufen, wählbaren Persönlichkeiten & Streaming
-<img src="docs/screenshot-chat.webp" width="100%" alt="Astoris Assistent" />
-
 | Tresor (E2E-Verschlüsselung) | Team (Persönlichkeiten & Firma) |
 |:---:|:---:|
 | <img src="docs/screenshot-tresor.webp" alt="Tresor" /> | <img src="docs/screenshot-team.webp" alt="Team" /> |
@@ -72,6 +69,9 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 | **Modell-Wahl** | ✅ | Lokal (vLLM) oder Cloud (Claude Sonnet/Opus/Haiku, OpenAI); KI-Quelle wählbar (auto/lokal/Cloud), global, pro Chat & pro Team-Agent |
 | **Verschlüsselter Messenger** | ✅ | Eigener E2E-Messenger mit Kontakten & Schlüsseltausch — Kontakte client-seitig, Tausch per `astoris-contact:`-Link, Versand via Telegram/E-Mail/Slack/Discord |
 | **KI-Aktionen** | ✅ | Die KI bedient Kalender, Mail & verschlüsselten Messenger per Tool-Calling — ausgehende Nachrichten mit Entwurf + Bestätigung |
+| **Agentenläufe & Freigaben** | ✅ | Persistenter Status, konkrete Werkzeug-Eingaben, einmalige Freigaben und Prüfprotokoll unter **Entscheidungen** |
+| **MCP** | ✅ | Streamable-HTTP-Server verbinden; nur ausgewählte Tools anbieten und jeden Aufruf bestätigen |
+| **API & SDK** | ✅ | Geschützte Lauf-API und Fetch-basierter TypeScript-Client |
 
 ## Firma-OS — deine KI-gesteuerte Firma
 
@@ -122,7 +122,7 @@ Astoris selbst ist vollständig kostenlos — der komplette Workspace mit allen 
 sind kein Bezahl-Schalter für Grundfunktionen, sondern **zusätzliche** Fähigkeiten obendrauf:
 
 - **Connector-Add-ons** (daten-getriebenes JSON) per **Upload** installieren — sicher, kein Code, kein Neustart.
-- **Code-Add-ons** mit eigenem JavaScript, direkt im **In-App-Code-Editor** schreiben, bearbeiten und testen. Der Code läuft in einer **Sandbox** (`node:vm` — kein `process`/`require`/Dateisystem, gehärtetes `fetch` mit SSRF-Schutz, harter Timeout).
+- **Code-Add-ons** mit eigenem JavaScript, direkt im **In-App-Code-Editor** schreiben, bearbeiten und testen. Jeder Aufruf läuft in einem überwachten Unterprozess mit Node-Permissions, begrenztem Heap, vermitteltem `fetch` und hartem Prozess-Timeout. Für geprüften Betreiber-Code gedacht; keine vollständige Isolation gegen bösartige Add-ons.
 - **KI baut Add-ons selbst:** Fehlt eine Fähigkeit, beschreibst du sie in einem Satz — die KI generiert das passende Code-Add-on, testet es in der Sandbox und legt es dir vor. Prüfen, per Klick installieren.
 - **Im Chat nutzbar:** Aktive Code-Add-ons werden der KI als **Werkzeuge** angeboten — fragst du nach dem Wetter, ruft die KI das passende Add-on selbst auf (Tool-Calling).
 - Übersicht & Download verfügbarer Add-ons: [astoris.org/erweiterungen](https://astoris.org/erweiterungen).
@@ -138,8 +138,8 @@ Du entscheidest mit einem Klick — **Allow** oder **Deny**:
 - **Not-Aus & Rollback:** Ein Klick stoppt die Selbstentwicklung und schaltet alle selbst gebauten Add-ons ab; jedes installierte lässt sich einzeln zurückrollen.
 - **Feste Leitplanken:** Regeln und Tages-Budgets liegen in einer `constitution.json`, die die KI nur **lesen**, aber nicht ändern kann. Jede Aktion landet in einem **Prüf-Protokoll** (Audit-Log).
 
-> **⚠️ Sicherheitshinweis zur Sandbox:** `node:vm` hält Add-ons von Dateisystem und Prozess fern und
-> schützt vor Versehen — ist aber **kein vollständiger Schutzwall gegen absichtlich bösartigen Code**.
+> **⚠️ Sicherheitshinweis zur Sandbox:** Überwachte Unterprozesse, Node-Permissions und `node:vm`
+> begrenzen Fehler — bilden aber **keinen vollständigen Schutzwall gegen absichtlich bösartigen Code**.
 > Astoris ist für den **Self-Host-Betrieb durch dich** gedacht: Es läuft *dein eigener* bzw. *von dir
 > freigegebener* Code. Für einen öffentlichen Mehrnutzer-Betrieb wäre stärkere Isolation
 > (microVM/WASM) nötig — siehe [Roadmap](#status--roadmap).
@@ -238,8 +238,11 @@ SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Setting
         | REST + SSE
    Server-Routen (/api/*) + hooks.server.ts (Auth + Onboarding-Guard)
         |
-   engine.ts        -> KI (gespeicherte Verbindung / Cloud / Clawy-Engine)
-   auth.ts          -> Tailscale-whois + scrypt + Sessions
+   engine.ts        -> KI (gespeicherte lokale Verbindung / Cloud)
+   runtime/         -> Laufstatus, Tool-Policy, Freigaben, Audit (SQLite)
+   mcp.ts           -> externe MCP-Werkzeuge (Streamable HTTP)
+   sandbox.ts       -> überwachte Add-on-Unterprozesse
+   auth.ts          -> Tailscale-whois + scrypt + gehashte Sitzungs-Tokens
    connector-tests  -> Live-Verbindungstests (SSRF-gehärtet)
    store + crypto   -> AES-256-GCM (data/)
    messageCrypto    -> Tresor (client-side, Zero-Knowledge)
@@ -247,10 +250,24 @@ SvelteKit (Svelte 5)  -- UI: App-Rail, Chat, Tresor, Verbindungen, Apps, Setting
 
 - **Frontend:** SvelteKit, reines CSS-Design-System (keine UI-Library), eigenständiges Design.
 - **Engine:** beliebige OpenAI-kompatible KI via Verbindung; Astoris ändert die Engine nicht.
-- **Speicher:** verschlüsselte Dateien unter `data/` (keine DB nötig).
+- **Speicher:** verschlüsselte SQLite-Payloads für Agentenläufe, fachliche Daten und Sitzungen; bestehende Datei-Stores für Verbindungen, Add-ons und Einstellungen. Keine externe Datenbank erforderlich.
 - **Produktion:** `@sveltejs/adapter-node` (`node build`).
 
 ## Status & Roadmap
+
+### Neue technische Grundlage
+
+Persistente Agentenläufe, serverseitig erzwungene Werkzeuglisten, konkrete Freigaben unter
+**Entscheidungen**, transaktionales Audit, SQLite-Migration der fachlichen Daten, gehashte
+Sitzungs-Tokens, persistente Login-Sperren, MCP über Streamable HTTP, TypeScript-Client und
+automatisierte Tests einschließlich Produktions-Smoke-Test sind implementiert.
+
+Details, Betriebsgrenzen, API, Migration und Rollback: **[docs/RUNTIME.md](docs/RUNTIME.md)**.
+Voraussetzung: **Node.js 22.13+**. Gesamte Prüfung: `pnpm verify`.
+
+Die Suite umfasst **57 automatisierte Tests** sowie einen Smoke-Test des gebauten Servers
+mit lokaler Modell-Testquelle. Sie prüft unter anderem Authentifizierung, Migration,
+Firmentrennung, MCP, Neustarts, Freigaben und Add-on-Timeouts.
 
 Voll funktionsfähig: Assistent, Tresor, Verbindungen, **20+ Apps** (persönlich + Firma-OS),
 Multi-Company, Call-AI, Selbstentwicklung, Login (Passwort + Tailscale), HTTPS, Settings.

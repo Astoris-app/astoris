@@ -7,7 +7,7 @@ Astoris läuft komplett auf deiner Hardware — deine Daten verlassen den Server
 
 ## 1. Voraussetzungen
 
-- **Node.js 20 oder neuer** — prüfen mit `node -v` (sonst: https://nodejs.org)
+- **Node.js 22.13 oder neuer** — prüfen mit `node -v` (sonst: https://nodejs.org)
 - **pnpm** (empfohlen) oder npm — `npm install -g pnpm`
 - **Optional, empfohlen:** [Tailscale](https://tailscale.com/download) für sicheren Fernzugriff
   ohne offene Ports + automatische Anmeldung
@@ -109,8 +109,13 @@ Deine Daten (`./data`) und Zertifikate (`./certs`) bleiben erhalten — sie werd
 | Pfad | Inhalt |
 |---|---|
 | `./data` | Verschlüsselte Verbindungen, Zugangsdaten, Personas, Firma (chmod 700, nie in Git) |
+| `./data/runtime.sqlite` | Verschlüsselte Payloads für Agentenläufe, fachliche Daten und Sitzungen; WAL/SHM bei laufender Datenbank beachten |
 | `./certs` | TLS-Zertifikate (privater Schlüssel, nie in Git) |
 | `./.env` | Konfiguration (z. B. ENGINE_URL); enthält zusätzlich gespiegelte Verbindungs-Credentials (`ASTORIS_*`) — wie `data/` behandeln, nie in Git |
+
+Fachliche JSON-Bestände werden beim ersten Zugriff einmalig nach SQLite übernommen;
+ihre Originaldateien bleiben erhalten. Migration, Datensicherung und vollständiger Rollback:
+[Agentenlaufzeit und Betrieb](docs/RUNTIME.md).
 
 ---
 

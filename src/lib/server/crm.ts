@@ -1,7 +1,7 @@
 // CRM-Light: Kontakte/Leads, Deal-Pipeline, Produkte.
 // Persistenz in data/crm.json (mode 0o600), Muster wie company.ts.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { companyDir } from './companies';
@@ -56,9 +56,8 @@ const EMPTY: Crm = { contacts: [], deals: [], products: [] };
 
 function load(): Crm {
 	const FILE = file();
-	if (!existsSync(FILE)) return { ...EMPTY };
 	try {
-		const raw = JSON.parse(readFileSync(FILE, 'utf8'));
+		const raw = readDocument<Crm>(FILE, EMPTY);
 		return {
 			contacts: Array.isArray(raw?.contacts) ? raw.contacts : [],
 			deals: Array.isArray(raw?.deals) ? raw.deals : [],
@@ -70,7 +69,7 @@ function load(): Crm {
 }
 
 function save(c: Crm) {
-	writeFileSync(file(), JSON.stringify(c, null, 2), { mode: 0o600 });
+	writeDocument(file(), c);
 }
 
 export function getCrm(): Crm {

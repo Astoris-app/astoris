@@ -5,7 +5,10 @@
 
 import { env } from '$env/dynamic/private';
 import { getDecrypted } from './store';
-import { buildAddonTools, runAddonTool, buildBuiltinTools, isBuiltinTool, runBuiltinTool, toAnthropicTools } from './tools';
+import { buildToolCatalog, executeTool, toAnthropicTools } from './tools';
+import { execution, operator } from './runtime/context';
+import { runtimeStore } from './runtime';
+import { getActiveId } from './companies';
 import { scanInjection, wrapAsData } from './promptGuard';
 import { applyAigate, getAigateMode } from './aigate';
 import { getKiSource } from './kiSource';
@@ -19,7 +22,7 @@ export type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
 export type PendingMail = { to: string; subject: string; text: string };
 export type PendingMessage = { channel: string; recipient: string; text: string };
 export type PendingAddon = GeneratedAddon;
-export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[]; pendingMail?: PendingMail; pendingMessage?: PendingMessage; pendingAddon?: PendingAddon };
+export type ChatResult = { reply: string; source: 'model' | 'engine' | 'demo'; model?: string; tools?: string[]; pendingMail?: PendingMail; pendingMessage?: PendingMessage; pendingAddon?: PendingAddon; runId?: string; pendingTools?: { id: string; name: string; reason: string }[] };
 
 // Hinweis an die KI: bei fehlender Fähigkeit ein Add-on vorschlagen statt nur abzulehnen.
 // Wird an den System-Kontext der werkzeugfähigen Pfade angehängt.
@@ -113,9 +116,9 @@ async function chatOpenAICompat(rawBase: string, apiKey: string, messages: ChatM
  *  und in der Sandbox ausgeführt, wenn die KI sie aufruft. Fällt ohne Tools auf
  *  den normalen Chat zurück. */
 async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[], allowedTools?: string[], noThink = false): Promise<ChatResult> {
-	const { tools: addonTools, byName } = buildAddonTools();
-	const allTools = [...buildBuiltinTools(), ...addonTools];
-	const tools = allowedTools && allowedTools.length ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
+	const { tools: allTools, byName, mcp } = await buildToolCatalog(allowedTools);
+	const tools = allowedTools !== undefined ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
+	const offered = new Set(tools.map((t) => t.function.name));
 	// vLLM lehnt ein leeres tools-Array mit 400 ab. Ohne Werkzeuge -> direkter Chat (z. B. Add-on-Generierung).
 	if (!tools.length) return chatOpenAICompat(rawBase, apiKey, messages, noThink);
 	const base = rawBase.replace(/\/$/, '');
@@ -153,11 +156,15 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 			if (!msg) throw new Error('keine Antwort');
 			if (Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
 				msgs.push(msg);
+				const pendingTools: { id: string; name: string; reason: string }[] = [];
 				for (const tc of msg.tool_calls) {
 					let args: unknown = {};
-					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leeres Argument */ }
+					try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { args = null; }
 					used.push(tc.function?.name);
-					const result = await (isBuiltinTool(tc.function?.name) ? runBuiltinTool(tc.function?.name, args) : runAddonTool(byName, tc.function?.name, args));
+					const result = await executeTool(tc.function?.name ?? '', args, offered, byName, mcp);
+					if (result && typeof result === 'object' && 'pendingTool' in result) {
+						pendingTools.push(result.pendingTool as { id: string; name: string; reason: string });
+					}
 					if (result && typeof result === 'object' && 'pendingMail' in result) pendingMail = (result as { pendingMail: PendingMail }).pendingMail;
 					if (result && typeof result === 'object' && 'pendingMessage' in result) pendingMessage = (result as { pendingMessage: PendingMessage }).pendingMessage;
 					if (result && typeof result === 'object' && 'pendingAddon' in result) pendingAddon = (result as { pendingAddon: PendingAddon }).pendingAddon;
@@ -166,16 +173,18 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 					const scan = scanInjection(out);
 					msgs.push({ role: 'tool', tool_call_id: tc.id, content: scan.injection ? wrapAsData(out, 'WERKZEUG-AUSGABE') : out });
 				}
+				if (pendingTools.length) return { reply: 'Die vorgeschlagenen Aktionen warten unter [Entscheidungen](/entscheidungen) auf deine Freigabe.', source: 'model', model,
+					tools: [...new Set(used)], pendingTools, pendingMail, pendingMessage, pendingAddon };
 				continue;
 			}
 			const reply = (msg.content ?? '').trim();
-			if (!reply) return chatOpenAICompat(rawBase, apiKey, messages, noThink);
+			if (!reply) return { reply: 'Werkzeug-Ausführung abgeschlossen. Bitte prüfe das Ergebnis im Laufprotokoll.', source: 'model', model, tools: [...new Set(used)], pendingMail, pendingMessage, pendingAddon };
 			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}), ...(pendingMessage ? { pendingMessage } : {}), ...(pendingAddon ? { pendingAddon } : {}) };
 		} finally {
 			clearTimeout(t);
 		}
 	}
-	return chatOpenAICompat(rawBase, apiKey, messages, noThink);
+	return { reply: 'Das Limit der Werkzeug-Runden wurde erreicht. Bereits ausgeführte Aktionen stehen im Laufprotokoll.', source: 'model', model, tools: [...new Set(used)], pendingMail, pendingMessage, pendingAddon };
 }
 
 /** Aktueller Datums-/Zeit-Kontext (ISO 8601, lokal) — für die KI. */
@@ -190,9 +199,9 @@ function nowContext(): string {
 
 /** Anthropic Claude — mit Tool-Calling (tool_use/tool_result), gleiches Werkzeug-Set wie lokal. */
 async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claude-sonnet-4-6', allowedTools?: string[]): Promise<ChatResult> {
-	const { tools: addonTools, byName } = buildAddonTools();
-	const allTools = [...buildBuiltinTools(), ...addonTools];
-	const filtered = allowedTools && allowedTools.length ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
+	const { tools: allTools, byName, mcp } = await buildToolCatalog(allowedTools);
+	const filtered = allowedTools !== undefined ? allTools.filter((t) => allowedTools.includes(t.function.name)) : allTools;
+	const offered = new Set(filtered.map((t) => t.function.name));
 	const anthropicTools = toAnthropicTools(filtered);
 	const sysBase = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
 	const system = (sysBase ? sysBase + '\n\n' : '') + nowContext() + (anthropicTools.length ? '\n\n' + TOOL_GUIDANCE : '');
@@ -218,14 +227,20 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 			if (toolUses.length) {
 				msgs.push({ role: 'assistant', content });
 				const results = [];
+				const pendingTools: { id: string; name: string; reason: string }[] = [];
 				for (const tu of toolUses) {
 					used.push(tu.name ?? '');
-					const r = await (isBuiltinTool(tu.name ?? '') ? runBuiltinTool(tu.name ?? '', tu.input) : runAddonTool(byName, tu.name ?? '', tu.input));
+					const r = await executeTool(tu.name ?? '', tu.input, offered, byName, mcp);
+					if (r && typeof r === 'object' && 'pendingTool' in r) {
+						pendingTools.push(r.pendingTool as { id: string; name: string; reason: string });
+					}
 					if (r && typeof r === 'object' && 'pendingMail' in r) pendingMail = (r as { pendingMail: PendingMail }).pendingMail;
 					if (r && typeof r === 'object' && 'pendingMessage' in r) pendingMessage = (r as { pendingMessage: PendingMessage }).pendingMessage;
 					if (r && typeof r === 'object' && 'pendingAddon' in r) pendingAddon = (r as { pendingAddon: PendingAddon }).pendingAddon;
 					results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(r) });
 				}
+				if (pendingTools.length) return { reply: 'Die vorgeschlagenen Aktionen warten unter [Entscheidungen](/entscheidungen) auf deine Freigabe.', source: 'model', model,
+					tools: [...new Set(used)], pendingTools, pendingMail, pendingMessage, pendingAddon };
 				msgs.push({ role: 'user', content: results });
 				continue;
 			}
@@ -236,7 +251,7 @@ async function chatAnthropic(apiKey: string, messages: ChatMsg[], model = 'claud
 			clearTimeout(t);
 		}
 	}
-	throw new Error('zu viele Werkzeug-Runden');
+	return { reply: 'Das Limit der Werkzeug-Runden wurde erreicht. Bereits ausgeführte Aktionen stehen im Laufprotokoll.', source: 'model', model, tools: [...new Set(used)], pendingMail, pendingMessage, pendingAddon };
 }
 
 /** Status für die Maschinenraum-Anzeige. Spiegelt Modell-Wahl + KI-Quelle. */
@@ -275,7 +290,28 @@ export async function engineStatus(): Promise<EngineStatus> {
 
 /** Chat. Nutzt die konfigurierte Modell-Verbindung; bei deren Ausfall klare Meldung
  *  (KEIN Clawy-Fallback, der wäre irreführend). Clawy nur, wenn nichts konfiguriert ist. */
-export async function engineChat(messages: ChatMsg[], override?: SelectedModel | null, allowedTools?: string[]): Promise<ChatResult> {
+export async function engineChat(messages: ChatMsg[], override?: SelectedModel | null, allowedTools?: string[], options?: { autonomy?: number; agentId?: string }): Promise<ChatResult> {
+	if (execution.getStore()) return engineChatInner(messages, override, allowedTools);
+	const store = runtimeStore();
+	const owner = operator.getStore() ?? 'system';
+	const companyId = getActiveId();
+	const run = store.create({ companyId, owner, agentId: options?.agentId,
+		title: [...messages].reverse().find((m) => m.role === 'user')?.content.slice(0, 160) ?? 'KI-Aufgabe' });
+	store.transition(run.id, 'running', owner);
+	return execution.run({ runId: run.id, companyId, owner, autonomy: options?.autonomy ?? 3, effectsStarted: false }, async () => {
+		try {
+			const result = await engineChatInner(messages, override, allowedTools);
+			if (store.get(run.id)?.status === 'running') store.transition(run.id,
+				result.pendingTools?.length ? 'waiting_for_approval' : result.source === 'demo' ? 'failed' : 'completed', owner, { result });
+			return { ...result, runId: run.id };
+		} catch (e) {
+			if (store.get(run.id)?.status === 'running') store.transition(run.id, 'failed', owner, { error: 'KI-Lauf fehlgeschlagen. Bereits ausgeführte Aktionen im Protokoll prüfen.' });
+			throw e;
+		}
+	});
+}
+
+async function engineChatInner(messages: ChatMsg[], override?: SelectedModel | null, allowedTools?: string[]): Promise<ChatResult> {
 	// Add-on-Generierung (NO_TOOLS-Sentinel) -> Reasoning aus: lokale Modelle liefern sonst erst nach Minuten -> Timeout.
 	const noThink = !!allowedTools?.includes('__addongen_no_tools__');
 	// 0. Cloud zuerst? Modell-Override (z. B. pro Agent) > globale Wahl > KI-Quelle.
@@ -288,8 +324,8 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 			if (g.blocked) return { source: 'demo', reply: `Gesendet abgebrochen: aigate hat mögliche Geheimnisse erkannt (${[...new Set(g.hits.map((h) => h.type))].join(', ')}).` };
 			try {
 				if (prov.includes('anthropic') || prov.includes('claude')) return await chatAnthropic(c.plain.api_key, g.messages, sel?.model || undefined, allowedTools);
-				if (prov.includes('openai')) return await chatOpenAICompat('https://api.openai.com', c.plain.api_key, g.messages, noThink);
-			} catch { /* Cloud-Fehler → weiter zu Lokal */ }
+				if (prov.includes('openai')) return await chatWithTools('https://api.openai.com', c.plain.api_key, g.messages, allowedTools, noThink);
+			} catch (e) { if (execution.getStore()?.effectsStarted) throw e; }
 		}
 	}
 
@@ -300,7 +336,8 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
 				return await chatWithTools(lm.plain.base_url, lm.plain.api_key ?? '', messages, allowedTools, noThink);
-			} catch {
+			} catch (e) {
+				if (execution.getStore()?.effectsStarted) throw e;
 				if (attempt < 2) await new Promise((r) => setTimeout(r, (attempt + 1) * 1200));
 			}
 		}
@@ -316,17 +353,23 @@ export async function engineChat(messages: ChatMsg[], override?: SelectedModel |
 		if (provider.includes('anthropic') || provider.includes('claude')) {
 			try {
 				return await chatAnthropic(cloud.plain.api_key, guard.messages, sel?.model || undefined, allowedTools);
-			} catch {
+			} catch (e) {
+				if (execution.getStore()?.effectsStarted) throw e;
 				return { source: 'demo', reply: 'Cloud-KI (Claude) ist gerade nicht erreichbar. Bitte erneut versuchen.' };
 			}
 		}
 		if (provider.includes('openai')) {
 			try {
-				return await chatOpenAICompat('https://api.openai.com', cloud.plain.api_key, guard.messages, noThink);
-			} catch {
+				return await chatWithTools('https://api.openai.com', cloud.plain.api_key, guard.messages, allowedTools, noThink);
+			} catch (e) {
+				if (execution.getStore()?.effectsStarted) throw e;
 				return { source: 'demo', reply: 'Cloud-KI ist gerade nicht erreichbar. Bitte erneut versuchen.' };
 			}
 		}
+	}
+	// External engines cannot enforce Astoris tool allowlists or approvals.
+	if (allowedTools !== undefined || (execution.getStore()?.autonomy ?? 3) < 4) {
+		return { source: 'demo', reply: 'Bitte eine Modell-Verbindung einrichten. Die externe Engine unterstützt keine kontrollierte Astoris-Werkzeugfreigabe.' };
 	}
 	// 3. Clawy-Engine via env — nur wenn KEINE Modell-Verbindung konfiguriert ist.
 	try {

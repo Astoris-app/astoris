@@ -120,7 +120,8 @@ async function runAgentTask(c: Company, agent: Agent, task: string) {
 	const result = await engineChat(
 		[{ role: 'system', content: ctx }, { role: 'user', content: task }],
 		agent.model,
-		agent.tools
+		agent.tools,
+		{ autonomy: clampAutonomy(agent.autonomyLevel ?? AUTONOMY_DEFAULT), agentId: agent.id }
 	);
 	addAgentHistory(agent.id, { task, result: result.reply, at: new Date().toISOString() });
 	return result;
@@ -254,7 +255,7 @@ export async function POST({ request }) {
 
 		const roster = c.agents.map((a) => `- ${a.name} (${a.role})`).join('\n');
 		const planPrompt = `Du bist Projektkoordinator${c.name ? ' bei ' + c.name : ''}.\nTeam:\n${roster}\n\nGesamtaufgabe: ${task}\n\nVerteile die Aufgabe auf MEHRERE passende Teammitglieder mit unterschiedlichen Perspektiven — in der Regel 2 bis 4 (z. B. Strategie, Marketing, Recht, Entwicklung). Nur bei sehr engen, rein fachspezifischen Aufgaben genügt ein einzelner. Antworte AUSSCHLIESSLICH als JSON-Array, ohne weiteren Text: [{"agent":"<exakter Name>","auftrag":"<konkreter Teilauftrag>"}]`;
-		const plan = await engineChat([{ role: 'user', content: planPrompt }]);
+		const plan = await engineChat([{ role: 'user', content: planPrompt }], null, []);
 		let assignments: { agent: string; auftrag: string }[] = [];
 		try {
 			const m = plan.reply.match(/\[[\s\S]*\]/);
@@ -275,7 +276,7 @@ export async function POST({ request }) {
 			return json({ result: plan.reply, breakdown: [], source: plan.source, company: getCompany() });
 		}
 		const summaryPrompt = `Gesamtaufgabe: ${task}\n\nTeilergebnisse des Teams:\n\n${breakdown.map((r) => `### ${r.agent} (${r.role})\n${r.ergebnis}`).join('\n\n')}\n\nFasse die Teilergebnisse zu einem stimmigen, vollständigen Gesamtergebnis zusammen.`;
-		const summary = await engineChat([{ role: 'user', content: summaryPrompt }]);
+		const summary = await engineChat([{ role: 'user', content: summaryPrompt }], null, []);
 		feed({ type: 'company-run', title: 'Firma bearbeitete: ' + shorten(task, 90), detail: `${breakdown.length} Agenten beteiligt` });
 		logEvent('info', 'team', `Firma bearbeitete eine Aufgabe — ${breakdown.length} Agenten beteiligt`);
 		return json({ result: summary.reply, breakdown, source: summary.source, company: getCompany() });

@@ -5,11 +5,13 @@ import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { runtimeStore } from './runtime';
+import { SessionStore, type Session } from './runtime/sessions';
+import { encrypt, decrypt } from './crypto';
 
 const execFileP = promisify(execFile);
 const AUTH_FILE = 'data/auth.json';
 const SESS_FILE = 'data/sessions.json';
-const DAY = 86_400_000;
 
 type AuthConfig = {
 	username?: string;
@@ -18,7 +20,21 @@ type AuthConfig = {
 	tailscaleAllow: string[];
 	allowAnyTailnet: boolean;
 };
-type Session = { user: string; method: 'password' | 'tailscale'; expires: number };
+
+let sessionStore: SessionStore | undefined;
+function sessions(): SessionStore {
+	if (!sessionStore) {
+		const store = new SessionStore(runtimeStore().db, { encrypt, decrypt });
+		store.migrateLegacy(() => {
+			if (!existsSync(SESS_FILE)) return {};
+			const raw = JSON.parse(readFileSync(SESS_FILE, 'utf8'));
+			if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Ungültiger Legacy-Sitzungsspeicher.');
+			return raw as Record<string, Session>;
+		});
+		sessionStore = store;
+	}
+	return sessionStore;
+}
 
 function readJson<T>(file: string, fallback: T): T {
 	if (!existsSync(file)) return fallback;
@@ -91,64 +107,33 @@ export function authConfigured(): boolean {
 
 // ---- Sessions ----
 export function createSession(user: string, method: 'password' | 'tailscale'): string {
-	const value = randomBytes(32).toString('hex');
-	const sessions = readJson<Record<string, Session>>(SESS_FILE, {});
-	sessions[value] = { user, method, expires: Date.now() + 30 * DAY };
-	writeJson(SESS_FILE, sessions);
-	return value;
+	return sessions().create(user, method);
 }
 export function getSession(token: string | undefined): { user: string; method: string } | null {
 	if (!token) return null;
-	const sessions = readJson<Record<string, Session>>(SESS_FILE, {});
-	const s = sessions[token];
+	const s = sessions().get(token);
 	if (!s) return null;
-	if (s.expires < Date.now()) {
-		delete sessions[token];
-		writeJson(SESS_FILE, sessions);
-		return null;
-	}
 	return { user: s.user, method: s.method };
 }
 export function deleteSession(token: string | undefined) {
 	if (!token) return;
-	const sessions = readJson<Record<string, Session>>(SESS_FILE, {});
-	if (sessions[token]) {
-		delete sessions[token];
-		writeJson(SESS_FILE, sessions);
-	}
+	sessions().delete(token);
 }
 
 // ---- Brute-Force-Schutz (In-Memory, pro IP) ----
-type Attempt = { count: number; until: number };
-const attempts = new Map<string, Attempt>();
-const MAX_ATTEMPTS = 5;
-const LOCK_WINDOW = 15 * 60 * 1000;
 
 /** Prüft, ob für diesen Schlüssel (z. B. IP) noch Versuche erlaubt sind. */
 export function loginAllowed(keyId: string): { allowed: boolean; retryAfter: number } {
-	const now = Date.now();
-	const rec = attempts.get(keyId);
-	if (rec && rec.until > now && rec.count >= MAX_ATTEMPTS) {
-		return { allowed: false, retryAfter: Math.ceil((rec.until - now) / 1000) };
-	}
-	return { allowed: true, retryAfter: 0 };
+	return sessions().allowed(keyId);
 }
 export function recordFailure(keyId: string) {
-	const now = Date.now();
-	const rec = attempts.get(keyId);
-	if (rec && rec.until > now) rec.count++;
-	else attempts.set(keyId, { count: 1, until: now + LOCK_WINDOW });
+	sessions().failure(keyId);
 }
 export function clearFailures(keyId: string) {
-	attempts.delete(keyId);
+	sessions().clear(keyId);
 }
 
 /** Alle Sitzungen eines Nutzers beenden (z. B. nach Passwort-Wechsel). */
 export function deleteUserSessions(user: string) {
-	const sessions = readJson<Record<string, Session>>(SESS_FILE, {});
-	let changed = false;
-	for (const [k, v] of Object.entries(sessions)) {
-		if (v.user === user) { delete sessions[k]; changed = true; }
-	}
-	if (changed) writeJson(SESS_FILE, sessions);
+	sessions().deleteUser(user);
 }

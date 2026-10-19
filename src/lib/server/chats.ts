@@ -1,7 +1,7 @@
 // Persistente Chat-Verläufe. Ein Datensatz pro Gespräch in data/chats.json.
 // Single-User (global); bei Multi-Tenancy später pro Workspace trennen.
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { randomUUID } from 'node:crypto';
 
 const FILE = 'data/chats.json';
@@ -25,12 +25,10 @@ export type Chat = {
 export type ChatSummary = { id: string; title: string; updatedAt: string; count: number };
 
 function load(): Chat[] {
-	if (!existsSync(FILE)) return [];
-	try { return JSON.parse(readFileSync(FILE, 'utf8')) as Chat[]; } catch { return []; }
+	return readDocument<Chat[]>(FILE, []);
 }
 function save(list: Chat[]) {
-	mkdirSync('data', { recursive: true });
-	writeFileSync(FILE, JSON.stringify(list, null, 2), { mode: 0o600 });
+	writeDocument(FILE, list);
 }
 
 function makeTitle(messages: StoredMsg[]): string {

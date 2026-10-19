@@ -15,10 +15,11 @@ hr
 
 # 1) Voraussetzungen
 if ! command -v node >/dev/null 2>&1; then
-  err "Node.js fehlt. Bitte Node 20+ installieren: https://nodejs.org"; exit 1
+  err "Node.js fehlt. Bitte Node 22.13+ installieren: https://nodejs.org"; exit 1
 fi
-NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
-if [ "$NODE_MAJOR" -lt 20 ]; then err "Node 20+ nötig (gefunden: $(node -v))."; exit 1; fi
+if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 13) ? 0 : 1)'; then
+  err "Node 22.13+ nötig (gefunden: $(node -v))."; exit 1
+fi
 ok "Node $(node -v)"
 
 if command -v pnpm >/dev/null 2>&1; then PKG=pnpm

@@ -27,6 +27,17 @@ export type Connector = {
 
 export const CONNECTORS: Connector[] = [
 	{
+		id: 'mcp-server', name: 'MCP-Server', category: 'Wissen & Dateien',
+		blurb: 'Externe Werkzeuge über MCP (Streamable HTTP). Jeder Aufruf wird vor der Ausführung bestätigt.',
+		icon: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M8 12h8M12 8v8',
+		fields: [
+			{ key: 'url', label: 'MCP-URL', type: 'url', placeholder: 'https://tools.example.org/mcp' },
+			{ key: 'token', label: 'Bearer-Token', type: 'password', optional: true },
+			{ key: 'tool_names', label: 'Freigegebene Tool-Namen', type: 'text', placeholder: 'search, list_documents', hint: 'Exakte Namen, durch Kommas getrennt. Nur diese Werkzeuge werden angeboten.' }
+		],
+		scopes: [{ id: 'tools', label: 'Ausgewählte MCP-Werkzeuge anbieten (Ausführung mit Bestätigung)', default: false, sensitive: true }]
+	},
+	{
 		id: 'email',
 		name: 'E-Mail',
 		category: 'Kommunikation',

@@ -81,6 +81,13 @@ export async function testConnection(
 	f: Record<string, string>
 ): Promise<TestResult> {
 	switch (connectorId) {
+		case 'mcp-server': {
+			try {
+				const { testMcpConnection } = await import('./mcp');
+				const count = await testMcpConnection({ url: f.url, token: f.token });
+				return { ok: true, message: `MCP-Verbindung erfolgreich (${count} Werkzeuge gemeldet).` };
+			} catch { return { ok: false, message: 'MCP-Verbindung fehlgeschlagen. URL, HTTPS und Token prüfen.' }; }
+		}
 		case 'email':
 			if (!f.imap_host || !f.email || !f.password)
 				return { ok: false, message: 'IMAP-Server, Adresse und Passwort nötig.' };

@@ -6,6 +6,9 @@ import { listPlugins, getPlugin } from './plugins';
 import { runCodeAddon } from './sandbox';
 import { getPluginConfig } from './pluginConfig';
 import type { CodeManifest } from '$lib/plugins/types';
+import { dispatchTool, executePrepared, toolFingerprint } from './runtime/pipeline';
+import { runtimeStore } from './runtime';
+import { buildMcpTools, runMcpTool, type McpTool } from './mcp';
 
 export type AddonTool = { type: 'function'; function: { name: string; description: string; parameters: unknown } };
 
@@ -79,8 +82,11 @@ export async function runBuiltinTool(name: string, args: any): Promise<unknown> 
 	try {
 		if (name === 'calendar_list') return { events: listEvents(args?.from, args?.to) };
 		if (name === 'calendar_create') return { event: createEvent(args?.title, args?.date, args?.time, args?.notes) };
-		if (name === 'calendar_update') return { event: updateEvent(args?.id, args ?? {}) };
-		if (name === 'calendar_delete') return { ok: deleteEvent(args?.id) };
+		if (name === 'calendar_update') {
+			const event = updateEvent(args?.id, args ?? {});
+			return event ? { event } : { error: 'Termin nicht gefunden.' };
+		}
+		if (name === 'calendar_delete') return deleteEvent(args?.id) ? { ok: true } : { error: 'Termin nicht gefunden.' };
 		if (name === 'mail_send') return { pendingMail: { to: String(args?.to ?? ''), subject: String(args?.subject ?? ''), text: String(args?.text ?? '') }, hinweis: 'Entwurf vorbereitet — der Nutzer bestätigt den Versand.' };
 		if (name === 'messenger_send') return { pendingMessage: { channel: String(args?.channel ?? 'telegram'), recipient: String(args?.recipient ?? ''), text: String(args?.text ?? '') }, hinweis: 'Nachricht vorbereitet — der Nutzer bestätigt + verschlüsselt vor dem Versand.' };
 		if (name === 'addon_erstellen') {
@@ -100,4 +106,42 @@ export async function runBuiltinTool(name: string, args: any): Promise<unknown> 
 // Konvertiert OpenAI-Tools ins Anthropic-Format (name/description/input_schema).
 export function toAnthropicTools(tools: AddonTool[]): { name: string; description: string; input_schema: unknown }[] {
 	return tools.map((t) => ({ name: t.function.name, description: t.function.description, input_schema: t.function.parameters }));
+}
+
+function toolDefinition(name: string, byName: Map<string, CodeManifest>, mcp: Map<string, McpTool>) {
+	if (mcp.has(name)) return mcp.get(name);
+	if (isBuiltinTool(name)) return { version: 1, tool: buildBuiltinTools().find((t) => t.function.name === name) };
+	const addon = byName.get(name);
+	return { addon, config: addon ? getPluginConfig(addon.id) : null };
+}
+
+/** Both model providers use this boundary; model output never grants authority. */
+export function executeTool(name: string, args: unknown, offered: ReadonlySet<string>, byName: Map<string, CodeManifest>, mcp: Map<string, McpTool>) {
+	return dispatchTool({ name, args, offered, definition: toolDefinition(name, byName, mcp),
+		invoke: () => mcp.has(name) ? runMcpTool(mcp.get(name)!, args) : isBuiltinTool(name) ? runBuiltinTool(name, args) : runAddonTool(byName, name, args) });
+}
+
+export async function buildToolCatalog(allowedTools?: string[], refresh = false) {
+	const addons = buildAddonTools();
+	// A failed configured MCP server must not silently hide tools or bypass its policy.
+	const mcp = allowedTools !== undefined && !allowedTools.some((name) => name.startsWith('mcp_'))
+		? { tools: [], byName: new Map<string, McpTool>() } : await buildMcpTools(refresh);
+	return { tools: [...buildBuiltinTools(), ...addons.tools, ...mcp.tools], byName: addons.byName, mcp: mcp.byName };
+}
+
+export async function resolveToolCall(id: string, approve: boolean, actor: string) {
+	const store = runtimeStore();
+	const call = store.decide(id, approve, actor);
+	if (!approve) { store.settle(call.runId); return call; }
+	try {
+		await executePrepared(call, async () => {
+			const { tools, byName, mcp } = await buildToolCatalog([call.name], true);
+			const available = new Set(tools.map((t) => t.function.name));
+			if (!available.has(call.name) || toolFingerprint(toolDefinition(call.name, byName, mcp)) !== call.fingerprint) {
+				return { error: 'Werkzeug oder Konfiguration wurde seit dem Vorschlag verändert. Bitte neu vorschlagen lassen.' };
+			}
+			return mcp.has(call.name) ? runMcpTool(mcp.get(call.name)!, call.args) : isBuiltinTool(call.name) ? runBuiltinTool(call.name, call.args) : runAddonTool(byName, call.name, call.args);
+		}, actor);
+	} finally { store.settle(call.runId); }
+	return store.call(id)!;
 }

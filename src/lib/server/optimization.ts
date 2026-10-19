@@ -2,7 +2,7 @@
 // Experimente mit Hypothese, verknüpfter Kennzahl, Baseline und KI-Auswertung.
 // Persistenz in data/optimization.json (mode 0o600), Muster wie metrics.ts / marketing.ts.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { companyDir } from './companies';
@@ -51,9 +51,8 @@ function str(v: unknown): string {
 
 function load(): Optimization {
 	const FILE = file();
-	if (!existsSync(FILE)) return { experiments: [] };
 	try {
-		const raw = JSON.parse(readFileSync(FILE, 'utf8'));
+		const raw = readDocument<Optimization>(FILE, EMPTY);
 		const list = Array.isArray(raw?.experiments) ? raw.experiments : [];
 		// Normalize defensively (file may be hand-edited or partial).
 		return {
@@ -76,7 +75,7 @@ function load(): Optimization {
 }
 
 function save(o: Optimization) {
-	writeFileSync(file(), JSON.stringify(o, null, 2), { mode: 0o600 });
+	writeDocument(file(), o);
 }
 
 export function getExperiments(): Experiment[] {

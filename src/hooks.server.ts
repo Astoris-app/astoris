@@ -2,6 +2,8 @@ import type { Handle } from '@sveltejs/kit';
 import { redirect, json } from '@sveltejs/kit';
 import { isSetupDone } from '$lib/server/setup';
 import { getSession, tailscaleWhois, isTailscaleAllowed, authConfigured, createSession } from '$lib/server/auth';
+import { operator, companyContext, documentVersions } from '$lib/server/runtime/context';
+import { getActiveId } from '$lib/server/companies';
 
 const COOKIE = 'astoris_session';
 
@@ -65,5 +67,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/login');
 	}
 
+	if (user) return operator.run(user.name, () => companyContext.run(getActiveId(), () => documentVersions.run(new Map(), () => resolve(event))));
 	return resolve(event);
 };

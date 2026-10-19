@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { engineChat, type ChatMsg } from '$lib/server/engine';
 import { getSendMode } from '$lib/server/sendMode';
+import { toolRisk } from '$lib/server/runtime/policy';
 
 // Streamt die Antwort als SSE. Die KI hat immer Werkzeuge (Kalender + aktive Add-ons),
 // daher läuft alles über engineChat (Tool-Calling-Loop) inkl. aigate-Schutz und Fallback.
@@ -15,8 +16,7 @@ export async function POST({ request }) {
 	const result = await engineChat(messages);
 	// Sicherheit: Wurde in derselben Antwort fremder Web-Inhalt geladen (url-reader/web-search/http-request),
 	// NIE automatisch senden — auf Bestätigung zwingen (Prompt-Injection-Schutz).
-	const webTools = new Set(['url-reader', 'web-search', 'http-request']);
-	const usedWebTool = (result.tools ?? []).some((t) => webTools.has(t));
+	const usedWebTool = (result.tools ?? []).some((t) => toolRisk(t) === 'external');
 	const sendMode = usedWebTool ? 'confirm' : getSendMode();
 	const stream = new ReadableStream({
 		start(c) {
@@ -26,7 +26,7 @@ export async function POST({ request }) {
 			if (result.pendingMessage) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-message', draft: result.pendingMessage, mode: sendMode })}\n\n`));
 			// Add-on-Vorschlag: IMMER als Karte zur Bestätigung (Code wird nie automatisch installiert).
 			if (result.pendingAddon) c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'pending-addon', addon: result.pendingAddon })}\n\n`));
-			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done', model: result.model, tools: result.tools, demo: result.source === 'demo', ms: Date.now() - t0 })}\n\n`));
+			c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'done', runId: result.runId, pendingTools: result.pendingTools, model: result.model, tools: result.tools, demo: result.source === 'demo', ms: Date.now() - t0 })}\n\n`));
 			c.close();
 		}
 	});

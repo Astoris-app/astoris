@@ -1,7 +1,7 @@
 // Kennzahlen (Metrics): manuell gepflegte KPIs mit Verlauf + Trend.
 // Persistenz in data/metrics.json (mode 0o600), Muster wie crm.ts / company.ts.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { companyDir } from './companies';
@@ -32,9 +32,8 @@ const EMPTY: Metrics = { metrics: [] };
 
 function load(): Metrics {
 	const FILE = file();
-	if (!existsSync(FILE)) return { metrics: [] };
 	try {
-		const raw = JSON.parse(readFileSync(FILE, 'utf8'));
+		const raw = readDocument<Metrics>(FILE, EMPTY);
 		const list = Array.isArray(raw?.metrics) ? raw.metrics : [];
 		// Normalize each entry defensively (file may be hand-edited or partial).
 		return {
@@ -59,7 +58,7 @@ function load(): Metrics {
 }
 
 function save(m: Metrics) {
-	writeFileSync(file(), JSON.stringify(m, null, 2), { mode: 0o600 });
+	writeDocument(file(), m);
 }
 
 export function getMetrics(): Metrics {

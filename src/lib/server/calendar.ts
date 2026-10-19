@@ -1,5 +1,5 @@
 // Lokaler Kalender-Speicher (data/calendar.json). Genutzt von der API und den KI-Werkzeugen.
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { randomUUID } from 'node:crypto';
 
 const FILE = 'data/calendar.json';
@@ -16,17 +16,12 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
 
 function load(): CalendarEvent[] {
-	if (!existsSync(FILE)) return [];
-	try {
-		const parsed = JSON.parse(readFileSync(FILE, 'utf8'));
-		return Array.isArray(parsed) ? (parsed as CalendarEvent[]) : [];
-	} catch {
-		return [];
-	}
+	const parsed = readDocument<CalendarEvent[]>(FILE, []);
+	if (!Array.isArray(parsed)) throw new Error('Ungültige Kalenderdaten.');
+	return parsed;
 }
 function persist(list: CalendarEvent[]) {
-	mkdirSync('data', { recursive: true });
-	writeFileSync(FILE, JSON.stringify(list, null, 2));
+	writeDocument(FILE, list);
 }
 
 /** Alle Termine, optional auf einen Datumsbereich (inkl.) gefiltert, nach Datum/Zeit sortiert. */

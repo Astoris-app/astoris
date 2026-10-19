@@ -1,7 +1,17 @@
 # Astoris — Security-Status (für Re-Audit / Codex)
 
-**Stand:** 2026-06-26. Self-hosted SvelteKit AI-Workspace, Single-Operator-Modell.
+**Stand:** 2026-10-20. Self-hosted SvelteKit AI-Workspace, Single-Operator-Modell.
 Die Findings des unabhängigen Audits wurden adressiert — hier der aktuelle Stand.
+
+## Ergänzung: Agentenlaufzeit
+
+- Werkzeuglisten werden beim tatsächlichen Aufruf erneut geprüft, einschließlich `[] = keine Werkzeuge`.
+- SQLite speichert Lauf-/Werkzeugstatus und Audit-Änderungen gemeinsam; Payloads sind verschlüsselt.
+- Freigaben sind an konkrete Eingaben und Werkzeug-/Konfigurations-Fingerprints gebunden.
+- Sitzungs-Tokens sind gehasht; Login-Sperren überleben Neustarts. Legacy-Sitzungen werden einmalig importiert.
+- Firmenkontext bleibt während einer Anfrage stabil. Neue Lauf-APIs prüfen Benutzer und Firma.
+- Add-ons laufen in überwachten Unterprozessen mit Speicher-, Ausgabe- und Zeitlimits; keine vollständige Isolation bösartigen Codes.
+- Relevante Schutzmechanismen werden automatisiert geprüft. Betrieb und verbleibende Grenzen: [RUNTIME.md](RUNTIME.md).
 
 ## Audit-Findings + Status
 
@@ -18,7 +28,7 @@ Die Findings des unabhängigen Audits wurden adressiert — hier der aktuelle St
 - Spiegelung ist jetzt **OPT-IN** via `ASTORIS_MIRROR_ENV=true` (Standard **AUS**). Standardmäßig liegen Credentials nur AES-256-GCM-verschlüsselt in `data/connections.json`.
 
 ### MITTEL-4 — node:vm ist keine harte Sandbox → ⚠️ BEWUSST AKZEPTIERT
-- Add-ons laufen mit Betreiber-Rechten (Single-Operator-Modell; Add-ons werden vom Betreiber selbst erstellt/importiert). SSRF-Guard (`guardedFetch`) ist aktiv. Für Multi-User/untrusted Plugins ist `isolated-vm` geplant — nicht launch-blockierend für Single-Operator-Self-Host.
+- Add-ons laufen nun in separaten, überwachten Prozessen mit Node-Permissions und SSRF-vermitteltem `fetch`. Das ersetzt keine Betriebssystem-/Netzwerkisolation gegen bösartigen Code. Für öffentliche Mehrnutzer-Nutzung bleiben Container/MicroVMs und vollständige Benutzerrechte erforderlich.
 
 ### NIEDRIG-5 — CSP erlaubt inline-Skripte → ⚠️ DEFERRED (niedrig)
 - `script-src 'unsafe-inline'` (Caddyfile) bleibt vorerst — SvelteKit-Hydration benötigt Inline-Script. Saubere Nonce/Hash-Lösung via SvelteKit-CSP-Config ist vorgesehen. Niedrige Priorität.

@@ -17,6 +17,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { companyContext } from './runtime/context';
 
 const DATA_DIR = 'data';
 const COMPANIES_DIR = join(DATA_DIR, 'companies');
@@ -165,7 +166,7 @@ export function listCompanies(): CompanyMeta[] {
 
 // Garantiert eine gültige, existierende Firma-id (löst bei Bedarf die Migration aus).
 export function getActiveId(): string {
-	return loadRegistry().active;
+	return companyContext.getStore() ?? loadRegistry().active;
 }
 
 // Schaltet die aktive Firma um (nur wenn die id existiert).
@@ -175,6 +176,8 @@ export function setActiveId(id: string): CompanyMeta | null {
 	if (!meta) return null;
 	reg.active = id;
 	writeRegistry(reg);
+	// A deliberate switch changes this request's scope too; other in-flight requests keep theirs.
+	if (companyContext.getStore()) companyContext.enterWith(id);
 	return meta;
 }
 

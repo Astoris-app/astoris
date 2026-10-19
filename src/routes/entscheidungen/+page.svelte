@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import RunDecisions from '$lib/components/RunDecisions.svelte';
 
 	// ---------- Types (read-only mirror of company.ts) ----------
 	type TaskStatus = 'offen' | 'in-arbeit' | 'wartet-freigabe' | 'erledigt' | 'abgelehnt';
@@ -90,6 +91,7 @@
 </AppHeader>
 
 <div class="scroll">
+	<RunDecisions />
 	<p class="lead">{i18n.t('entscheidungen.lead')}</p>
 
 	{#if loading}

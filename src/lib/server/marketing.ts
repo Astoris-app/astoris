@@ -1,7 +1,7 @@
 // Marketing-Modul: speichert je Werkzeug das letzte Ergebnis + kurzen Verlauf.
 // Persistenz in data/marketing.json (mode 0o600), Muster wie company.ts/crm.ts.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { companyDir } from './companies';
@@ -44,9 +44,8 @@ function empty(): Marketing {
 function load(): Marketing {
 	const base = empty();
 	const FILE = file();
-	if (!existsSync(FILE)) return base;
 	try {
-		const raw = JSON.parse(readFileSync(FILE, 'utf8'));
+		const raw = readDocument<Marketing>(FILE, base);
 		for (const tool of MARKETING_TOOLS) {
 			const t = raw?.[tool];
 			if (t && typeof t === 'object') {
@@ -63,7 +62,7 @@ function load(): Marketing {
 }
 
 function save(m: Marketing) {
-	writeFileSync(file(), JSON.stringify(m, null, 2), { mode: 0o600 });
+	writeDocument(file(), m);
 }
 
 export function getMarketing(): Marketing {

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { buildBuiltinTools, buildAddonTools } from '$lib/server/tools';
+import { buildMcpTools } from '$lib/server/mcp';
 
 // Listet die der KI verfügbaren Werkzeuge (für Agent-Werkzeug-Auswahl).
 export async function GET() {
@@ -9,5 +10,6 @@ export async function GET() {
 	});
 	const builtin = buildBuiltinTools().map(mk);
 	const addons = buildAddonTools().tools.map(mk);
-	return json({ builtin, addons });
+	const remote = (await buildMcpTools()).tools.map(mk);
+	return json({ builtin, addons: [...addons, ...remote] });
 }

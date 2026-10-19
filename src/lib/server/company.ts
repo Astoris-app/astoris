@@ -1,7 +1,7 @@
 // Firma: Name, Branche, Mission + Rollen + Unteragenten (Paperclip-Stil).
 // Persistenz in data/company.json. Branchen-Vorlagen schlagen Rollen vor.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readDocument, writeDocument } from './documents';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { companyDir } from './companies';
@@ -129,11 +129,10 @@ export const INDUSTRY_TEMPLATES: Record<string, { label: string; roles: { title:
 
 function load(): Company {
 	const FILE = file();
-	if (!existsSync(FILE)) return { ...EMPTY };
-	try { return { ...EMPTY, ...JSON.parse(readFileSync(FILE, 'utf8')) } as Company; } catch { return { ...EMPTY }; }
+	return { ...structuredClone(EMPTY), ...readDocument<Partial<Company>>(FILE, {}) } as Company;
 }
 function save(c: Company) {
-	writeFileSync(file(), JSON.stringify(c, null, 2), { mode: 0o600 });
+	writeDocument(file(), c);
 }
 
 export function getCompany(): Company { return load(); }
