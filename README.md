@@ -79,6 +79,8 @@ Astoris ist nicht nur ein persönlicher Assistent, sondern ein **Betriebssystem 
 Du kannst **mehrere Firmen parallel** führen — jede mit eigenem Team aus KI-Agenten, eigenen Zielen,
 Kennzahlen und Gedächtnis. Zwischen ihnen schaltest du mit einem Klick um.
 
+<img src="docs/screenshot-cockpit.webp" width="100%" alt="Astoris Cockpit — Ziele, Kennzahlen & Agenten-Aktivität einer KI-gesteuerten Firma" />
+
 | Bereich | Status | Beschreibung |
 |---|---|---|
 | **Cockpit** | ✅ | Zentrale Firmen-Übersicht: **Ziele** (mit Metriken, Fortschritt, Unterzielen & Deadlines), Agenten-Aktivität, **Firmen-Gedächtnis** (kategorisiertes Wissen) und Aufgaben-Workflow |
@@ -128,6 +130,8 @@ sind kein Bezahl-Schalter für Grundfunktionen, sondern **zusätzliche** Fähigk
 - Übersicht & Download verfügbarer Add-ons: [astoris.org/erweiterungen](https://astoris.org/erweiterungen).
 
 #### Selbstentwicklung — die Firma erweitert sich selbst
+
+<img src="docs/screenshot-selbstentwicklung.webp" width="100%" alt="Astoris Selbstentwicklung — die KI schlägt ein selbst gebautes Add-on zur Freigabe vor (Allow/Deny)" />
 
 Im **Cockpit** kann deine KI-Firma anhand ihrer **Ziele** selbst erkennen, welche Fähigkeit ihr
 noch fehlt, das passende Add-on bauen, es in der Sandbox testen und dir als **Vorschlag** vorlegen.
