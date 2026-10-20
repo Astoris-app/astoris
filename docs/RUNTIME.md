@@ -137,7 +137,10 @@ await client.logout();
 
 In Node wird das Sitzungscookie im Client gehalten. Im Browser nutzt der Client vorhandene
 Cookies; dort die gleiche Origin wie die Anwendung verwenden. Mutationen werden niemals
-automatisch wiederholt. API-Tokens und granulare SDK-Berechtigungen sind noch nicht implementiert.
+automatisch wiederholt. Dieser REST-/SDK-Zugang bleibt sitzungsbasiert. Separate,
+firmengebundene Bearer-Zugänge für den eingehenden MCP-Endpunkt und den KI-
+Einrichtungsassistenten sind in [AI-SETUP.md](AI-SETUP.md) beschrieben; diese Tokens
+gewähren keinen Zugriff auf die übrigen REST-APIs oder Freigabe-Endpunkte.
 
 ## Prüfen und wiederherstellen
 

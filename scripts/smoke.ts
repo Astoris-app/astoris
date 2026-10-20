@@ -7,6 +7,8 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -28,7 +30,18 @@ let logs = '';
 const model = createServer(async (request, response) => {
 	response.setHeader('content-type', 'application/json');
 	if (request.url === '/v1/models') { response.end(JSON.stringify({ data: [{ id: 'smoke-model' }] })); return; }
-	for await (const _ of request) { /* drain the request; no external model or user data involved */ }
+	let raw = '';
+	for await (const chunk of request) raw += chunk.toString();
+	const body = JSON.parse(raw || '{}');
+	if (body.messages?.some((m: { content?: string }) => m.content?.includes('You prepare a configuration proposal'))) {
+		assert.equal(body.tools, undefined, 'Setup planning must not offer execution tools.');
+		response.setHeader('content-type', 'text/event-stream');
+		const content = JSON.stringify({ kind: 'plan', plan: { summary: 'Consulting workspace',
+			profile: { name: 'Alpha AI', industry: 'Consulting', mission: 'Help small businesses' },
+			roles: [{ title: 'Support', description: 'Customer onboarding' }],
+			goals: [{ title: 'First consulting client', description: 'Complete one onboarding' }], connectors: ['email'] } });
+		response.end(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`); return;
+	}
 	response.end(JSON.stringify({ choices: [{ message: { role: 'assistant', tool_calls: [{ id: 'smoke-tool', type: 'function',
 		function: { name: 'calendar_create', arguments: JSON.stringify({ title: 'Approved appointment', date: '2026-10-21' }) } }] } }] }));
 });
@@ -96,7 +109,45 @@ try {
 	const html = await fetch(base + '/entscheidungen', { headers: { cookie } });
 	assert.equal(html.status, 200); assert.match(await html.text(), /Agentenläufe/);
 	assert.equal((await api('/api/plugins', { action: 'run', code: 'async function run(input) { return input.n * 2; }', input: { n: 21 } })).output, 42);
-	console.log('Production smoke passed: login, legacy migration, company scopes, model tools, restart, approval exactly once, audit, SSR, isolated add-on.');
+	const setup = await api('/api/ai-setup');
+	const proposal = await api('/api/ai-setup', { action: 'propose', brief: 'Build a small consulting company', lang: 'en' });
+	assert.equal(proposal.kind, 'plan'); assert.equal(proposal.draft.status, 'draft');
+	assert.equal((await api('/api/company')).company.name, 'Alpha');
+	const issued = await api('/api/agent-access', { action: 'create', name: 'Smoke planner', days: 1,
+		scopes: ['setup:read', 'setup:propose', 'runs:read'] });
+	const authHeaders = { authorization: 'Bearer ' + issued.credential };
+	assert.equal((await fetch(base + '/api/agent-access', { headers: { ...authHeaders, cookie } })).status, 401);
+	const client = new Client({ name: 'smoke-external-agent', version: '1.0.0' });
+	try {
+		await client.connect(new StreamableHTTPClientTransport(new URL(base + '/api/agent/mcp'), { requestInit: { headers: authHeaders } }));
+		const tools = await client.listTools();
+		assert(!tools.tools.some((t) => /approve|reject|token|access/i.test(t.name)));
+		const beta = (await api('/api/companies')).companies.find((c: { name: string }) => c.name === 'Beta');
+		await api('/api/companies', { action: 'switch', id: beta.id });
+		const remote = await client.callTool({ name: 'astoris_setup_context', arguments: {} });
+		assert.equal(JSON.parse((remote.content as { text: string }[])[0].text).companyId, alpha.id);
+		await api('/api/ai-setup', { action: 'approve', id: proposal.draft.id }, 404);
+		await api('/api/companies', { action: 'switch', id: alpha.id });
+		const external = await client.callTool({ name: 'astoris_propose_setup', arguments: {
+			baseVersion: setup.context.baseVersion, plan: proposal.draft.plan
+		} });
+		assert(!external.isError); const externalId = JSON.parse((external.content as { text: string }[])[0].text).draft.id;
+		await stop(); await start();
+		assert((await api('/api/ai-setup')).plans.some((p: { id: string; status: string }) => p.id === proposal.draft.id && p.status === 'draft'));
+		await client.listTools(); // hashed credentials survive restart
+		await api('/api/ai-setup', { action: 'approve', id: proposal.draft.id });
+		await api('/api/ai-setup', { action: 'approve', id: proposal.draft.id }); // safe retry, no duplicate agents/goals
+		await api('/api/ai-setup', { action: 'approve', id: externalId }, 409); // stale proposal
+		const configured = (await api('/api/company')).company;
+		assert.equal(configured.name, 'Alpha AI'); assert.equal(configured.agents.length, 1); assert.equal(configured.goals.length, 2);
+		assert.deepEqual(configured.agents[0].tools, []); assert.equal(configured.agents[0].autonomyLevel, 1);
+		await api('/api/agent-access', { action: 'revoke', id: issued.access.id });
+		await assert.rejects(() => client.listTools());
+		assert(!(await api('/api/agent-access')).accesses.some((a: Record<string, unknown>) => 'credential' in a));
+	} finally { await client.close(); }
+	const setupHtml = await fetch(base + '/einrichten', { headers: { cookie } });
+	assert.equal(setupHtml.status, 200); assert.match(await setupHtml.text(), /Mit KI einrichten/);
+	console.log('Production smoke passed: login, migration, scopes, model tools, restart, approval once, audit, SSR, isolated add-on; AI setup, human approval, scoped MCP, token persistence/revocation.');
 } finally {
 	await stop();
 	await new Promise<void>((done) => { model.close(() => done()); model.closeAllConnections(); });
