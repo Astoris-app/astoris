@@ -1,0 +1,6 @@
+# Security-sensitive changes are routed to the current maintainer.
+# Main still requires CI; a second approval is not mandatory while maintained solo.
+/.github/ @astore11
+/SECURITY.md @astore11
+/Dockerfile @astore11
+/src/lib/server/ @astore11
