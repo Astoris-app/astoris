@@ -13,6 +13,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (p.startsWith('/_app') || p.startsWith('/favicon') || p === '/robots.txt') {
 		return resolve(event);
 	}
+	// Exact service endpoint only. It authenticates its own scoped bearer token;
+	// never grant that token an operator session or access to other API routes.
+	if (p === '/api/agent/mcp') {
+		event.locals.user = null;
+		return resolve(event);
+	}
+	if (/^Bearer\s+astoris_/i.test(event.request?.headers.get('authorization') ?? '')) {
+		return json({ error: 'Agenten-Zugänge gelten nur am MCP-Endpunkt.' }, { status: 401 });
+	}
 
 	// Nutzer ermitteln: 1) Session-Cookie  2) Tailscale-Auto-Login
 	let user: { name: string; method: string } | null = null;

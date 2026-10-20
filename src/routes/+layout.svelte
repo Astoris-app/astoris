@@ -19,7 +19,7 @@
 		'/': 'Assistent', '/uebersicht': 'Übersicht', '/mail': 'Posteingang', '/docs': 'Dokumente', '/research': 'Recherche',
 		'/studio': 'Studio', '/calendar': 'Kalender', '/agents': 'Team', '/firma': 'Cockpit', '/crm': 'CRM', '/metrics': 'Kennzahlen', '/optimierung': 'Optimierung', '/entscheidungen': 'Entscheidungen', '/marketing': 'Marketing', '/tresor': 'Tresor',
 		'/connections': 'Verbindungen', '/erweiterungen': 'Erweiterungen', '/logs': 'Systemprotokoll', '/settings': 'Einstellungen',
-		'/welcome': 'Willkommen', '/login': 'Anmelden'
+		'/welcome': 'Willkommen', '/login': 'Anmelden', '/einrichten': 'KI-Einrichtung'
 	};
 	let pageTitle = $derived('Astoris · ' + (PAGE_TITLES[page.url.pathname] ?? 'Maschinenraum'));
 

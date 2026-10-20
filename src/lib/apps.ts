@@ -265,12 +265,12 @@ export const APPS: AppDef[] = [
 	{
 		id: 'einrichtung',
 		label: 'Einrichtung',
-		href: '/welcome?replay=1',
+		href: '/einrichten',
 		floor: 'technik',
 		group: 'system',
 		ready: true,
 		capability: 'onboarding',
-		blurb: 'Der Einrichtungs-Assistent: KI-Modell und E-Mail verbinden, jederzeit erneut starten.',
+		blurb: 'Firma mit KI einrichten: Plan prüfen, freigeben und Codex oder Claude Code kontrolliert anbinden.',
 		icon: 'M12 3l1.8 4.6L18.5 9l-3.5 3 1 4.8L12 14.5 8 16.8l1-4.8L5.5 9l4.7-1.4z'
 	},
 	{

@@ -64,6 +64,8 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 | **Kalender** | ✅ | Monats-, Wochen- & Agenda-Ansicht; Termine anlegen — auch von der KI bedienbar |
 | **Einstellungen** | ✅ | Live-Theming (Akzentfarbe/Schriftgröße), **Hell/Dunkel-Modus**, **Sprache DE/EN**, Sicherheit, Modell, **Sende-Bestätigung** (Entwurf/direkt), **aigate-Cloud-Schutz** |
 | **Onboarding & Login** | ✅ | Geführte Einrichtung, Login per Benutzername/Passwort oder Tailscale |
+| **Mit KI einrichten** | ✅ | Firmenprofil, Rollen und Ziele vorschlagen lassen; Rückfragen, Planprüfung und ausdrückliche Übernahme unter **Einrichtung** |
+| **Externe Agenten** | ✅ | Firmengebundener MCP-Zugang für Codex/Claude Code: zeitlich begrenzte, widerrufbare Rechte; keine eigenständigen Freigaben |
 | **Team** | ✅ | Persönlichkeiten/Charaktere + Firma mit Rollen & Unteragenten |
 | **Erweiterungen** | ✅ | Add-ons installieren — Connector-Add-ons (Upload) & Code-Add-ons mit In-App-Editor & Sandbox |
 | **Modell-Wahl** | ✅ | Lokal (vLLM) oder Cloud (Claude Sonnet/Opus/Haiku, OpenAI); KI-Quelle wählbar (auto/lokal/Cloud), global, pro Chat & pro Team-Agent |
@@ -72,6 +74,8 @@ diese Kosten zahlst du, wenn überhaupt, direkt beim jeweiligen Anbieter — nic
 | **Agentenläufe & Freigaben** | ✅ | Persistenter Status, konkrete Werkzeug-Eingaben, einmalige Freigaben und Prüfprotokoll unter **Entscheidungen** |
 | **MCP** | ✅ | Streamable-HTTP-Server verbinden; nur ausgewählte Tools anbieten und jeden Aufruf bestätigen |
 | **API & SDK** | ✅ | Geschützte Lauf-API und Fetch-basierter TypeScript-Client |
+
+Anleitung und Grenzen: [KI-Einrichtung & externer Agenten-Zugang](docs/AI-SETUP.md).
 
 ## Firma-OS — deine KI-gesteuerte Firma
 

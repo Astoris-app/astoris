@@ -1,0 +1,40 @@
+export const setupText = {
+	de: {
+		title: 'Mit KI einrichten', intro: 'Beschreibe deine Firma und Ziele. Die KI stellt Rückfragen und bereitet einen Plan vor. Erst deine Freigabe verändert das Firmenprofil.',
+		privacy: 'Beschreibung, Antworten und die hier gezeigten Firmendaten werden an das gewählte KI-Modell gesendet. Keine Passwörter oder API-Schlüssel eingeben.',
+		brief: 'Was möchtest du aufbauen?', placeholder: 'Eine Beratungsfirma für kleine Unternehmen. Ich brauche Kundenbetreuung, Marketing und klare Monatsziele …',
+		answers: 'Deine Antworten', generate: 'Plan vorschlagen lassen', working: 'Wird bearbeitet …', questions: 'Noch kurz klären',
+		current: 'Aktuelle Firma', plans: 'Einrichtungspläne', empty: 'Noch keine Pläne. Du kannst hier auch Vorschläge externer Agenten prüfen.',
+		profile: 'Vorgeschlagenes Firmenprofil', companyName: 'Firmenname', roles: 'Neue Rollen & Agenten', goals: 'Ergänzende Ziele', connections: 'Empfohlene Verbindungen',
+		limits: 'Bestehende Rollen, Agenten und Ziele bleiben erhalten; gleiche Titel werden nicht doppelt angelegt. Neue Agenten starten mit Autonomie 1 und ohne Werkzeuge. Verbindungen werden nicht automatisch eingerichtet.',
+		confirm: 'Ich habe das vorgeschlagene Profil und die Ergänzungen geprüft und gebe genau diesen Plan frei.',
+		approve: 'Plan übernehmen', reject: 'Verwerfen', reload: 'Neu laden', expires: 'Gültig bis', draft: 'Zur Prüfung', applied: 'Übernommen', rejected: 'Verworfen',
+		connect: 'KI & Konten verbinden', tour: 'Klassische Einrichtung öffnen', model: 'Zuerst unter Verbindungen ein KI-Modell hinterlegen. Ohne Modell wird kein Beispielplan als echtes KI-Ergebnis ausgegeben.',
+		agentTitle: 'Codex / Claude Code anbinden', agentIntro: 'Erstelle einen zeitlich begrenzten Zugang für diese Firma. Externe Agenten können Vorschläge einreichen, aber weder freigeben noch andere Firmen auswählen.',
+		name: 'Name des Zugangs', days: 'Gültigkeit in Tagen', scopes: 'Erlaubte Funktionen', create: 'Zugang erstellen', revoke: 'Widerrufen', revoked: 'Widerrufen',
+		once: 'Nur jetzt sichtbar. Sicher kopieren und wie ein Passwort behandeln. Der Server speichert nur einen Hash; nach dem Neuladen ist dieser Wert nicht mehr abrufbar.',
+		hide: 'Geheimnis ausblenden', endpoint: 'MCP-Endpunkt', config: 'Codex-Konfiguration (Token separat als ASTORIS_AGENT_TOKEN setzen)',
+		scopeRead: 'Firmenkontext lesen', scopePropose: 'Einrichtungspläne vorschlagen', scopeRuns: 'Läufe und Ergebnisse lesen', scopeCreate: 'KI-Aufgaben starten (nutzt den eingerichteten Modellanbieter)',
+		accessWarning: 'Kein Zugriff auf gespeicherte Zugangsdaten, Freigaben oder die Token-Verwaltung. Widerruf stoppt neue Anfragen, nicht bereits laufende Aktionen. Das ist eine private Bearer-Anbindung, kein OAuth-Login.',
+		audit: 'Letzte Einrichtungs- und Zugriffsereignisse', error: 'Anfrage fehlgeschlagen. Bitte erneut versuchen.', revokeConfirm: 'Diesen Agenten-Zugang wirklich widerrufen?'
+	},
+	en: {
+		title: 'Set up with AI', intro: 'Describe your company and goals. AI asks follow-up questions and prepares a plan. Only your explicit approval changes the company profile.',
+		privacy: 'Your description, answers and the company details shown here are sent to the selected AI model. Do not enter passwords or API keys.',
+		brief: 'What would you like to build?', placeholder: 'A consultancy for small businesses. I need customer support, marketing and clear monthly goals …',
+		answers: 'Your answers', generate: 'Suggest a plan', working: 'Working …', questions: 'A few clarifications',
+		current: 'Current company', plans: 'Setup plans', empty: 'No plans yet. You can also review proposals from external agents here.',
+		profile: 'Proposed company profile', companyName: 'Company name', roles: 'New roles & agents', goals: 'Additional goals', connections: 'Recommended connections',
+		limits: 'Existing roles, agents and goals are preserved; matching titles are not duplicated. New agents start at autonomy 1 without tools. Connections are not configured automatically.',
+		confirm: 'I have reviewed the proposed profile and additions and approve this exact plan.',
+		approve: 'Apply plan', reject: 'Reject', reload: 'Reload', expires: 'Valid until', draft: 'For review', applied: 'Applied', rejected: 'Rejected',
+		connect: 'Connect AI & accounts', tour: 'Open classic setup', model: 'First configure an AI model in Connections. Without a model, example data is never presented as a real AI-generated plan.',
+		agentTitle: 'Connect Codex / Claude Code', agentIntro: 'Create time-limited access for this company. External agents can submit proposals but cannot approve them or switch companies.',
+		name: 'Access name', days: 'Validity in days', scopes: 'Permitted functions', create: 'Create access', revoke: 'Revoke', revoked: 'Revoked',
+		once: 'Visible only now. Copy securely and treat it as a password. The server stores only a hash; the value cannot be retrieved after reloading.',
+		hide: 'Hide credential', endpoint: 'MCP endpoint', config: 'Codex configuration (set ASTORIS_AGENT_TOKEN separately)',
+		scopeRead: 'Read company context', scopePropose: 'Propose setup plans', scopeRuns: 'Read runs and results', scopeCreate: 'Start AI tasks (uses the configured model provider)',
+		accessWarning: 'No access to stored credentials, approvals or access management. Revocation stops new requests, not actions already running. This is a private bearer connection, not OAuth login.',
+		audit: 'Recent setup and access events', error: 'Request failed. Please try again.', revokeConfirm: 'Revoke this agent access?'
+	}
+};
