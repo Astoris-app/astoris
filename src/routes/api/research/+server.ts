@@ -1,21 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { upsertSearch } from '$lib/server/research-history';
+import { htmlToText } from '$lib/server/html-text';
 
 type Result = { title: string; url: string; snippet: string };
 
-// Strip HTML tags and decode common entities for clean text output.
+// Strip HTML tags and decode entities for clean single-line text output.
 function clean(html: string): string {
-	return html
-		.replace(/<[^>]*>/g, '')
-		.replace(/&amp;/g, '&')
-		.replace(/&quot;/g, '"')
-		.replace(/&#x27;/g, "'")
-		.replace(/&#39;/g, "'")
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim();
+	return htmlToText(html).replace(/\s+/g, ' ').trim();
 }
 
 // DuckDuckGo wraps result links in a redirect (…/l/?uddg=<encoded target>).

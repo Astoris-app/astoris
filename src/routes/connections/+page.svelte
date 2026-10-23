@@ -117,7 +117,7 @@
 	</div>
 
 	{#each categories as cat (cat)}
-		<section>
+		<section id={cat === 'KI-Modelle' ? 'ai-models' : undefined}>
 			<h2 class="cat">{cat}</h2>
 			<div class="grid">
 				{#each CONNECTORS.filter((c) => c.category === cat) as c (c.id)}

@@ -1,6 +1,8 @@
 // Live-Theming: Akzentfarbe + Dichte. Überschreibt CSS-Variablen zur Laufzeit,
 // persistiert in localStorage. Svelte 5 Runes.
 
+import { lightLinkColor } from '$lib/theme-colors';
+
 export type Accent = { id: string; label: string; ember: string; bright: string; soft: string; line: string };
 
 export const ACCENTS: Accent[] = [
@@ -27,6 +29,7 @@ class ThemeState {
 		r.setProperty('--ember-bright', a.bright);
 		r.setProperty('--ember-soft', a.soft);
 		r.setProperty('--ember-line', a.line);
+		r.setProperty('--link', this.mode === 'light' ? lightLinkColor(a.bright) : a.bright);
 		document.body.style.fontSize = DENSITIES[this.density] ?? DENSITIES.normal;
 		document.documentElement.setAttribute('data-theme', this.mode);
 	}

@@ -10,6 +10,11 @@
 4. Rückfragen beantworten und den Vorschlag prüfen. **Plan übernehmen** wird erst
    nach Ankreuzen der ausdrücklichen Freigabe aktiv.
 
+Die Seite zeigt, ob eine erfolgreich getestete Modellverbindung gespeichert ist.
+Ohne diese Verbindung bleibt die interne Planerstellung gesperrt; externe Pläne
+lassen sich weiterhin prüfen. **KI-Modell einrichten** führt direkt zum
+Modellbereich der Verbindungen. Rückfragen und fertige Pläne erhalten den Fokus.
+
 Die erste Version verändert Name, Branche und Mission der **aktiven** Firma und
 ergänzt Rollen/Agenten und Ziele. Bestehende Daten bleiben erhalten; gleiche Titel
 werden nicht doppelt angelegt. Neue Agenten erhalten Autonomie 1 und eine leere
@@ -32,7 +37,8 @@ absichtlich nicht nachträglich veränderbar.
 
 ## Codex / Claude Code als externer Steuerungsclient
 
-Im Abschnitt **Codex / Claude Code anbinden** einen benannten Zugang erstellen.
+Zunächst **Optional: externe KI-Agenten anbinden** aufklappen und im Abschnitt
+**Codex / Claude Code anbinden** einen benannten Zugang erstellen.
 Er ist an die aktuelle Firma und den ausstellenden Betreiber gebunden und gilt
 1, 7 oder 30 Tage (serverseitiges Maximum: 30). Standardmäßig sind nur
 `setup:read` und `setup:propose` ausgewählt. Der Token wird **einmal** angezeigt;

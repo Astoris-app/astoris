@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { htmlToText } from '$lib/server/html-text';
 import { getDecrypted } from '$lib/server/store';
 import tls from 'node:tls';
 
@@ -310,19 +311,7 @@ function decodeBytes(buf: Buffer, charset: string): string {
 
 // Roughly strip HTML to readable plain text.
 function stripHtml(html: string): string {
-	return html
-		.replace(/<!--[\s\S]*?-->/g, '')
-		.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
-		.replace(/<\/(p|div|h[1-6]|li|tr|table|blockquote)>/gi, '\n')
-		.replace(/<br\s*\/?>/gi, '\n')
-		.replace(/<[^>]+>/g, '')
-		.replace(/&nbsp;/gi, ' ')
-		.replace(/&amp;/gi, '&')
-		.replace(/&lt;/gi, '<')
-		.replace(/&gt;/gi, '>')
-		.replace(/&quot;/gi, '"')
-		.replace(/&#39;/gi, "'")
-		.replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(parseInt(n, 10)))
+	return htmlToText(html)
 		.replace(/[ \t]+\n/g, '\n')
 		.replace(/\n{3,}/g, '\n\n')
 		.trim();

@@ -23,6 +23,8 @@
 	--ember-bright: #f59a55;
 	--ember-soft: rgba(232, 132, 60, 0.13);
 	--ember-line: rgba(232, 132, 60, 0.32);
+	--link: #f59a55;
+	--on-accent: #1a1206;
 
 	/* Salbei — bedeutet "läuft lokal / live / gesund" */
 	--sage: #6fb89a;
@@ -63,6 +65,7 @@
 	--ember-bright: #c4571a;
 	--ember-soft: rgba(217, 100, 31, 0.12);
 	--ember-line: rgba(217, 100, 31, 0.30);
+	--link: #8a3d0a;
 	--sage: #4e9a7d;
 	--sage-soft: rgba(78, 154, 125, 0.13);
 	--danger: #c0492f;

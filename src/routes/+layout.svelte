@@ -28,7 +28,10 @@
 	function closeNav() { mobileNavOpen = false; }
 	function toggleNav() { mobileNavOpen = !mobileNavOpen; }
 	// Bei jedem Routenwechsel schließen (deckt auch Klick auf aktive Route via Item-onclick ab).
-	afterNavigate(() => { mobileNavOpen = false; });
+	afterNavigate(() => {
+		mobileNavOpen = false;
+		if (page.url.pathname.startsWith('/login')) engine.stop(); else engine.start();
+	});
 	function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') mobileNavOpen = false; }
 
 	onMount(() => {
@@ -36,7 +39,7 @@
 		i18n.init();
 		hints.init();
 		voice.init();
-		engine.start();
+		if (!page.url.pathname.startsWith('/login')) engine.start();
 		return () => engine.stop();
 	});
 </script>

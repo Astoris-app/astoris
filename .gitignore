@@ -30,3 +30,6 @@ vite.config.ts.timestamp-*
 
 # Backups (können data/ oder .env enthalten) — niemals committen
 /backups
+
+# Lokale Agent-Notizen (nicht veröffentlichen)
+/CLAUDE.md

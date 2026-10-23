@@ -1,7 +1,11 @@
 # Astoris installieren
 
 Schritt-für-Schritt-Anleitung, um Astoris auf deinem eigenen Server einzurichten.
-Astoris läuft komplett auf deiner Hardware — deine Daten verlassen den Server nicht.
+Astoris läuft auf deiner Hardware. Bei Nutzung externer Modelle oder Dienste werden
+die dafür übermittelten Inhalte an den jeweiligen Anbieter gesendet.
+
+**Nach der Installation weiterarbeiten:** Das [Astoris-Handbuch](docs/HANDBUCH.md)
+beschreibt Start, Anmeldung, Modellverbindung, KI-Einrichtung und sicheren Betrieb.
 
 ---
 
@@ -69,10 +73,14 @@ sudo ufw allow in on tailscale0 to any port 5180 proto tcp
 
 ## 5. Erster Start im Browser
 
-1. **Zugang einrichten** — beim ersten Aufruf legst du fest:
+1. **Zugang einrichten** — beim ersten Aufruf öffnet sich `/login`. Du legst fest:
    - **Benutzername + Passwort**, oder
    - **Anmeldung per Tailscale** (1 Klick, kein Passwort nötig)
-2. **Onboarding** — kurze Einführung, Profil wählen (Persönlich/Firma)
+   Hinter einem Reverse-Proxy kann ein vom Betreiber bereitgestellter
+   `ASTORIS_SETUP_TOKEN` nötig sein: **Einrichtung über einen Reverse-Proxy?**
+   aufklappen und den Wert ausschließlich im geheimen Eingabefeld eintragen.
+2. **Onboarding** — nach erfolgreicher Anmeldung startet die kurze Einführung;
+   Profil wählen (Persönlich/Firma). Firmen und Konten werden nur angemeldet eingerichtet.
 3. **KI verbinden** — gehe zu **Verbindungen → Lokale Modelle** (oder **Cloud-KI**)
    und trage deinen Endpoint ein (z. B. `http://localhost:8000`). Wird beim Speichern
    live getestet.
