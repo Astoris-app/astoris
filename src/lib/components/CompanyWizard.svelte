@@ -330,7 +330,7 @@
 
 	.btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 16px; border-radius: 10px; font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: background 0.14s, border-color 0.14s, color 0.14s, opacity 0.14s; }
 	.btn svg { width: 16px; height: 16px; }
-	.btn.primary { background: var(--ember); color: #fff; }
+	.btn.primary { background: var(--ember); color: var(--on-accent, #1a1206); }
 	.btn.primary:hover:not(:disabled) { background: var(--ember-bright); }
 	.btn.ghost { background: transparent; border-color: var(--border); color: var(--text-muted); }
 	.btn.ghost:hover:not(:disabled) { color: var(--text); background: var(--surface-1); }

@@ -1,11 +1,13 @@
 # Astoris — sicheres Self-Hosting per Container.
-# Start:  cp .env.example .env  →  docker compose up -d
+# Start:  cp .env.example .env  →  docker compose up -d --build
+# Fertiges Image statt Selbstbau:
+#   ASTORIS_IMAGE=ghcr.io/astoris-app/astoris:0.1.0 docker compose up -d --no-build
 # HTTPS via Caddy (auto-Zertifikat für deine Domain, oder self-signed lokal).
 
 services:
   astoris:
     build: .
-    image: astoris:latest
+    image: ${ASTORIS_IMAGE:-astoris:latest}
     restart: unless-stopped
     env_file: [.env]
     environment:

@@ -50,30 +50,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const onLogin = p.startsWith('/login');
 
 	// API-Schutz: Geschützte API-Routen brauchen IMMER eine Sitzung.
-	// Vor abgeschlossener Auth-Einrichtung sind NUR die Onboarding-nötigen APIs offen
-	// (Auth/Setup/Engine/Connections) — alles andere (inkl. /api/plugins = Code-Ausführung,
-	// Docs, Company, Mail, Kalender …) bleibt gesperrt, auch während des Erst-Setups.
+	// Auch die Einrichtung von Konten/Firmen braucht eine Sitzung: Zugang zuerst.
 	// Login + Setup-Status MÜSSEN immer erreichbar sein — die Login-Seite fragt /api/auth ab
-	// (Nutzer ist da per Definition noch nicht eingeloggt). Engine/Connections nur während
-	// des Erst-Onboardings (vor Auth-Konfiguration), danach session-pflichtig.
+	// (Nutzer ist da per Definition noch nicht eingeloggt). Setup-Status ist lesbar,
+	// sein Abschluss und Engine/Connections bleiben sitzungspflichtig.
 	// Twilio-Webhooks haben keine Session — NUR diese zwei Routen sind offen und
 	// werden in den Handlern selbst per X-Twilio-Signature (HMAC-SHA1) verifiziert.
 	// /api/calls (Liste/Aktionen) bleibt bewusst session-pflichtig.
 	const isCallWebhook = p === '/api/calls/incoming' || p === '/api/calls/recording';
-	const alwaysOpen = p.startsWith('/api/auth') || p.startsWith('/api/setup') || isCallWebhook;
-	const onboardingOnly = p.startsWith('/api/engine') || p.startsWith('/api/connections');
+	const alwaysOpen = p === '/api/auth' || (p === '/api/setup' && (event.request?.method ?? 'GET') === 'GET') || isCallWebhook;
 	if (isApi && !user) {
-		const allowed = alwaysOpen || (!authConfigured() && onboardingOnly);
-		if (!allowed) return json({ error: 'Nicht angemeldet.' }, { status: 401 });
+		if (!alwaysOpen) return json({ error: 'Nicht angemeldet.' }, { status: 401 });
 	}
 
-	// 1) Erst-Einrichtung (Onboarding)
-	if (!isSetupDone() && !onWelcome && !isApi) {
+	// Login muss vor der Tour erreichbar sein. Die Tour schreibt geschützte Firmendaten.
+	if (!isApi && !user && !onLogin) throw redirect(303, '/login');
+	if (!isSetupDone() && user && !onWelcome && !onLogin && !isApi) {
 		throw redirect(303, '/welcome');
-	}
-	// 2) Anmeldung erforderlich (nach Onboarding), Seiten-Navigation schützen
-	if (isSetupDone() && !user && !onLogin && !onWelcome && !isApi) {
-		throw redirect(303, '/login');
 	}
 
 	if (user) return operator.run(user.name, () => companyContext.run(getActiveId(), () => documentVersions.run(new Map(), () => resolve(event))));

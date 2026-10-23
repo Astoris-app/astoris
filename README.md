@@ -198,6 +198,9 @@ hoher Durchsatz. Kein lokales Modell? Über „Verbindungen → Cloud-KI" einen 
 ## Schnellstart
 
 > Ausführliche Schritt-für-Schritt-Anleitung: **[INSTALL.md](INSTALL.md)**
+>
+> Bereits installiert? **[Das Astoris-Handbuch](docs/HANDBUCH.md)** erklärt ersten Start,
+> Anmeldung, Modellanbindung, KI-Einrichtung, tägliche Arbeit, Freigaben und Backups.
 
 ```bash
 bash setup.sh                   # geführte Einrichtung: Abhängigkeiten, HTTPS, .env
@@ -226,13 +229,22 @@ Du brauchst keine Grafikkarte, um loszulegen — wähle einen der beiden Wege:
   # in Astoris: Verbindungen → lokales Modell → http://localhost:11434
   ```
 
+### Download
+
+- **Quellcode:** [Releases](https://github.com/Astoris-app/astoris/releases) (ZIP/tar.gz) oder
+  `git clone https://github.com/Astoris-app/astoris.git`
+- **Fertiges Container-Image:** `ghcr.io/astoris-app/astoris` (linux/amd64 + linux/arm64),
+  Tags `latest`, `0.1`, `0.1.0`
+
 ### Docker (empfohlen für Self-Hosting)
 
 Sicher isoliert, mit automatischem HTTPS (Caddy) und persistenten, verschlüsselten Daten:
 
 ```bash
 cp .env.example .env          # ASTORIS_DOMAIN + ASTORIS_ORIGIN setzen
-docker compose up -d --build
+docker compose up -d --build  # selbst bauen
+# oder fertiges Image nutzen:
+ASTORIS_IMAGE=ghcr.io/astoris-app/astoris:0.1.0 docker compose up -d --no-build
 ```
 
 - Läuft als **Non-Root**-Container, Daten/Schlüssel in einem **Volume** (nie im Image).
@@ -273,7 +285,7 @@ automatisierte Tests einschließlich Produktions-Smoke-Test sind implementiert.
 Details, Betriebsgrenzen, API, Migration und Rollback: **[docs/RUNTIME.md](docs/RUNTIME.md)**.
 Voraussetzung: **Node.js 22.13+**. Gesamte Prüfung: `pnpm verify`.
 
-Die Suite umfasst **57 automatisierte Tests** sowie einen Smoke-Test des gebauten Servers
+Die Suite umfasst **88 automatisierte Tests**, einen Browser-Smoke-Test (Playwright, CI) sowie einen Smoke-Test des gebauten Servers
 mit lokaler Modell-Testquelle. Sie prüft unter anderem Authentifizierung, Migration,
 Firmentrennung, MCP, Neustarts, Freigaben und Add-on-Timeouts.
 
