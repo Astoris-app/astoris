@@ -36,6 +36,11 @@ export function decideSetup(owner: string, id: string, approve: boolean) {
 	}
 	return { draft, warning };
 }
+// No tools and reasoning off: with thinking enabled, local reasoning models spend the whole
+// 4096-token budget on reasoning and return empty content (verified with Qwen3.5/3.6 on vLLM).
+// Same sentinel as add-on generation; it matches no real tool, so no tools are offered.
+const NO_TOOLS_NO_THINK = ['__addongen_no_tools__'];
+
 export async function generateSetup(owner: string, input: unknown) {
 	const body = input as { brief?: unknown; answers?: unknown; lang?: unknown };
 	if (!body || typeof body.brief !== 'string' || !body.brief.trim() || body.brief.length > 6000 ||
@@ -49,7 +54,7 @@ Otherwise return {"kind":"plan","plan":{"summary":"short explanation","profile":
 Limits: summary 1500 characters, name/industry 120, mission 2000, at most 8 roles and 6 goals, each title 140 and description 700 characters, at most 8 connector IDs. Existing roles/goals will be preserved; avoid duplicates. New agents have autonomy 1 and no tools. Connections are recommendations only and are not automatically installed or authorized. Do not include extra fields.`;
 	const result = await engineChat([{ role: 'system', content: prompt }, { role: 'user', content: JSON.stringify({
 		description: body.brief, answers: body.answers ?? '', existing: context
-	}) }], null, [], { autonomy: 0 });
+	}) }], null, NO_TOOLS_NO_THINK, { autonomy: 0 });
 	if (result.source === 'demo') error(503, 'KI nicht verfügbar oder Anfrage blockiert. Modell unter Verbindungen prüfen / AI unavailable or request blocked; check Connections.');
 	let parsed: { kind?: string; questions?: unknown; plan?: SetupPlan };
 	try {
