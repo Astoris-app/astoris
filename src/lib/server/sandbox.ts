@@ -40,9 +40,11 @@ async function assertPublic(rawUrl: string): Promise<void> {
 }
 
 // Gehärtetes fetch für Add-ons: prüft jede Ziel-URL (auch jede Weiterleitung) gegen private Netze.
-export async function guardedFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+// checkHop (optional) runs for the initial URL and every redirect target, e.g. a domain allowlist.
+export async function guardedFetch(input: string | URL | Request, init?: RequestInit, checkHop?: (url: URL) => void): Promise<Response> {
 	let url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
 	for (let hop = 0; hop < 5; hop++) {
+		checkHop?.(new URL(url));
 		await assertPublic(url);
 		const res = await fetch(url, { ...init, redirect: 'manual', signal: init?.signal ?? AbortSignal.timeout(5000) });
 		if (res.status >= 300 && res.status < 400) {

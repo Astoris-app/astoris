@@ -61,9 +61,13 @@ export async function runAddonTool(byName: Map<string, CodeManifest>, name: stri
 
 // --- Eingebaute Werkzeuge: Kalender (immer für die KI verfügbar) ---
 import { listEvents, createEvent, updateEvent, deleteEvent } from './calendar';
+import { readWebPage, webAllowlist } from './web';
 
 export function buildBuiltinTools(): AddonTool[] {
+	const domains = webAllowlist();
+	const web: AddonTool[] = domains.length ? [{ type: 'function', function: { name: 'web_lesen', description: `Eine öffentliche Webseite lesen (nur GET, liefert Titel und Text). Nur diese Domains und ihre Subdomains sind freigegeben: ${domains.join(', ')}. Andere Adressen werden abgelehnt.`, parameters: { type: 'object', properties: { url: { type: 'string', description: 'Vollständige https-URL' } }, required: ['url'] } } }] : [];
 	return [
+		...web,
 		{ type: 'function', function: { name: 'calendar_list', description: 'Termine im Kalender einsehen. Optional nach Datumsbereich filtern (Format YYYY-MM-DD).', parameters: { type: 'object', properties: { from: { type: 'string', description: 'Startdatum YYYY-MM-DD' }, to: { type: 'string', description: 'Enddatum YYYY-MM-DD' } } } } },
 		{ type: 'function', function: { name: 'calendar_create', description: 'Einen neuen Termin im Kalender erstellen.', parameters: { type: 'object', properties: { title: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD' }, time: { type: 'string', description: 'HH:MM (optional)' }, notes: { type: 'string' } }, required: ['title', 'date'] } } },
 		{ type: 'function', function: { name: 'calendar_update', description: 'Einen bestehenden Termin ändern. Die id kommt aus calendar_list.', parameters: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, date: { type: 'string' }, time: { type: 'string' }, notes: { type: 'string' } }, required: ['id'] } } },
@@ -75,12 +79,13 @@ export function buildBuiltinTools(): AddonTool[] {
 }
 
 export function isBuiltinTool(name: string): boolean {
-	return name.startsWith('calendar_') || name === 'mail_send' || name === 'messenger_send' || name === 'addon_erstellen';
+	return name.startsWith('calendar_') || name === 'web_lesen' || name === 'mail_send' || name === 'messenger_send' || name === 'addon_erstellen';
 }
 
 export async function runBuiltinTool(name: string, args: any): Promise<unknown> {
 	try {
 		if (name === 'calendar_list') return { events: listEvents(args?.from, args?.to) };
+		if (name === 'web_lesen') return await readWebPage(args?.url);
 		if (name === 'calendar_create') return { event: createEvent(args?.title, args?.date, args?.time, args?.notes) };
 		if (name === 'calendar_update') {
 			const event = updateEvent(args?.id, args ?? {});
