@@ -105,6 +105,9 @@ async function chatOpenAICompat(rawBase: string, apiKey: string, messages: ChatM
 			}
 		}
 		const reply = content.trim();
+		// Reasoning models can spend the whole token budget on thinking and return no content.
+		// Retry once with reasoning off instead of reporting the model as unreachable.
+		if (!reply && !noThink) return chatOpenAICompat(rawBase, apiKey, messages, true);
 		if (!reply) throw new Error('leere Antwort');
 		return { reply, source: 'model', model };
 	} finally {
@@ -140,6 +143,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 	let pendingMail: PendingMail | undefined;
 	let pendingMessage: PendingMessage | undefined;
 	let pendingAddon: PendingAddon | undefined;
+	let thinkOff = noThink;
 	for (let round = 0; round < 4; round++) {
 		const ctrl = new AbortController();
 		const t = setTimeout(() => ctrl.abort(), 120000);
@@ -147,7 +151,7 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 			const res = await fetch(`${base}/v1/chat/completions`, {
 				method: 'POST',
 				headers: bearer(apiKey),
-				body: JSON.stringify({ model, messages: msgs, tools, max_tokens: 4096, temperature: noThink ? 0.3 : 0.7, ...(noThink ? { chat_template_kwargs: { enable_thinking: false } } : {}) }),
+				body: JSON.stringify({ model, messages: msgs, tools, max_tokens: 4096, temperature: thinkOff ? 0.3 : 0.7, ...(thinkOff ? { chat_template_kwargs: { enable_thinking: false } } : {}) }),
 				signal: ctrl.signal
 			});
 			if (!res.ok) throw new Error(`status ${res.status}`);
@@ -178,6 +182,10 @@ async function chatWithTools(rawBase: string, apiKey: string, messages: ChatMsg[
 				continue;
 			}
 			const reply = (msg.content ?? '').trim();
+			// Empty answer because reasoning used the whole budget: retry this round without reasoning.
+			if (!reply && !thinkOff && data?.choices?.[0]?.finish_reason === 'length') { thinkOff = true; continue; }
+			// No text and no tool ran: report failure honestly instead of a fake "tool execution finished".
+			if (!reply && !used.length) throw new Error('leere Antwort');
 			if (!reply) return { reply: 'Werkzeug-Ausführung abgeschlossen. Bitte prüfe das Ergebnis im Laufprotokoll.', source: 'model', model, tools: [...new Set(used)], pendingMail, pendingMessage, pendingAddon };
 			return { reply, source: 'model', model, ...(used.length ? { tools: [...new Set(used)] } : {}), ...(pendingMail ? { pendingMail } : {}), ...(pendingMessage ? { pendingMessage } : {}), ...(pendingAddon ? { pendingAddon } : {}) };
 		} finally {

@@ -20,7 +20,7 @@ it('uses no tools for planning and never applies generated data automatically', 
 	const { generateSetup, setupStore } = await import('../src/lib/server/ai-setup');
 	const result = await generateSetup('alice', { brief: 'A company' });
 	expect(result).toMatchObject({ kind: 'plan', draft: { status: 'draft' } });
-	expect(model.mock.calls.at(-1)?.slice(1)).toEqual([null, [], { autonomy: 0 }]);
+	expect(model.mock.calls.at(-1)?.slice(1)).toEqual([null, ['__addongen_no_tools__'], { autonomy: 0 }]);
 	expect(setupStore().list('alice', 'company-a')).toHaveLength(1);
 });
 it('returns questions but rejects offline/demo, malformed, over-broad and stale plans', async () => {

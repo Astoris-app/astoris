@@ -255,7 +255,9 @@ export async function POST({ request }) {
 
 		const roster = c.agents.map((a) => `- ${a.name} (${a.role})`).join('\n');
 		const planPrompt = `Du bist Projektkoordinator${c.name ? ' bei ' + c.name : ''}.\nTeam:\n${roster}\n\nGesamtaufgabe: ${task}\n\nVerteile die Aufgabe auf MEHRERE passende Teammitglieder mit unterschiedlichen Perspektiven — in der Regel 2 bis 4 (z. B. Strategie, Marketing, Recht, Entwicklung). Nur bei sehr engen, rein fachspezifischen Aufgaben genügt ein einzelner. Antworte AUSSCHLIESSLICH als JSON-Array, ohne weiteren Text: [{"agent":"<exakter Name>","auftrag":"<konkreter Teilauftrag>"}]`;
-		const plan = await engineChat([{ role: 'user', content: planPrompt }], null, []);
+		// JSON-only planning step: no tools, reasoning off. With thinking enabled, local reasoning
+		// models exceed the 120 s model timeout here and the run fails with a demo reply.
+		const plan = await engineChat([{ role: 'user', content: planPrompt }], null, ['__addongen_no_tools__']);
 		let assignments: { agent: string; auftrag: string }[] = [];
 		try {
 			const m = plan.reply.match(/\[[\s\S]*\]/);
