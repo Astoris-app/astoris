@@ -35,6 +35,19 @@ function isTagNameStart(c: string | undefined): boolean {
 	return c !== undefined && /[A-Za-z]/.test(c);
 }
 
+/** Index after the closing '>' of a tag, ignoring '>' inside quoted attribute values
+ *  (e.g. Tailwind classes like "[&>svg]:w-full"). */
+function findTagEnd(src: string, from: number): number {
+	let quote = '';
+	for (let k = from; k < src.length; k++) {
+		const c = src[k];
+		if (quote) { if (c === quote) quote = ''; continue; }
+		if (c === '"' || c === "'") quote = c;
+		else if (c === '>') return k + 1;
+	}
+	return src.length;
+}
+
 /** Remove all markup. Block-level closers and <br> become line breaks. */
 function stripMarkup(src: string): string {
 	let out = '';
@@ -70,8 +83,7 @@ function stripMarkup(src: string): string {
 		let j = nameStart;
 		while (j < n && /[A-Za-z0-9-]/.test(src[j])) j++;
 		const name = src.slice(nameStart, j).toLowerCase();
-		const gt = src.indexOf('>', i + 1);
-		const tagEnd = gt === -1 ? n : gt + 1;
+		const tagEnd = findTagEnd(src, j);
 		if (!isClose && RAW_TEXT.has(name)) {
 			// Skip raw-text content up to the matching closing tag (or end).
 			const closer = new RegExp('</' + name + '\\s*>', 'i');

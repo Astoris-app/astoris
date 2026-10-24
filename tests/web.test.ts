@@ -24,3 +24,13 @@ describe('web_lesen', () => {
 		expect(toolDecision('web_lesen', new Set(), 5).allowed).toBe(false);
 	});
 });
+
+import { egressViaProxy } from '../src/lib/server/sandbox';
+describe('egress proxy mode', () => {
+	it('is only active with NODE_USE_ENV_PROXY=1 and a proxy URL', () => {
+		expect(egressViaProxy({})).toBe(false);
+		expect(egressViaProxy({ HTTPS_PROXY: 'http://p:8888' })).toBe(false);
+		expect(egressViaProxy({ NODE_USE_ENV_PROXY: '1' })).toBe(false);
+		expect(egressViaProxy({ NODE_USE_ENV_PROXY: '1', HTTPS_PROXY: 'http://p:8888' })).toBe(true);
+	});
+});
