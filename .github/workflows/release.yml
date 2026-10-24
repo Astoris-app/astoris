@@ -1,5 +1,7 @@
 # Release: Container-Image nach GHCR + GitHub-Release.
 # Nur GitHub-eigene Actions (Repo-Richtlinie); Docker-Schritte laufen als Shell-Befehle.
+# amd64 und arm64 werden nativ auf eigenen Runnern gebaut (keine QEMU-Emulation) und
+# anschließend zu einem Multi-Arch-Manifest zusammengeführt.
 name: Release
 on:
   push:
@@ -11,30 +13,77 @@ on:
         required: true
 permissions:
   contents: read
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 jobs:
-  image:
-    name: Container image (GHCR)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref_name }}
           persist-credentials: false
-      - name: Enable arm64 emulation and buildx
-        run: |
-          docker run --privileged --rm tonistiigi/binfmt:qemu-v9.2.2-52 --install arm64
-          docker buildx create --use --name astoris-builder
       - name: Login to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-      - name: Build and push (amd64 + arm64)
+      - name: Build and push by digest
+        env:
+          REPO: ${{ github.repository }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${REPO,,}"
+          version="${TAG#v}"
+          docker buildx create --use --name astoris-builder
+          docker buildx build . \
+            --platform "linux/$ARCH" \
+            --label "org.opencontainers.image.source=https://github.com/$REPO" \
+            --label "org.opencontainers.image.version=$version" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --output "type=image,name=$image,push-by-digest=true,name-canonical=true,push=true" \
+            --metadata-file /tmp/meta.json
+          mkdir -p /tmp/digests
+          jq -r '."containerimage.digest"' /tmp/meta.json > "/tmp/digests/$ARCH"
+          cat "/tmp/digests/$ARCH"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  manifest:
+    name: Multi-arch manifest
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digest-*
+          path: /tmp/digests
+          merge-multiple: true
+      - name: Login to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Create and push manifest (version, major.minor, latest)
         env:
           REPO: ${{ github.repository }}
         run: |
@@ -42,20 +91,18 @@ jobs:
           image="ghcr.io/${REPO,,}"
           version="${TAG#v}"
           major_minor="${version%.*}"
-          docker buildx build . \
-            --platform linux/amd64,linux/arm64 \
+          refs=()
+          for f in /tmp/digests/*; do refs+=("$image@$(cat "$f")"); done
+          docker buildx imagetools create \
             --tag "$image:$version" \
             --tag "$image:$major_minor" \
             --tag "$image:latest" \
-            --label "org.opencontainers.image.source=https://github.com/$REPO" \
-            --label "org.opencontainers.image.version=$version" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            --cache-from type=gha --cache-to type=gha,mode=max \
-            --push
+            "${refs[@]}"
+          docker buildx imagetools inspect "$image:$version"
 
   release:
     name: GitHub Release
-    needs: image
+    needs: manifest
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -67,7 +114,6 @@ jobs:
       - name: Create release with generated notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
           gh release view "$TAG" -R "$REPO" >/dev/null 2>&1 && exit 0
