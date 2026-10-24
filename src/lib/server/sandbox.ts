@@ -21,6 +21,10 @@ function isPrivateIp(ip: string): boolean {
 	return low === '::1' || low.startsWith('fe80:') || low.startsWith('fc') || low.startsWith('fd');
 }
 
+export function egressViaProxy(env: NodeJS.ProcessEnv = process.env): boolean {
+	return env.NODE_USE_ENV_PROXY === '1' && !!(env.HTTPS_PROXY || env.https_proxy);
+}
+
 async function assertPublic(rawUrl: string): Promise<void> {
 	let u: URL;
 	try {
@@ -35,14 +39,24 @@ async function assertPublic(rawUrl: string): Promise<void> {
 		if (isPrivateIp(host)) throw new Error('Zugriff auf interne Adressen blockiert');
 		return;
 	}
-	const addrs = await dns.lookup(host, { all: true });
+	let addrs: { address: string }[];
+	try {
+		addrs = await dns.lookup(host, { all: true });
+	} catch (e) {
+		// Proxy-only deployments (no direct internet, no external DNS): names that do not resolve
+		// locally are not internal; the deny-by-default egress proxy decides about them.
+		if (egressViaProxy() && ['ENOTFOUND', 'EAI_AGAIN'].includes((e as NodeJS.ErrnoException).code ?? '')) return;
+		throw e;
+	}
 	for (const a of addrs) if (isPrivateIp(a.address)) throw new Error('Zugriff auf interne Adressen blockiert');
 }
 
 // Gehärtetes fetch für Add-ons: prüft jede Ziel-URL (auch jede Weiterleitung) gegen private Netze.
-export async function guardedFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+// checkHop (optional) runs for the initial URL and every redirect target, e.g. a domain allowlist.
+export async function guardedFetch(input: string | URL | Request, init?: RequestInit, checkHop?: (url: URL) => void): Promise<Response> {
 	let url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
 	for (let hop = 0; hop < 5; hop++) {
+		checkHop?.(new URL(url));
 		await assertPublic(url);
 		const res = await fetch(url, { ...init, redirect: 'manual', signal: init?.signal ?? AbortSignal.timeout(5000) });
 		if (res.status >= 300 && res.status < 400) {

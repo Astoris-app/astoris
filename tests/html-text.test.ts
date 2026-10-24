@@ -23,5 +23,7 @@ describe('html-text', () => {
 		expect(htmlToText('<p>Hallo<br>Welt</p><!-- c --><style>p{}</style>')).toBe('Hallo\nWelt\n');
 		expect(htmlToText('<b>Preis:</b> 3 &euro; &amp; mehr').trim()).toBe('Preis: 3 &euro; & mehr');
 		expect(htmlToText('3 < 5 und 7 <9')).toBe('3 < 5 und 7 <9');
+		expect(htmlToText('<span class="[&>svg]:h-full [&>svg]:w-full">Text</span>')).toBe('Text');
+		expect(htmlToText("<a title='a>b' href=\"x\">Link</a>")).toBe('Link');
 	});
 });

@@ -27,12 +27,24 @@ Prüfungen und Freigaben nicht durch Astoris erzwingen lässt.
 | Aktion | Regel |
 | --- | --- |
 | Kalender lesen | Ohne weitere Freigabe, sofern angeboten |
+| Webseite lesen (`web_lesen`) | Ohne weitere Freigabe, nur GET und nur Domains aus `egressWhitelist` |
 | Mail/Messenger entwerfen | Nur Entwurf; bestehende Versandbestätigung bleibt bestehen |
 | Add-on vorschlagen | Installation bleibt separat zu bestätigen |
 | Kalender anlegen/ändern, Autonomie 0–3 | Konkrete Eingabe bestätigen |
 | Kalender anlegen/ändern, Autonomie 4–5 | Im erlaubten Werkzeugbereich direkt |
 | Kalender löschen | Immer bestätigen |
 | Code-Add-ons und MCP | Immer konkrete Eingabe bestätigen |
+
+### Webseiten lesen (`web_lesen`)
+
+Das eingebaute Werkzeug `web_lesen` liest eine öffentliche Seite und liefert Titel und Text.
+Es wird nur angeboten, wenn der Betreiber in `data/constitution.json` unter `egressWhitelist`
+Domains einträgt (zum Beispiel `["example.org"]`; Subdomains sind eingeschlossen). Die KI kann
+diese Liste nicht ändern. Jede Weiterleitung wird erneut gegen Liste und private Netze geprüft.
+Nur GET, keine Cookies oder Zugangsdaten, höchstens 1,5 MB und 12 Sekunden pro Seite, Text auf
+15 000 Zeichen gekürzt. Weil es nichts verändern kann und nur freigegebene Ziele erreicht,
+läuft es ohne Einzelfreigabe. Abfragen an freigegebene Domains können trotzdem Inhalte aus dem
+Gespräch in der URL enthalten; nur Domains freigeben, denen man diese Daten anvertraut.
 
 Freigaben gelten nur für die gespeicherten Eingaben und die zugehörige Werkzeugdefinition.
 Ändern sich Add-on-Code, Konfiguration oder MCP-Verbindung, schlägt eine alte Freigabe fehl.

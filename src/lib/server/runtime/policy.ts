@@ -1,6 +1,7 @@
 export type ToolRisk = 'read' | 'draft' | 'write' | 'external';
 export function toolRisk(name: string): ToolRisk {
-	if (name === 'calendar_list') return 'read';
+	// web_lesen: built-in GET-only reader restricted to the operator's domain allowlist.
+	if (name === 'calendar_list' || name === 'web_lesen') return 'read';
 	if (['mail_send', 'messenger_send', 'addon_erstellen'].includes(name)) return 'draft';
 	if (['calendar_create', 'calendar_update', 'calendar_delete'].includes(name)) return 'write';
 	// Add-on code can perform arbitrary external requests; descriptions cannot lower its risk.
